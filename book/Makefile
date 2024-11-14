@@ -7,6 +7,7 @@ SPHINXOPTS 		?=
 SPHINXBUILD 	?= sphinx-build
 SOURCEDIR 		= source
 BUILDDIR 		= build
+TRANSDIR 		= locales
 PDFNAME 		= Learn-Linux.pdf
 
 all:latexpdf
@@ -15,7 +16,12 @@ all:latexpdf
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help all latex latexpdf clean
+.PHONY: help all latex latexpdf clean translate
+
+translate:
+	@sphinx-build -b gettext "$(SOURCEDIR)" "$(TRANSDIR)"
+	@sphinx-intl update -p "$(TRANSDIR)" -l zh_CN
+	@sphinx-intl build
 
 # 生成 latex
 latex:

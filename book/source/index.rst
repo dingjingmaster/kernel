@@ -6,13 +6,9 @@
 Linux 学习笔记 documentation
 ============================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
-
-
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: 目录
 
-    999-linux-version
+   900-assembly/index.rst
+   999-linux-version/index.rst
