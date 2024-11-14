@@ -13,7 +13,7 @@ entry start
 start:
     jmpi    go, #BOOTSEG    ; jmpi 段间跳转指令，用于x86实模式下，假设当前 CS==00H，执行
                             ; 此指令后将跳转到段 CS=0X0C70，段也会变为 0X0C70，接下来将执行
-                            ; 0X0C70:go 处指令
+                            ; 0X7C00:go 处指令
 go:
     mov ax, cs              ; 此时 CS 已经变为 0X07C0, 执行完成后 AX 也是 0X07C0
     mov ds, ax              ; 数据段寄存器 DS 指向 0X07C0 地址处
@@ -24,7 +24,7 @@ go:
 ; 将操作系统读取到 0X1000 处
 load_system:
     mov dx, #0X0000         ; 读取 0 磁头、0 磁盘
-    mov cx, #0X0002         ; 读取 0 柱面、0 扇区 
+    mov cx, #0X0002         ; 读取 0 柱面、2 扇区 
     mov ax, #SYSSEG         ; 
     mov es, ax              ; 附加数据段指向 #SYSSEG 也就是 0X1000 处地址，保存数据的起始位置
     xor bx, bx              ; 将 BX 寄存器设置为0，磁盘中数据读取到 0X0000 处
