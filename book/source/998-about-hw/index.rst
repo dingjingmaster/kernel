@@ -7,3 +7,4 @@
 
     Intel-CPU-Features.md
     CPU-GDT.md
+    CPU-IDT.md
