@@ -11,4 +11,5 @@ Linux 学习笔记 documentation
    :caption: 目录
 
    900-assembly/index.rst
+   998-about-hw/index.rst
    999-linux-version/index.rst
