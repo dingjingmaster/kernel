@@ -4,7 +4,7 @@
 # remove them from the CFLAGS defines.
 #
 
-AS86	=as86 -0 
+AS86	=as86 -0
 CC86	=cc86 -0
 LD86	=ld86 -0
 

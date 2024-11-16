@@ -10,32 +10,34 @@
 .globl idt,gdt,pg_dir,startup_32
 pg_dir:
 startup_32:
-	movl $0x10,%eax
-	mov %ax,%ds
-	mov %ax,%es
-	mov %ax,%fs
-	mov %ax,%gs
-	lss stack_start,%esp
-	call setup_idt
-	call setup_gdt
-	movl $0x10,%eax		# reload all the segment registers
-	mov %ax,%ds		# after changing gdt. CS was already
-	mov %ax,%es		# reloaded in 'setup_gdt'
-	mov %ax,%fs
-	mov %ax,%gs
-	lss stack_start,%esp
-	xorl %eax,%eax
-1:	incl %eax		# check that A20 really IS enabled
-	movl %eax,0x000000
-	cmpl %eax,0x100000
-	je 1b
-	movl %cr0,%eax		# check math chip
-	andl $0x80000011,%eax	# Save PG,ET,PE
-	testl $0x10,%eax
-	jne 1f			# ET is set - 387 is present
-	orl $4,%eax		# else set emulate bit
-1:	movl %eax,%cr0
-	jmp after_page_tables
+    movl $0x10,%eax         # EAX: 0x10
+    mov %ax,%ds             # DS
+    mov %ax,%es             # ES
+    mov %ax,%fs             # FS
+    mov %ax,%gs             # GS
+    lss stack_start,%esp    # lss 从内存中加载段选择器和偏移量，到目标段寄存器
+                            # kernel/sched.c 中定义 stack_start
+                            # ESP 堆栈段
+    call setup_idt          # 初始化IDT并加载，中断服务例程是默认函数
+    call setup_gdt          # 初始化GDT并加载
+    movl $0x10,%eax         # reload all the segment registers
+    mov %ax,%ds             # after changing gdt. CS was already
+    mov %ax,%es             # reloaded in 'setup_gdt'
+    mov %ax,%fs
+    mov %ax,%gs
+    lss stack_start,%esp
+    xorl %eax,%eax
+1:  incl %eax               # check that A20 really IS enabled
+    movl %eax,0x000000
+    cmpl %eax,0x100000
+    je 1b
+    movl %cr0,%eax          # check math chip
+    andl $0x80000011,%eax   # Save PG,ET,PE
+    testl $0x10,%eax
+    jne 1f                  # ET is set - 387 is present
+    orl $4,%eax             # else set emulate bit
+1:  movl %eax,%cr0
+    jmp after_page_tables
 
 /*
  *  setup_idt
@@ -49,21 +51,21 @@ startup_32:
  *  written by the page tables.
  */
 setup_idt:
-	lea ignore_int,%edx
-	movl $0x00080000,%eax
-	movw %dx,%ax		/* selector = 0x0008 = cs */
-	movw $0x8E00,%dx	/* interrupt gate - dpl=0, present */
+    lea ignore_int,%edx     # 设置默认中断处理程序
+    movl $0x00080000,%eax
+    movw %dx,%ax            # selector = 0x0008 = cs
+    movw $0x8E00,%dx        # interrupt gate - dpl=0, present
 
-	lea idt,%edi
-	mov $256,%ecx
+    lea idt,%edi            # 
+    mov $256,%ecx
 rp_sidt:
-	movl %eax,(%edi)
-	movl %edx,4(%edi)
-	addl $8,%edi
-	dec %ecx
-	jne rp_sidt
-	lidt idt_descr
-	ret
+    movl %eax,(%edi)        # 段选择子——代码段
+    movl %edx,4(%edi)       # 权限以及中断门类型设置
+    addl $8,%edi            # 下一个 idt 描述符
+    dec %ecx
+    jne rp_sidt
+    lidt idt_descr          # 加载idt指针
+    ret
 
 /*
  *  setup_gdt
@@ -76,8 +78,8 @@ rp_sidt:
  *  This routine will beoverwritten by the page tables.
  */
 setup_gdt:
-	lgdt gdt_descr
-	ret
+    lgdt gdt_descr
+    ret
 
 .org 0x1000
 pg0:
@@ -86,28 +88,28 @@ pg0:
 pg1:
 
 .org 0x3000
-pg2:		# This is not used yet, but if you
-		# want to expand past 8 Mb, you'll have
-		# to use it.
+pg2:        # This is not used yet, but if you
+        # want to expand past 8 Mb, you'll have
+        # to use it.
 
 .org 0x4000
 after_page_tables:
-	pushl $0		# These are the parameters to main :-)
-	pushl $0
-	pushl $0
-	pushl $L6		# return address for main, if it decides to.
-	pushl $main
-	jmp setup_paging
+    pushl $0        # These are the parameters to main :-)
+    pushl $0
+    pushl $0
+    pushl $L6       # return address for main, if it decides to.
+    pushl $main
+    jmp setup_paging
 L6:
-	jmp L6			# main should never return here, but
-				# just in case, we know what happens.
+    jmp L6          # main should never return here, but
+                    # just in case, we know what happens.
 
 /* This is the default interrupt "handler" :-) */
 .align 2
 ignore_int:
-	incb 0xb8000+160		# put something on the screen
-	movb $2,0xb8000+161		# so that we know something
-	iret				# happened
+    incb 0xb8000+160        # put something on the screen
+    movb $2,0xb8000+161     # so that we know something
+    iret                # happened
 
 
 /*
@@ -136,41 +138,41 @@ ignore_int:
  */
 .align 2
 setup_paging:
-	movl $1024*3,%ecx
-	xorl %eax,%eax
-	xorl %edi,%edi			/* pg_dir is at 0x000 */
-	cld;rep;stosl
-	movl $pg0+7,pg_dir		/* set present bit/user r/w */
-	movl $pg1+7,pg_dir+4		/*  --------- " " --------- */
-	movl $pg1+4092,%edi
-	movl $0x7ff007,%eax		/*  8Mb - 4096 + 7 (r/w user,p) */
-	std
-1:	stosl			/* fill pages backwards - more efficient :-) */
-	subl $0x1000,%eax
-	jge 1b
-	xorl %eax,%eax		/* pg_dir is at 0x0000 */
-	movl %eax,%cr3		/* cr3 - page directory start */
-	movl %cr0,%eax
-	orl $0x80000000,%eax
-	movl %eax,%cr0		/* set paging (PG) bit */
-	ret			/* this also flushes prefetch-queue */
+    movl $1024*3,%ecx
+    xorl %eax,%eax
+    xorl %edi,%edi          /* pg_dir is at 0x000 */
+    cld;rep;stosl
+    movl $pg0+7,pg_dir      /* set present bit/user r/w */
+    movl $pg1+7,pg_dir+4    /*  --------- " " --------- */
+    movl $pg1+4092,%edi
+    movl $0x7ff007,%eax     /*  8Mb - 4096 + 7 (r/w user,p) */
+    std
+1:  stosl                   /* fill pages backwards - more efficient :-) */
+    subl $0x1000,%eax
+    jge 1b
+    xorl %eax,%eax          /* pg_dir is at 0x0000 */
+    movl %eax,%cr3          /* cr3 - page directory start */
+    movl %cr0,%eax
+    orl $0x80000000,%eax
+    movl %eax,%cr0          /* set paging (PG) bit */
+    ret                     /* this also flushes prefetch-queue */
 
 .align 2
 .word 0
 idt_descr:
-	.word 256*8-1		# idt contains 256 entries
-	.long idt
+    .word 256*8-1       # idt contains 256 entries
+    .long idt
 .align 2
 .word 0
 gdt_descr:
-	.word 256*8-1		# so does gdt (not that that's any
-	.long gdt		# magic number, but it works for me :^)
+    .word 256*8-1       # GDT 大小 so does gdt (not that that's any
+    .long gdt           # GDT 首地址
 
-	.align 8
-idt:	.fill 256,8,0		# idt is uninitialized
+    .align 8
+idt:    .fill 256,8,0       # idt is uninitialized
 
-gdt:	.quad 0x0000000000000000	/* NULL descriptor */
-	.quad 0x00c09a00000007ff	/* 8Mb */
-	.quad 0x00c09200000007ff	/* 8Mb */
-	.quad 0x0000000000000000	/* TEMPORARY - don't use */
-	.fill 252,8,0			/* space for LDT's and TSS's etc */
+gdt: .quad 0x0000000000000000   /* NULL descriptor */
+    .quad 0x00c09a00000007ff    /* 8Mb */
+    .quad 0x00c09200000007ff    /* 8Mb */
+    .quad 0x0000000000000000    /* TEMPORARY - don't use */
+    .fill 252,8,0               /* space for LDT's and TSS's etc */
