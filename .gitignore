@@ -1,1 +1,9 @@
+*.o
+*.a
+*.bin
+Image
+boot/boot
+System.map
+tools/build
+tools/system
 bochsout.txt
