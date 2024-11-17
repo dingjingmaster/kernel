@@ -136,26 +136,52 @@ ignore_int:
  * some kind of marker at them (search for "8Mb"), but I
  * won't guarantee that's all :-( )
  */
+
+/**
+ * 初始化分页机制，并通过分页相关寄存器(CR0)开启分页功能
+ *
+ */
 .align 2
 setup_paging:
-    movl $1024*3,%ecx
+    movl $1024*3,%ecx       # 将1024*3=3071加载到ECX
     xorl %eax,%eax
     xorl %edi,%edi          /* pg_dir is at 0x000 */
-    cld;rep;stosl
-    movl $pg0+7,pg_dir      /* set present bit/user r/w */
-    movl $pg1+7,pg_dir+4    /*  --------- " " --------- */
-    movl $pg1+4092,%edi
-    movl $0x7ff007,%eax     /*  8Mb - 4096 + 7 (r/w user,p) */
-    std
-1:  stosl                   /* fill pages backwards - more efficient :-) */
-    subl $0x1000,%eax
-    jge 1b
-    xorl %eax,%eax          /* pg_dir is at 0x0000 */
-    movl %eax,%cr3          /* cr3 - page directory start */
-    movl %cr0,%eax
-    orl $0x80000000,%eax
-    movl %eax,%cr0          /* set paging (PG) bit */
-    ret                     /* this also flushes prefetch-queue */
+    cld;                    # 清除方向标志位(DF=0)。
+                            # 确保字符串操作指令按地址递增顺序操作
+    rep;stosl
+    movl $pg0+7,pg_dir      # 将地址pg0+7写入pg_dir。
+                            # pg_dir 是页目录起始地址
+                            # pg0+7表示也表pg0其实地址加权限位标志
+                            #  7 表示:位0(p)=1页面存在,位1(rw)读写,位2(US)=1用户模式
+                            # set present bit/user r/w
+    movl $pg1+7,pg_dir+4    # 页目录第2项指向页表pg1 /*  --------- " " --------- */
+    movl $pg1+4092,%edi     # 将pg1+4092的地址写入EDI
+                            # EDI通常用作目标地址寄存器，这里指向页表pg1的末尾
+    movl $0x7ff007,%eax     # 将0x7ff007加载到EAX，作为页表条目的初始值。
+                            # 高20位(0x7FF):页表条目指向的页框号
+                            # 低12位(0x007):页条目的权限标志。
+                            # 8Mb - 4096 + 7 (r/w user,p)
+    std                     # 设置方向标志(DF=1)，使后续字符串操作指令反向(地址递减)操作
+1:  stosl                   # 将EAX的值写入[EDI]，即将页表条目写入内存
+                            # fill pages backwards - more efficient :-) */
+    subl $0x1000,%eax       # 减少EAX的值0x1000(4kb),准备下一个页表条目
+    jge 1b                  # 如果减法结果大于等于0(SF=0)，跳回标签1.
+                            # 循环持续，直到EAX小于0为止
+                            # 逐步初始化页表，从高地址(pg1+4092)向低地址填充
+    xorl %eax,%eax          # 清空EAX /* pg_dir is at 0x0000 */
+    movl %eax,%cr3          # 将EAX的值(0)加载到控制寄存器CR3
+                            #  CR3保存页目录的物理地址，用于分页表的起始地址。
+                            #  这里EAX为0，说明pg_dit的地址可能已经被映射到某固定的物理地址
+                            # cr3 - page directory start */
+    movl %cr0,%eax          # 将控制寄存器CR0的值加载到EAX
+                            #  CR0包含控制寄存器标志，其中第31位(PG)用于控制分页。
+    orl $0x80000000,%eax    # 对EAX的值按位或 0x80000000:
+                            #  设置位31(PG) = 1，启用分页。
+    movl %eax,%cr0          # 将更新后的EAX写入控制寄存器CR0。
+                            # 开启分页功能(CR0.PG = 1)
+                            # set paging (PG) bit
+    ret                     # 返回调用处，分页初始化完成
+                            # this also flushes prefetch-queue */
 
 .align 2
 .word 0
