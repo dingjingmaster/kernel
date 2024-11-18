@@ -137,6 +137,15 @@ init/main.o : init/main.c include/unistd.h include/sys/stat.h \
 9. 开启保护模式
 10. 跳转到读取的系统部分————boot/heade.s + init/main.o + kernel/kernel.o + mm/mm.o fs/fs.o lib/lib.o
 
+### boot/head.s
+
+1. 设置段寄存器：DS、ES、FS、GS、加载栈段寄存器
+2. 初始化 IDT、GDT
+3. 重新加载段寄存器：DS、ES、FS、GS、加载栈段寄存器
+4. 检测A20是否开启，没开启则开启
+5. 初始化分页机制
+6. 调用 main 函数
+
 ### tools/build
 
 build 命令用于整合 boot 和 system
