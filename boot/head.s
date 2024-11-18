@@ -20,17 +20,23 @@ startup_32:
                             # ESP 堆栈段
     call setup_idt          # 初始化IDT并加载，中断服务例程是默认函数
     call setup_gdt          # 初始化GDT并加载
-    movl $0x10,%eax         # reload all the segment registers
-    mov %ax,%ds             # after changing gdt. CS was already
-    mov %ax,%es             # reloaded in 'setup_gdt'
+
+    # reload all the segment registers
+    movl $0x10,%eax         # EAX = 0x10, AX = 0x10
+    mov %ax,%ds             # after changing gdt. CS was already reloaded in 'setup_gdt'
+    mov %ax,%es
     mov %ax,%fs
     mov %ax,%gs
-    lss stack_start,%esp
+    #
+
+    lss stack_start,%esp    # 段地址(SS中保存的才是选择子)
     xorl %eax,%eax
-1:  incl %eax               # check that A20 really IS enabled
-    movl %eax,0x000000
-    cmpl %eax,0x100000
-    je 1b
+
+    # check that A20 really IS enabled
+1:  incl %eax               # EAX = 0x00001
+    movl %eax,0x000000      # 将 EAX 的值写入 0x000000
+    cmpl %eax,0x100000      # 比较 EAX 与 0x100000 (1MB) 处值是否一致
+    je 1b                   # 相等则向下找; 1b 表示向后查找 1 的标签
     movl %cr0,%eax          # check math chip
     andl $0x80000011,%eax   # Save PG,ET,PE
     testl $0x10,%eax
@@ -97,11 +103,13 @@ after_page_tables:
     pushl $0        # These are the parameters to main :-)
     pushl $0
     pushl $0
-    pushl $L6       # return address for main, if it decides to.
+    pushl $L6       # 将L6地址压入堆栈，
+                    # return address for main, if it decides to.
     pushl $main
-    jmp setup_paging
+    jmp setup_paging # 设置分页、执行系统初始化操作
 L6:
-    jmp L6          # main should never return here, but
+    jmp L6          # main不应该在此死循环
+                    # main should never return here, but
                     # just in case, we know what happens.
 
 /* This is the default interrupt "handler" :-) */
