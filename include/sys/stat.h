@@ -4,61 +4,63 @@
 #include <sys/types.h>
 #include <stdint.h>
 
-struct stat {
-	uint16_t	st_dev;
-	uint16_t	__pad1;
-	unsigned long	st_ino;
-	uint16_t	st_mode;
-	uint16_t	st_nlink;
-	uint16_t	st_uid;
-	uint16_t	st_gid;
-	uint16_t	st_rdev;
-	uint16_t	__pad2;
-	unsigned long	st_size;
-	unsigned long	st_blksize;
-	unsigned long	st_blocks;
-	time_t		st_atime;
-	unsigned long	__unused1;
-	time_t		st_mtime;
-	unsigned long	__unused2;
-	time_t		st_ctime;
-	unsigned long	__unused3;
-	unsigned long	__unused4;
-	unsigned long	__unused5;
+struct stat 
+{
+    uint16_t    st_dev;
+    uint16_t    __pad1;
+    unsigned long   st_ino;
+    uint16_t    st_mode;
+    uint16_t    st_nlink;
+    uint16_t    st_uid;
+    uint16_t    st_gid;
+    uint16_t    st_rdev;
+    uint16_t    __pad2;
+    unsigned long   st_size;
+    unsigned long   st_blksize;
+    unsigned long   st_blocks;
+    time_t      st_atime;
+    unsigned long   __unused1;
+    time_t      st_mtime;
+    unsigned long   __unused2;
+    time_t      st_ctime;
+    unsigned long   __unused3;
+    unsigned long   __unused4;
+    unsigned long   __unused5;
 };
 
-struct stat64 {
-	uint16_t	st_dev;
-	unsigned char	__pad0[10];
+struct stat64 
+{
+    uint16_t    st_dev;
+    unsigned char   __pad0[10];
 
-#define STAT64_HAS_BROKEN_ST_INO	1
-	unsigned long	__st_ino;
+#define STAT64_HAS_BROKEN_ST_INO    1
+    unsigned long   __st_ino;
 
-	uint32_t	st_mode;
-	uint32_t	st_nlink;
+    uint32_t    st_mode;
+    uint32_t    st_nlink;
 
-	unsigned long	st_uid;
-	unsigned long	st_gid;
+    unsigned long   st_uid;
+    unsigned long   st_gid;
 
-	uint16_t	st_rdev;
-	unsigned char	__pad3[10];
+    uint16_t    st_rdev;
+    unsigned char   __pad3[10];
 
-__extension__	long long	st_size __attribute__((__packed__));
-	unsigned long	st_blksize;
+__extension__   long long   st_size __attribute__((__packed__));
+    unsigned long   st_blksize;
 
-	unsigned long	st_blocks;	/* Number 512-byte blocks allocated. */
-	unsigned long	__pad4;		/* future possible st_blocks high bits */
+    unsigned long   st_blocks;  /* Number 512-byte blocks allocated. */
+    unsigned long   __pad4;     /* future possible st_blocks high bits */
 
-	time_t		st_atime;
-	unsigned long	__pad5;
+    time_t      st_atime;
+    unsigned long   __pad5;
 
-	time_t		st_mtime;
-	unsigned long	__pad6;
+    time_t      st_mtime;
+    unsigned long   __pad6;
 
-	time_t		st_ctime;
-	unsigned long	__pad7;		/* will be high 32 bits of ctime someday */
+    time_t      st_ctime;
+    unsigned long   __pad7;     /* will be high 32 bits of ctime someday */
 
-__extension__	unsigned long long	st_ino __attribute__((__packed__));
+__extension__   unsigned long long  st_ino __attribute__((__packed__));
 };
 
 #define S_IFMT  00170000
@@ -71,11 +73,11 @@ __extension__	unsigned long long	st_ino __attribute__((__packed__));
 #define S_ISGID  0002000
 #define S_ISVTX  0001000
 
-#define S_ISREG(m)	(((m) & S_IFMT) == S_IFREG)
-#define S_ISDIR(m)	(((m) & S_IFMT) == S_IFDIR)
-#define S_ISCHR(m)	(((m) & S_IFMT) == S_IFCHR)
-#define S_ISBLK(m)	(((m) & S_IFMT) == S_IFBLK)
-#define S_ISFIFO(m)	(((m) & S_IFMT) == S_IFIFO)
+#define S_ISREG(m)  (((m) & S_IFMT) == S_IFREG)
+#define S_ISDIR(m)  (((m) & S_IFMT) == S_IFDIR)
+#define S_ISCHR(m)  (((m) & S_IFMT) == S_IFCHR)
+#define S_ISBLK(m)  (((m) & S_IFMT) == S_IFBLK)
+#define S_ISFIFO(m) (((m) & S_IFMT) == S_IFIFO)
 
 #define S_IRWXU 00700
 #define S_IRUSR 00400

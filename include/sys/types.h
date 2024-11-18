@@ -37,10 +37,10 @@ typedef struct { int quot,rem; } div_t;
 typedef struct { long quot,rem; } ldiv_t;
 
 struct ustat {
-	daddr_t f_tfree;
-	ino_t f_tinode;
-	char f_fname[6];
-	char f_fpack[6];
+    daddr_t f_tfree;
+    ino_t f_tinode;
+    char f_fname[6];
+    char f_fpack[6];
 };
 
 #endif

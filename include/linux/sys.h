@@ -75,7 +75,7 @@ extern int sys_lstat64();
 extern int sys_fstat64();
 extern int sys_getdents64();
 extern int sys_fcntl64();
-extern int sys_null();	/* not implemented sys_call */
+extern int sys_null();  /* not implemented sys_call */
 
 fn_ptr sys_call_table[] = { sys_setup, sys_exit, sys_fork, sys_read,
 sys_write, sys_open, sys_close, sys_waitpid, sys_creat, sys_link,

@@ -57,42 +57,42 @@ inb_p(0x71); \
 
 static void time_init(void)
 {
-	struct tm time;
+    struct tm time;
 
-	do {
-		time.tm_sec = CMOS_READ(0);
-		time.tm_min = CMOS_READ(2);
-		time.tm_hour = CMOS_READ(4);
-		time.tm_mday = CMOS_READ(7);
-		time.tm_mon = CMOS_READ(8)-1;
-		time.tm_year = CMOS_READ(9);
-	} while (time.tm_sec != CMOS_READ(0));
-	BCD_TO_BIN(time.tm_sec);
-	BCD_TO_BIN(time.tm_min);
-	BCD_TO_BIN(time.tm_hour);
-	BCD_TO_BIN(time.tm_mday);
-	BCD_TO_BIN(time.tm_mon);
-	BCD_TO_BIN(time.tm_year);
-	startup_time = kernel_mktime(&time);
+    do {
+        time.tm_sec = CMOS_READ(0);
+        time.tm_min = CMOS_READ(2);
+        time.tm_hour = CMOS_READ(4);
+        time.tm_mday = CMOS_READ(7);
+        time.tm_mon = CMOS_READ(8)-1;
+        time.tm_year = CMOS_READ(9);
+    } while (time.tm_sec != CMOS_READ(0));
+    BCD_TO_BIN(time.tm_sec);
+    BCD_TO_BIN(time.tm_min);
+    BCD_TO_BIN(time.tm_hour);
+    BCD_TO_BIN(time.tm_mday);
+    BCD_TO_BIN(time.tm_mon);
+    BCD_TO_BIN(time.tm_year);
+    startup_time = kernel_mktime(&time);
 }
 
-int main(void)		/* This really IS void, no error here. */
-{			/* The startup routine assumes (well, ...) this */
+int main(void)      /* This really IS void, no error here. */
+{           /* The startup routine assumes (well, ...) this */
 /*
  * Interrupts are still disabled. Do necessary setups, then
  * enable them
  */
-	time_init();
-	tty_init();
-	trap_init();
-	sched_init();
-	buffer_init();
-	hd_init();
-	sti();
-	move_to_user_mode();
-	if (!fork()) {		/* we count on this going ok */
-		init();
-	}
+    time_init();                // 读取BIOS时间，记录当前时间作为系统启动时间
+    tty_init();                 // kernel/tty_io.c，kernel/console.c
+    trap_init();                // kernel/trap.c
+    sched_init();               // kernel/sched.c
+    buffer_init();              // fs/buffer.c
+    hd_init();                  // kernel/hd.c
+    sti();                      // 打开中断
+    move_to_user_mode();        // 切换到用户模式
+    if (!fork()) {      /* we count on this going ok */
+        init();
+    }
 /*
  *   NOTE!!   For any other task 'pause()' would mean we have to get a
  * signal to awaken, but task0 is the sole exception (see 'schedule()')
@@ -100,20 +100,20 @@ int main(void)		/* This really IS void, no error here. */
  * can run). For task0 'pause()' just means we go check if some other
  * task can run, and if not we return here.
  */
-	for(;;) pause();
+    for(;;) pause();
 
-	return 0;
+    return 0;
 }
 
 static int printf(const char *fmt, ...)
 {
-	va_list args;
-	int i;
+    va_list args;
+    int i;
 
-	va_start(args, fmt);
-	write(1,printbuf,i=vsprintf(printbuf, fmt, args));
-	va_end(args);
-	return i;
+    va_start(args, fmt);
+    write(1,printbuf,i=vsprintf(printbuf, fmt, args));
+    va_end(args);
+    return i;
 }
 
 static char * argv[] = { "/bin/sh",NULL };
@@ -121,27 +121,27 @@ static char * envp[] = { "HOME=/root","PATH=/bin","PWD=/", NULL };
 
 void init(void)
 {
-	int i,j;
+    int i,j;
 
-	setup();
-	(void) open("/dev/tty0",O_RDWR,0);
-	(void) dup(0);
-	(void) dup(0);
-	printf("%d buffers = %d bytes buffer space\n\r",NR_BUFFERS,
-		NR_BUFFERS*BLOCK_SIZE);
-	printf(" Ok.\n\r");
-	if ((i=fork())<0)
-		printf("Fork failed in init\r\n");
-	else if (!i) {
-		close(0);close(1);close(2);
-		setsid();
-		(void) open("/dev/tty0",O_RDWR,0);
-		(void) dup(0);
-		(void) dup(0);
-		_exit(execve("/bin/sh",argv,envp));
-	}
-	j=wait(&i);
-	printf("child %d died with code %04x\n",j,i);
-	sync();
-	_exit(0);	/* NOTE! _exit, not exit() */
+    setup();
+    (void) open("/dev/tty0",O_RDWR,0);
+    (void) dup(0);
+    (void) dup(0);
+    printf("%d buffers = %d bytes buffer space\n\r",NR_BUFFERS,
+        NR_BUFFERS*BLOCK_SIZE);
+    printf(" Ok.\n\r");
+    if ((i=fork())<0)
+        printf("Fork failed in init\r\n");
+    else if (!i) {
+        close(0);close(1);close(2);
+        setsid();
+        (void) open("/dev/tty0",O_RDWR,0);
+        (void) dup(0);
+        (void) dup(0);
+        _exit(execve("/bin/sh",argv,envp));
+    }
+    j=wait(&i);
+    printf("child %d died with code %04x\n",j,i);
+    sync();
+    _exit(0);   /* NOTE! _exit, not exit() */
 }

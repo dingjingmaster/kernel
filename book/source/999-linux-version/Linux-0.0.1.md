@@ -146,6 +146,19 @@ init/main.o : init/main.c include/unistd.h include/sys/stat.h \
 5. 初始化分页机制
 6. 调用 main 函数
 
+### init/main.c
+
+1. 获取BIOS时间，把启动时间设置为BIOS时间
+2. 初始化tty相关设备：初始化RS232芯片(初始化状态、添加中断)、添加键盘中断
+3. 添加 trap 中断
+4. 初始化任务控制模块：设置TSS描述符、设置LDT描述符、初始化任务链表、添加定时器中断、添加系统调用中断
+5. 初始化磁盘模块：初始化磁盘读写操作链表、初始化磁盘中断
+6. 打开中断
+7. 切换到用户模式
+8. fork 子进程并在子进程中打开`/dev/tty0`通过`execve`调用 `/bin/sh` 进程
+
+至此，用户可以通过打开的 `/bin/sh` 与系统进行交互
+
 ### tools/build
 
 build 命令用于整合 boot 和 system

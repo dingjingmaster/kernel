@@ -1,25 +1,25 @@
 extern inline unsigned char get_fs_byte(const char * addr)
 {
-	unsigned register char _v;
+    unsigned register char _v;
 
-	__asm__ ("movb %%fs:%1,%0":"=r" (_v):"m" (*addr));
-	return _v;
+    __asm__ ("movb %%fs:%1,%0":"=r" (_v):"m" (*addr));
+    return _v;
 }
 
 extern inline unsigned short get_fs_word(const unsigned short *addr)
 {
-	unsigned short _v;
+    unsigned short _v;
 
-	__asm__ ("movw %%fs:%1,%0":"=r" (_v):"m" (*addr));
-	return _v;
+    __asm__ ("movw %%fs:%1,%0":"=r" (_v):"m" (*addr));
+    return _v;
 }
 
 extern inline unsigned long get_fs_long(const unsigned long *addr)
 {
-	unsigned long _v;
+    unsigned long _v;
 
-	__asm__ ("movl %%fs:%1,%0":"=r" (_v):"m" (*addr)); \
-	return _v;
+    __asm__ ("movl %%fs:%1,%0":"=r" (_v):"m" (*addr)); \
+    return _v;
 }
 
 extern inline void put_fs_byte(char val,char *addr)

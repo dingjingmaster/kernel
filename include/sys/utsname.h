@@ -1,5 +1,5 @@
-#ifndef	_SYS_UTSNAME_H
-#define	_SYS_UTSNAME_H	1
+#ifndef _SYS_UTSNAME_H
+#define _SYS_UTSNAME_H  1
 
 /* Length of the entries in `struct utsname' is 65.  */
 #define _UTSNAME_LENGTH 65
@@ -10,7 +10,8 @@
    to a value != 0 to activate this entry.  */
 #define _UTSNAME_DOMAIN_LENGTH _UTSNAME_LENGTH
 
-struct utsname {
+struct utsname 
+{
   /* Name of the implementation of the operating system.  */
   char sysname[_UTSNAME_LENGTH];
 

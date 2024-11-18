@@ -18,35 +18,35 @@
 
 /* interestingly, we assume leap-years */
 static int month[12] = {
-	0,
-	DAY*(31),
-	DAY*(31+29),
-	DAY*(31+29+31),
-	DAY*(31+29+31+30),
-	DAY*(31+29+31+30+31),
-	DAY*(31+29+31+30+31+30),
-	DAY*(31+29+31+30+31+30+31),
-	DAY*(31+29+31+30+31+30+31+31),
-	DAY*(31+29+31+30+31+30+31+31+30),
-	DAY*(31+29+31+30+31+30+31+31+30+31),
-	DAY*(31+29+31+30+31+30+31+31+30+31+30)
+    0,
+    DAY*(31),
+    DAY*(31+29),
+    DAY*(31+29+31),
+    DAY*(31+29+31+30),
+    DAY*(31+29+31+30+31),
+    DAY*(31+29+31+30+31+30),
+    DAY*(31+29+31+30+31+30+31),
+    DAY*(31+29+31+30+31+30+31+31),
+    DAY*(31+29+31+30+31+30+31+31+30),
+    DAY*(31+29+31+30+31+30+31+31+30+31),
+    DAY*(31+29+31+30+31+30+31+31+30+31+30)
 };
 
 long kernel_mktime(struct tm * tm)
 {
-	long res;
-	int year;
+    long res;
+    int year;
 
-	year = tm->tm_year - 70;
+    year = tm->tm_year - 70;
 /* magic offsets (y+1) needed to get leapyears right.*/
-	res = YEAR*year + DAY*((year+1)/4);
-	res += month[tm->tm_mon];
+    res = YEAR*year + DAY*((year+1)/4);
+    res += month[tm->tm_mon];
 /* and (y+2) here. If it wasn't a leap-year, we have to adjust */
-	if (tm->tm_mon>1 && ((year+2)%4))
-		res -= DAY;
-	res += DAY*(tm->tm_mday-1);
-	res += HOUR*tm->tm_hour;
-	res += MINUTE*tm->tm_min;
-	res += tm->tm_sec;
-	return res;
+    if (tm->tm_mon>1 && ((year+2)%4))
+        res -= DAY;
+    res += DAY*(tm->tm_mday-1);
+    res += HOUR*tm->tm_hour;
+    res += MINUTE*tm->tm_min;
+    res += tm->tm_sec;
+    return res;
 }
