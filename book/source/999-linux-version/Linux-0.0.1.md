@@ -135,7 +135,7 @@ init/main.o : init/main.c include/unistd.h include/sys/stat.h \
 7. 开启A20
 8. 配置两个中断控制器，并屏蔽中断控制器
 9. 开启保护模式
-10. 跳转到读取的系统部分————boot/heade.s + init/main.o + kernel/kernel.o + mm/mm.o fs/fs.o lib/lib.o
+10. 跳转到读取的系统部分——boot/heade.s + init/main.o + kernel/kernel.o + mm/mm.o fs/fs.o lib/lib.o
 
 ### boot/head.s
 
