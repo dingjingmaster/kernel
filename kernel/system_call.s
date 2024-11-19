@@ -34,16 +34,16 @@ ES      = 0x14
 DS      = 0x18
 EIP     = 0x1C
 CS      = 0x20
-EFLAGS      = 0x24
-OLDESP      = 0x28
-OLDSS       = 0x2C
+EFLAGS  = 0x24
+OLDESP  = 0x28
+OLDSS   = 0x2C
 
-state   = 0     # these are offsets into the task-struct.
+state   = 0                             # these are offsets into the task-struct.
 counter = 4
 priority = 8
 signal  = 12
-restorer = 16       # address of info-restorer
-sig_fn  = 20        # table of 32 signal addresses
+restorer = 16                           # address of info-restorer
+sig_fn  = 20                            # table of 32 signal addresses
 
 nr_system_calls = 319
 
@@ -51,7 +51,7 @@ nr_system_calls = 319
 
 .align 2
 bad_sys_call:
-    movl $-1,%eax
+    movl $-1,%eax                       # 返回 -1
     iret
 .align 2
 reschedule:
@@ -59,18 +59,18 @@ reschedule:
     jmp schedule
 .align 2
 system_call:
-    cmpl $nr_system_calls-1,%eax
-    ja bad_sys_call
+    cmpl $nr_system_calls-1,%eax        # EAX中保存 系统调用 编号
+    ja bad_sys_call                     # 第一个操作数 严格大于 第二个操作数(即: > )，则跳转到目标地址
     push %ds
     push %es
     push %fs
     pushl %edx
-    pushl %ecx      # push %ebx,%ecx,%edx as parameters
-    pushl %ebx      # to the system call
-    movl $0x10,%edx     # set up ds,es to kernel space
+    pushl %ecx                          # push %ebx,%ecx,%edx as parameters
+    pushl %ebx                          # to the system call
+    movl $0x10,%edx                     # set up ds,es to kernel space
     mov %dx,%ds
     mov %dx,%es
-    movl $0x17,%edx     # fs points to local data space
+    movl $0x17,%edx                     # fs points to local data space
     mov %dx,%fs
 
     movl sys_call_table(,%eax,4),%edx   # if sys_null
@@ -83,34 +83,34 @@ system_call:
     call *sys_call_table(,%eax,4)
     pushl %eax
     movl current,%eax
-    cmpl $0,state(%eax)     # state
+    cmpl $0,state(%eax)                 # state
     jne reschedule
-    cmpl $0,counter(%eax)       # counter
+    cmpl $0,counter(%eax)               # counter
     je reschedule
 ret_from_sys_call:
-    movl current,%eax       # task[0] cannot have signals
+    movl current,%eax                   # task[0] cannot have signals
     cmpl task,%eax
     je 3f
-    movl CS(%esp),%ebx      # was old code segment supervisor
-    testl $3,%ebx           # mode? If so - don't check signals
+    movl CS(%esp),%ebx                  # was old code segment supervisor
+    testl $3,%ebx                       # mode? If so - don't check signals
     je 3f
-    cmpw $0x17,OLDSS(%esp)      # was stack segment = 0x17 ?
+    cmpw $0x17,OLDSS(%esp)              # was stack segment = 0x17 ?
     jne 3f
-2:  movl signal(%eax),%ebx      # signals (bitmap, 32 signals)
-    bsfl %ebx,%ecx          # %ecx is signal nr, return if none
+2:  movl signal(%eax),%ebx              # signals (bitmap, 32 signals)
+    bsfl %ebx,%ecx                      # %ecx is signal nr, return if none
     je 3f
-    btrl %ecx,%ebx          # clear it
+    btrl %ecx,%ebx                      # clear it
     movl %ebx,signal(%eax)
-    movl sig_fn(%eax,%ecx,4),%ebx   # %ebx is signal handler address
+    movl sig_fn(%eax,%ecx,4),%ebx       # %ebx is signal handler address
     cmpl $1,%ebx
-    jb default_signal       # 0 is default signal handler - exit
-    je 2b               # 1 is ignore - find next signal
-    movl $0,sig_fn(%eax,%ecx,4) # reset signal handler address
+    jb default_signal                   # 0 is default signal handler - exit
+    je 2b                               # 1 is ignore - find next signal
+    movl $0,sig_fn(%eax,%ecx,4)         # reset signal handler address
     incl %ecx
-    xchgl %ebx,EIP(%esp)        # put new return address on stack
+    xchgl %ebx,EIP(%esp)                # put new return address on stack
     subl $28,OLDESP(%esp)
-    movl OLDESP(%esp),%edx      # push old return address on stack
-    pushl %eax          # but first check that it's ok.
+    movl OLDESP(%esp),%edx              # push old return address on stack
+    pushl %eax                          # but first check that it's ok.
     pushl %ecx
     pushl $28
     pushl %edx
@@ -120,17 +120,17 @@ ret_from_sys_call:
     popl %ecx
     popl %eax
     movl restorer(%eax),%eax
-    movl %eax,%fs:(%edx)        # flag/reg restorer
-    movl %ecx,%fs:4(%edx)       # signal nr
+    movl %eax,%fs:(%edx)                # flag/reg restorer
+    movl %ecx,%fs:4(%edx)               # signal nr
     movl EAX(%esp),%eax
-    movl %eax,%fs:8(%edx)       # old eax
+    movl %eax,%fs:8(%edx)               # old eax
     movl ECX(%esp),%eax
-    movl %eax,%fs:12(%edx)      # old ecx
+    movl %eax,%fs:12(%edx)              # old ecx
     movl EDX(%esp),%eax
-    movl %eax,%fs:16(%edx)      # old edx
+    movl %eax,%fs:16(%edx)              # old edx
     movl EFLAGS(%esp),%eax
-    movl %eax,%fs:20(%edx)      # old eflags
-    movl %ebx,%fs:24(%edx)      # old return addr
+    movl %eax,%fs:20(%edx)              # old eflags
+    movl %ebx,%fs:24(%edx)              # old return addr
 3:  popl %eax
     popl %ebx
     popl %ecx
@@ -145,33 +145,40 @@ default_signal:
     cmpl $SIG_CHLD,%ecx
     je 2b
     pushl %ecx
-    call do_exit        # remember to set bit 7 when dumping core
+    call do_exit                        # remember to set bit 7 when dumping core
     addl $4,%esp
     jmp 3b
 
 .align 2
 timer_interrupt:
-    push %ds        # save ds,es and put kernel data space
-    push %es        # into them. %fs is used by _system_call
+    push %ds                    # save ds,es and put kernel data space
+    push %es                    # into them. %fs is used by _system_call
     push %fs
-    pushl %edx      # we save %eax,%ecx,%edx as gcc doesn't
-    pushl %ecx      # save those across function calls. %ebx
-    pushl %ebx      # is saved as we use that in ret_sys_call
+    pushl %edx                  # we save %eax,%ecx,%edx as gcc doesn't
+    pushl %ecx                  # save those across function calls. %ebx
+    pushl %ebx                  # is saved as we use that in ret_sys_call
     pushl %eax
     movl $0x10,%eax
-    mov %ax,%ds
+    mov %ax,%ds                 # DS, ES == 0x10，选择段
     mov %ax,%es
-    movl $0x17,%eax
+    movl $0x17,%eax             # FS = 0x17
     mov %ax,%fs
-    incl jiffies
-    movb $0x20,%al      # EOI to interrupt controller #1
-    outb %al,$0x20
-    movl CS(%esp),%eax
-    andl $3,%eax        # %eax is CPL (0 or 3, 0=supervisor)
-    pushl %eax
-    call do_timer       # 'do_timer(long CPL)' does everything from
-    addl $4,%esp        # task switching to accounting ...
-    jmp ret_from_sys_call
+    incl jiffies                # +1操作
+                                # jiffies是一个全局变量，用于记录系统启动依赖的时钟节拍数。
+    movb $0x20,%al              # 中断控制器的中断结束信号(EOI, End Of Interrupt)
+                                # EOI to interrupt controller #1
+    outb %al,$0x20              # 将 0x20 发送到端口 0x20
+                                # 端口 0x20 是主 8259 PIC(可编程中断控制器)的命令端口
+                                # 此操作告诉PIC当前中断处理已经完成，允许PIC处理下一个中断请求
+    movl CS(%esp),%eax          # 将当前栈顶的内容加上 CS 段偏移量，加载到寄存器 EAX 中
+    andl $3,%eax                # 使用位与操作保留 EAX 中的低2位，低两位表示特权级别(CPL)
+                                # 通过这一步，判断当前中断或系统调用的来源。
+                                # %eax is CPL (0 or 3, 0=supervisor)
+    pushl %eax                  # 将特权级别(低2位)压栈，传递给后续的函数调用
+    call do_timer               # 调用内核函数 do_timer, 处理定时器中断的逻辑
+                                # 'do_timer(long CPL)' does everything from
+    addl $4,%esp                # task switching to accounting ...
+    jmp ret_from_sys_call       # 恢复中断上下文
 
 .align 2
 sys_execve:

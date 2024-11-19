@@ -72,36 +72,43 @@ void schedule(void)
 
 /* check alarm, wake up any interruptible tasks that have got a signal */
 
-    for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
+    for(p = &LAST_TASK ; p > &FIRST_TASK ; --p) {
         if (*p) {
+            // alarm 用于确定xx秒之后进程允许被唤醒
             if ((*p)->alarm && (*p)->alarm < jiffies) {
-                    (*p)->signal |= (1<<(SIGALRM-1));
-                    (*p)->alarm = 0;
-                }
-            if ((*p)->signal && (*p)->state==TASK_INTERRUPTIBLE)
+                (*p)->signal |= (1<<(SIGALRM-1));
+                (*p)->alarm = 0;
+            }
+            if ((*p)->signal && (*p)->state==TASK_INTERRUPTIBLE) {
                 (*p)->state=TASK_RUNNING;
+            }
         }
+    }
 
 /* this is the scheduler proper: */
 
     while (1) {
-        c = -1;
-        next = 0;
+        c = -1;                                 // 所有进程中时间片最大的
+        next = 0;                               // 时间片最大的进程
         i = NR_TASKS;
         p = &task[NR_TASKS];
         while (--i) {
-            if (!*--p)
+            if (!*--p) {
                 continue;
-            if ((*p)->state == TASK_RUNNING && (*p)->counter > c)
+            }
+            if ((*p)->state == TASK_RUNNING && (*p)->counter > c) {
                 c = (*p)->counter, next = i;
+            }
         }
-        if (c) break;
-        for(p = &LAST_TASK ; p > &FIRST_TASK ; --p)
-            if (*p)
-                (*p)->counter = ((*p)->counter >> 1) +
-                        (*p)->priority;
+        if (c) break;                           // 找到时间片最大的进程则跳出此循环
+        // 所有进程都没有时间片，重设时间片，时间片的时间和进程优先级有关系
+        for (p = &LAST_TASK ; p > &FIRST_TASK ; --p) {
+            if (*p) {
+                (*p)->counter = ((*p)->counter >> 1) + (*p)->priority;
+            }
+        }
     }
-    switch_to(next);
+    switch_to(next);                            // 切换到下一个进程
 }
 
 int sys_pause(void)
@@ -156,6 +163,9 @@ void wake_up(struct task_struct **p)
     }
 }
 
+// cpl 特权级别，linux中只能是 0 或 3
+// 0 表示内核权限
+// 3 表示用户权限
 void do_timer(long cpl)
 {
     if (cpl)
@@ -164,8 +174,8 @@ void do_timer(long cpl)
         current->stime++;
     if ((--current->counter)>0) return;
     current->counter=0;
-    if (!cpl) return;
-    schedule();
+    if (!cpl) return;       // 内核权限则返回
+    schedule();             // 用户权限则触发调用
 }
 
 int sys_alarm(long seconds)
@@ -243,12 +253,34 @@ void sched_init(void)
         p->a=p->b=0;
         p++;
     }
-    ltr(0);
-    lldt(0);
-    outb_p(0x36,0x43);      /* binary, mode 3, LSB/MSB, ch 0 */
-    outb_p(LATCH & 0xff , 0x40);    /* LSB */
-    outb(LATCH >> 8 , 0x40);    /* MSB */
+    ltr(0);                                 // 将任务寄存器(Task Registr, TR)加载为指定的任务状态段(TSS)。
+                                            // 任务寄存器用于管理任务切换时的上下文切换数据，在保护模式下很重要
+    lldt(0);                                // lldt(Load Local Descriptor Table Register) 是x86架构中的一个指令，
+                                            // 用于加载任务的本地描述符表(LDT, Local Descriptor Table)的选择子到
+                                            // LDTR寄存器
+    outb_p(0x36,0x43);                      // 0x43: 是8253/8254可编程定时器芯片(PIT)的命令寄存器
+                                            // 通过写入特定的命令字0x43，可以配置定时器的运行模式
+                                            //  0x26配置说明：
+                                            //    - D7-D6: 00  表示选择计数器0
+                                            //    - D5-D4: 11  表示低字节和高字节分别写入
+                                            //    - D3-D1: 110 表示模式3(方波生成)
+                                            //    - D0:    0   表示计数器值以二进制格式写入
+                                            // binary, mode 3, LSB/MSB, ch 0
+    outb_p(LATCH & 0xff , 0x40);            /* LSB */
+                                            // #define LATCH (1193180/HZ)
+                                            // 用于向 8253/8254可编程定时器芯片(PIT)计数器0数据端口(0x40)写入低8位数据，作为计数值的一部分
+                                            // PIT是用于生成定时中断的硬件设备，在早期x86系统中非常常见。它的三个计数器可以独立工作，
+                                            // 但是计数器0 通常用于产生系统时钟(如：18.2Hz的时钟中断)
+                                            // 每个计数器需要加载一个初始值作为计数周期，这个值需要分两次写入(先写低字节、再写高字节)
+                                            // PIT 的输入频率通常为 1193180Hz(约1.19MHz)
+    outb(LATCH >> 8 , 0x40);                /* MSB */
     set_intr_gate(0x20,&timer_interrupt);
-    outb(inb_p(0x21)&~0x01,0x21);
-    set_system_gate(0x80,&system_call);
+    outb(inb_p(0x21)&~0x01,0x21);           // 对 8259可编程中断控制器 的中断屏蔽寄存器进行修改，具体功能是启用 IRQ0 中断
+                                            // 从端口 0x21 读取中断屏蔽寄存器(IMR)的当前值
+                                            // IMR 是一个8位寄存器，每一位对应一个IRQ(中断请求)的屏蔽状态：
+                                            //  位值为1: 屏蔽对应的IRQ, 不会触发中断
+                                            //  位值位0: 启用对应的IRQ，可以触发中断
+                                            // IEQ0 对应IMR的低0位
+                                            // 这两条指令就是让系统开始接受定时器中断
+    set_system_gate(0x80,&system_call);     // 用于设置 系统调用 中断门，从而将中断向量 0x80 映射到系统调用处理函数 system_call
 }

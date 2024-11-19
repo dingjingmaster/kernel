@@ -272,3 +272,165 @@ int main(int argc, char ** argv)
     return (0);
 }
 ```
+
+## 其它重点模块说明
+
+### 进程调度模块
+
+进程调用模块主要数据结构
+```c
+typedef int (*fn_ptr)();
+
+/**
+ * @brief 此结构体是Linux内核中用来描述x86架构上的FPU(浮点运算单元)
+ *  和MMX/AVX/SSE等扩展状态的结构体。
+ *
+ *  它主要用于保存和恢复与浮点计算和SIMD指令相关的CPU寄存器状态。
+ *
+ * 在上下文切换或信号处理时候，操作系统需要保存线程或进程的CPU寄存器状态，
+ * 以便在后续恢复运行时候能正确执行。
+ * 这些状态包括了FPU/MX/SSE寄存器，而 struct i387_struct 是用来存储这些状态的
+ */
+struct i387_struct
+{
+    long    cwd;            // 控制字
+    long    swd;            // 状态字
+    long    twd;            // 标记字
+    long    fip;            // 指令指针
+    long    fcs;            // 代码段
+    long    foo;            // 操作数偏移
+    long    fos;            // 操作数段选择器
+    long    st_space[20];   // FPU寄存器的状态 
+                            /* 8*10 bytes for each FP-reg = 80 bytes */
+};
+
+/**
+ * @brief 用于描述x86架构的任务状态段(Task State Segment, TSS)。
+ * TSS 是x86硬件提供的一种机制，用于存储任务的硬件状态信息，
+ * 帮助CPU在任务切换和异常处理的时候快速保存和恢复状态
+ *
+ * 1. 每个CPU对应一个TSS：在Linux中，每个CPU通常会有一个独立的TSS，
+ *    用于处理该CPU的异常堆栈切换
+ * 2. 在现代 x86_64 中，sp0字段被设置为内核线程在内核栈顶地址，
+ *    供用户态向内核态的切换时使用
+ * 3. 当发生中断或系统调用时，CPU根据TSS切换到内核栈(sp0)，
+ *    然后进入内核的中断处理程序
+ * 4. 如果发生了 Double Fault(例如栈已出)，TSS中定义的错误处理堆栈会被使用，
+ *    以确保错误处理程序有足够的栈空间
+ *
+ * @note 现代操作系统已经用软件实现任务切换，
+ *   但是在某些关键场景还有用(中断、双重错误处理)
+ */
+struct tss_struct 
+{
+    long    back_link;      // 16 high bits zero
+    long    esp0;           // 特权级 0 的堆栈指针
+    long    ss0;            // 16 high bits zero */
+    long    esp1;           // 特权级 1 的堆栈指针
+    long    ss1;            /* 16 high bits zero */
+    long    esp2;           // 特权级 2 的堆栈指针
+    long    ss2;            /* 16 high bits zero */
+    long    cr3;            // 页表地址
+    long    eip;            // 指令指针
+    long    eflags;         // 标志寄存器
+    long    eax,ecx,edx,ebx;
+    long    esp;
+    long    ebp;
+    long    esi;
+    long    edi;
+    long    es;             /* 16 high bits zero */
+    long    cs;             /* 16 high bits zero */
+    long    ss;             /* 16 high bits zero */
+    long    ds;             /* 16 high bits zero */
+    long    fs;             /* 16 high bits zero */
+    long    gs;             /* 16 high bits zero */
+    long    ldt;            // 局部描述符选择子 16 high bits zero
+    long    trace_bitmap;   // 位图偏移量 bits: trace 0, bitmap 16-31 */
+    struct i387_struct i387;
+};
+
+/**
+ * @brief 是内核中描述进程的核心数据结构，
+ *   包含与进程管理、调度、内存管理、文件系统相关的几乎所有信息。
+ * 每个进程都有一个对应的 task_struct 实例，它是Linux进程管理的基础
+ */
+struct task_struct 
+{
+/* these are hardcoded - don't touch */
+    long state;                                         // 进程状态
+                                                        // -1 unrunnable
+                                                        // 0  runnable
+                                                        // >0 stopped
+    long counter;                                       // 任务的动态时间片，
+                                                        // 用于表示当前任务还能运行的剩余时间片
+    long priority;                                      // 优先级
+    long signal;                                        // 用来管理与信号有关的数据和操作。
+                                                        // 它指向一个
+                                                        //  struct signal_struct的指针
+    fn_ptr sig_restorer;                                // 此字段是一个与用户态信号处理机
+                                                        //  制相关的指针字段，
+                                                        //  用于指向用户态的信号恢复函数
+                                                        //  用于帮助用户空间的信号处理程序
+                                                        //  在完成信号处理后
+                                                        //  正确返回到信号触发前的执行状态
+    fn_ptr sig_fn[32];                                  // 信号处理函数的指针
+/* various fields */
+    int exit_code;                                      // 故名思义
+    unsigned long end_code,end_data,brk,start_stack;
+    long pid,father,pgrp,session,leader;                // 
+    unsigned short uid,euid,suid;                       // 顾名思义
+    unsigned short gid,egid,sgid;                       // 顾名思义
+    long alarm;                                         // 用来管理与进程相关的定时器机制。
+                                                        // alarm用来实现
+                                                        //  与alarm系统调用相关的功能，
+                                                        // 它表示当前任务设置的
+                                                        //  定时器在某个时间点触发
+                                                        // 此字段在现代Linux内核中已经被废弃
+    long utime,stime,cutime,cstime,start_time;          // stime: 进程在用户态和内核态运行时间
+    unsigned short used_math;                           // 用于标识一个任务是否曾经使用过
+                                                        //  浮点运算单元(FPU)
+                                                        //  或SIMD扩展(如MMX、SSE、AVX等)。
+                                                        // 这是内核中 任务上下文切换 
+                                                        //  和 FPU状态管理 的一部分
+/* file system info */
+    int tty;                                            // -1 if no tty, so it must be signed
+    unsigned short umask;                               // 故名思义
+    struct m_inode * pwd;                               // 进程工作目录
+    struct m_inode * root;                              // 表示与进程相关的根文件系统
+                                                        //  (root filesystem)的目录信息。
+                                                        // 它用于描述一个任务的文件系统视图
+                                                        //  尤其是在支持chroot或容器环境时候
+                                                        //  这一字段尤为重要。
+    unsigned long close_on_exec;
+    struct file * filp[NR_OPEN];                        // 进程打开的文件
+/* ldt for this task 0 - zero 1 - cs 2 - ds&ss */
+    struct desc_struct ldt[3];                          //
+/* tss for this task */
+    struct tss_struct tss;
+};
+```
+
+### 进程调用过程
+
+要分析进程调用过程，先回到系统调用过程中的 `sched_init` 函数中，开始梳理其程序实现逻辑。
+1. `set_tss_desc`在`GDT`中添加`TSS`入口
+2. `set_ldt_desc`在`GDT`中添加`LDT`入口
+3. 依次初始化所有任务描述结构体(`struct task_struct`)
+4. 将任务寄存器(Task Register, TR)加载为指定的任务状态段(TSS)。任务寄存器用于管理任务切换时的上下文切换数据
+5. 设置 8253/8254 定时器，使其开始生成固定频率的信号
+6. IDT中设置定时器的中断例程
+7. 设置 8259 中断控制器，启用时钟中断对应的 IRQ0 中断
+8. 中断向量表中设置系统调用中断服务例程
+
+当定时器触发中断服务 `timer_interrupt` 执行逻辑如下：
+1. 保存现场，保存：DS、ES、FS、EDX、ECX、EBX、EAX
+2. DS、ES 指向 0x10 内存段；FS 指向 0x17 内存段
+3. 全局变量 jiffies(记录系统启动时间)
+4. 通知中断控制器、中断已经处理结束，允许PIC处理下一个中断请求
+5. 获取当前CS段中特权位，根据特权位判断当前中断或系统调用的来源
+6. 把当前特权级位传给 `do_timer`，并调用`do_timer`处理进程管理。
+7. 如果特权级别是内核，则当前进程内核运行时间+1，否则当前进程用户运行时间+1
+8. 当前进程时间片减1，如果减1后值为0，则继续执行此任务(进程)，否则判断当前进程如果是内核级别则结束`do_timer`处理过程；否则执行 `schedule()`
+9. 在`schedule()`中先遍历所有的进程，把配置了alarm唤醒 && 可中断的进程状态修改为运行状态
+10. 寻找所有进程中时间片最多的进程，并切换到这个进程。如果所有进程的时间片都耗尽，则根据进程优先级重设进程时间片，然后切换到第一个任务(注意：第一个任务被称为'idle'任务，当没有其它任务可以运行时候，则会运行此任务，此任务不可被杀、不可睡眠，第一个任务的状态不起作用，因为它永远可以运行)
+
