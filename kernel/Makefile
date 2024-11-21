@@ -1,90 +1,161 @@
+# SPDX-License-Identifier: GPL-2.0
 #
-# Makefile for the FREAX-kernel.
-#
-# Note! Dependencies are done automagically by 'make dep', which also
-# removes any old dependencies. DON'T put your own dependencies here
-# unless it's something special (ie not a .c file).
+# Makefile for the linux kernel.
 #
 
-AR	=ar
-AS	=as --32
-LD	=ld -m  elf_i386 
-LDFLAGS	=-g #-s -x
-CC	=gcc
-CFLAGS	=-Wall -O -std=gnu89 -fstrength-reduce -fomit-frame-pointer -m32 \
-	-finline-functions -fno-stack-protector -nostdinc -fno-builtin -g -I../include
-CPP	=gcc -E -nostdinc -I../include
+obj-y     = fork.o exec_domain.o panic.o \
+	    cpu.o exit.o softirq.o resource.o \
+	    sysctl.o capability.o ptrace.o user.o \
+	    signal.o sys.o umh.o workqueue.o pid.o task_work.o \
+	    extable.o params.o \
+	    kthread.o sys_ni.o nsproxy.o \
+	    notifier.o ksysfs.o cred.o reboot.o \
+	    async.o range.o smpboot.o ucount.o regset.o ksyms_common.o
 
-.c.s:
-	$(CC) $(CFLAGS) \
-	-S -o $*.s $<
-.s.o:
-	$(AS) -o $*.o $<
-.c.o:
-	$(CC) $(CFLAGS) \
-	-c -o $*.o $<
+obj-$(CONFIG_USERMODE_DRIVER) += usermode_driver.o
+obj-$(CONFIG_MULTIUSER) += groups.o
+obj-$(CONFIG_VHOST_TASK) += vhost_task.o
 
-OBJS  = sched.o system_call.o traps.o asm.o fork.o \
-	panic.o printk.o vsprintf.o tty_io.o console.o \
-	keyboard.o rs_io.o hd.o sys.o exit.o serial.o \
-	mktime.o
+ifdef CONFIG_FUNCTION_TRACER
+# Do not trace internal ftrace files
+CFLAGS_REMOVE_irq_work.o = $(CC_FLAGS_FTRACE)
+endif
 
-kernel.o: $(OBJS)
-	$(LD) -r -o kernel.o $(OBJS)
-	sync
+# Prevents flicker of uninteresting __do_softirq()/__local_bh_disable_ip()
+# in coverage traces.
+KCOV_INSTRUMENT_softirq.o := n
+# Avoid KCSAN instrumentation in softirq ("No shared variables, all the data
+# are CPU local" => assume no data races), to reduce overhead in interrupts.
+KCSAN_SANITIZE_softirq.o = n
+# These are called from save_stack_trace() on slub debug path,
+# and produce insane amounts of uninteresting coverage.
+KCOV_INSTRUMENT_extable.o := n
+KCOV_INSTRUMENT_stacktrace.o := n
+# Don't self-instrument.
+KCOV_INSTRUMENT_kcov.o := n
+# If sanitizers detect any issues in kcov, it may lead to recursion
+# via printk, etc.
+KASAN_SANITIZE_kcov.o := n
+KCSAN_SANITIZE_kcov.o := n
+UBSAN_SANITIZE_kcov.o := n
+KMSAN_SANITIZE_kcov.o := n
+CFLAGS_kcov.o := $(call cc-option, -fno-conserve-stack) -fno-stack-protector
 
-clean:
-	rm -f core *.o *.a tmp_make
-	for i in *.c;do rm -f `basename $$i .c`.s;done
+obj-y += sched/
+obj-y += locking/
+obj-y += power/
+obj-y += printk/
+obj-y += irq/
+obj-y += rcu/
+obj-y += livepatch/
+obj-y += dma/
+obj-y += entry/
+obj-$(CONFIG_MODULES) += module/
 
-dep:
-	sed '/\#\#\# Dependencies/q' < Makefile > tmp_make
-	(for i in *.c;do echo -n `echo $$i | sed 's,\.c,\.s,'`" "; \
-		$(CPP) -M $$i;done) >> tmp_make
-	cp tmp_make Makefile
+obj-$(CONFIG_KCMP) += kcmp.o
+obj-$(CONFIG_FREEZER) += freezer.o
+obj-$(CONFIG_PROFILING) += profile.o
+obj-$(CONFIG_STACKTRACE) += stacktrace.o
+obj-y += time/
+obj-$(CONFIG_FUTEX) += futex/
+obj-$(CONFIG_GENERIC_ISA_DMA) += dma.o
+obj-$(CONFIG_SMP) += smp.o
+ifneq ($(CONFIG_SMP),y)
+obj-y += up.o
+endif
+obj-$(CONFIG_UID16) += uid16.o
+obj-$(CONFIG_MODULE_SIG_FORMAT) += module_signature.o
+obj-$(CONFIG_KALLSYMS) += kallsyms.o
+obj-$(CONFIG_KALLSYMS_SELFTEST) += kallsyms_selftest.o
+obj-$(CONFIG_BSD_PROCESS_ACCT) += acct.o
+obj-$(CONFIG_VMCORE_INFO) += vmcore_info.o elfcorehdr.o
+obj-$(CONFIG_CRASH_RESERVE) += crash_reserve.o
+obj-$(CONFIG_KEXEC_CORE) += kexec_core.o
+obj-$(CONFIG_CRASH_DUMP) += crash_core.o
+obj-$(CONFIG_KEXEC) += kexec.o
+obj-$(CONFIG_KEXEC_FILE) += kexec_file.o
+obj-$(CONFIG_KEXEC_ELF) += kexec_elf.o
+obj-$(CONFIG_BACKTRACE_SELF_TEST) += backtracetest.o
+obj-$(CONFIG_COMPAT) += compat.o
+obj-$(CONFIG_CGROUPS) += cgroup/
+obj-$(CONFIG_UTS_NS) += utsname.o
+obj-$(CONFIG_USER_NS) += user_namespace.o
+obj-$(CONFIG_PID_NS) += pid_namespace.o
+obj-$(CONFIG_IKCONFIG) += configs.o
+obj-$(CONFIG_IKHEADERS) += kheaders.o
+obj-$(CONFIG_SMP) += stop_machine.o
+obj-$(CONFIG_AUDIT) += audit.o auditfilter.o
+obj-$(CONFIG_AUDITSYSCALL) += auditsc.o audit_watch.o audit_fsnotify.o audit_tree.o
+obj-$(CONFIG_GCOV_KERNEL) += gcov/
+obj-$(CONFIG_KCOV) += kcov.o
+obj-$(CONFIG_KPROBES) += kprobes.o
+obj-$(CONFIG_FAIL_FUNCTION) += fail_function.o
+obj-$(CONFIG_KGDB) += debug/
+obj-$(CONFIG_DETECT_HUNG_TASK) += hung_task.o
+obj-$(CONFIG_LOCKUP_DETECTOR) += watchdog.o
+obj-$(CONFIG_HARDLOCKUP_DETECTOR_BUDDY) += watchdog_buddy.o
+obj-$(CONFIG_HARDLOCKUP_DETECTOR_PERF) += watchdog_perf.o
+obj-$(CONFIG_SECCOMP) += seccomp.o
+obj-$(CONFIG_RELAY) += relay.o
+obj-$(CONFIG_SYSCTL) += utsname_sysctl.o
+obj-$(CONFIG_TASK_DELAY_ACCT) += delayacct.o
+obj-$(CONFIG_TASKSTATS) += taskstats.o tsacct.o
+obj-$(CONFIG_TRACEPOINTS) += tracepoint.o
+obj-$(CONFIG_LATENCYTOP) += latencytop.o
+obj-$(CONFIG_FUNCTION_TRACER) += trace/
+obj-$(CONFIG_TRACING) += trace/
+obj-$(CONFIG_TRACE_CLOCK) += trace/
+obj-$(CONFIG_RING_BUFFER) += trace/
+obj-$(CONFIG_TRACEPOINTS) += trace/
+obj-$(CONFIG_RETHOOK) += trace/
+obj-$(CONFIG_IRQ_WORK) += irq_work.o
+obj-$(CONFIG_CPU_PM) += cpu_pm.o
+obj-$(CONFIG_BPF) += bpf/
+obj-$(CONFIG_KCSAN) += kcsan/
+obj-$(CONFIG_SHADOW_CALL_STACK) += scs.o
+obj-$(CONFIG_HAVE_STATIC_CALL) += static_call.o
+obj-$(CONFIG_HAVE_STATIC_CALL_INLINE) += static_call_inline.o
+obj-$(CONFIG_CFI_CLANG) += cfi.o
 
-### Dependencies:
-console.s console.o : console.c ../include/linux/sched.h ../include/linux/head.h \
-  ../include/linux/fs.h ../include/sys/types.h ../include/linux/mm.h \
-  ../include/linux/tty.h ../include/termios.h ../include/asm/io.h \
-  ../include/asm/system.h 
-exit.s exit.o : exit.c ../include/errno.h ../include/signal.h \
-  ../include/sys/types.h ../include/sys/wait.h ../include/linux/sched.h \
-  ../include/linux/head.h ../include/linux/fs.h ../include/linux/mm.h \
-  ../include/linux/kernel.h ../include/linux/tty.h ../include/termios.h \
-  ../include/asm/segment.h 
-fork.s fork.o : fork.c ../include/errno.h ../include/linux/sched.h \
-  ../include/linux/head.h ../include/linux/fs.h ../include/sys/types.h \
-  ../include/linux/mm.h ../include/linux/kernel.h ../include/asm/segment.h \
-  ../include/asm/system.h 
-hd.s hd.o : hd.c ../include/linux/config.h ../include/linux/sched.h \
-  ../include/linux/head.h ../include/linux/fs.h ../include/sys/types.h \
-  ../include/linux/mm.h ../include/linux/kernel.h ../include/linux/hdreg.h \
-  ../include/asm/system.h ../include/asm/io.h ../include/asm/segment.h 
-mktime.s mktime.o : mktime.c ../include/time.h 
-panic.s panic.o : panic.c ../include/linux/kernel.h 
-printk.s printk.o : printk.c ../include/stdarg.h ../include/stddef.h \
-  ../include/linux/kernel.h 
-sched.s sched.o : sched.c ../include/linux/sched.h ../include/linux/head.h \
-  ../include/linux/fs.h ../include/sys/types.h ../include/linux/mm.h \
-  ../include/linux/kernel.h ../include/signal.h ../include/linux/sys.h \
-  ../include/asm/system.h ../include/asm/io.h ../include/asm/segment.h 
-serial.s serial.o : serial.c ../include/linux/tty.h ../include/termios.h \
-  ../include/linux/sched.h ../include/linux/head.h ../include/linux/fs.h \
-  ../include/sys/types.h ../include/linux/mm.h ../include/asm/system.h \
-  ../include/asm/io.h 
-sys.s sys.o : sys.c ../include/errno.h ../include/linux/sched.h \
-  ../include/linux/head.h ../include/linux/fs.h ../include/sys/types.h \
-  ../include/linux/mm.h ../include/linux/tty.h ../include/termios.h \
-  ../include/linux/kernel.h ../include/asm/segment.h ../include/sys/times.h \
-  ../include/sys/utsname.h 
-traps.s traps.o : traps.c ../include/string.h ../include/linux/head.h \
-  ../include/linux/sched.h ../include/linux/fs.h ../include/sys/types.h \
-  ../include/linux/mm.h ../include/linux/kernel.h ../include/asm/system.h \
-  ../include/asm/segment.h 
-tty_io.s tty_io.o : tty_io.c ../include/ctype.h ../include/errno.h \
-  ../include/signal.h ../include/sys/types.h ../include/linux/sched.h \
-  ../include/linux/head.h ../include/linux/fs.h ../include/linux/mm.h \
-  ../include/linux/tty.h ../include/termios.h ../include/asm/segment.h \
-  ../include/asm/system.h 
-vsprintf.s vsprintf.o : vsprintf.c ../include/stdarg.h ../include/string.h 
+obj-$(CONFIG_PERF_EVENTS) += events/
+
+obj-$(CONFIG_USER_RETURN_NOTIFIER) += user-return-notifier.o
+obj-$(CONFIG_PADATA) += padata.o
+obj-$(CONFIG_JUMP_LABEL) += jump_label.o
+obj-$(CONFIG_CONTEXT_TRACKING) += context_tracking.o
+obj-$(CONFIG_TORTURE_TEST) += torture.o
+
+obj-$(CONFIG_HAS_IOMEM) += iomem.o
+obj-$(CONFIG_RSEQ) += rseq.o
+obj-$(CONFIG_WATCH_QUEUE) += watch_queue.o
+
+obj-$(CONFIG_RESOURCE_KUNIT_TEST) += resource_kunit.o
+obj-$(CONFIG_SYSCTL_KUNIT_TEST) += sysctl-test.o
+
+CFLAGS_stackleak.o += $(DISABLE_STACKLEAK_PLUGIN)
+obj-$(CONFIG_GCC_PLUGIN_STACKLEAK) += stackleak.o
+KASAN_SANITIZE_stackleak.o := n
+KCSAN_SANITIZE_stackleak.o := n
+KCOV_INSTRUMENT_stackleak.o := n
+
+obj-$(CONFIG_SCF_TORTURE_TEST) += scftorture.o
+
+$(obj)/configs.o: $(obj)/config_data.gz
+
+targets += config_data config_data.gz
+$(obj)/config_data.gz: $(obj)/config_data FORCE
+	$(call if_changed,gzip)
+
+filechk_cat = cat $<
+
+$(obj)/config_data: $(KCONFIG_CONFIG) FORCE
+	$(call filechk,cat)
+
+$(obj)/kheaders.o: $(obj)/kheaders_data.tar.xz
+
+quiet_cmd_genikh = CHK     $(obj)/kheaders_data.tar.xz
+      cmd_genikh = $(CONFIG_SHELL) $(srctree)/kernel/gen_kheaders.sh $@
+$(obj)/kheaders_data.tar.xz: FORCE
+	$(call cmd,genikh)
+
+clean-files := kheaders_data.tar.xz kheaders.md5

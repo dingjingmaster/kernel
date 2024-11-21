@@ -1,1 +1,5 @@
-*.img filter=lfs diff=lfs merge=lfs -text
+# SPDX-License-Identifier: GPL-2.0-only
+*.[ch] diff=cpp
+*.dts diff=dts
+*.dts[io] diff=dts
+*.rs diff=rust
