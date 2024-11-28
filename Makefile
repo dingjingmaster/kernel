@@ -11,10 +11,13 @@ NAME = Baby Opossum Posse
 # Comments in this file are targeted only to the developer, do not
 # expect to learn how to build the kernel reading this file.
 
+# 获取make命令支持的特性, 检测是否支持 output-sync
+# output-sync 可用避免输出混乱
 ifeq ($(filter output-sync,$(.FEATURES)),)
 $(error GNU Make >= 4.0 is required. Your Make version is $(MAKE_VERSION))
 endif
 
+# 获取用户输入, 比如 make install, 则: MAKECMDGOALS 值就是 install
 $(if $(filter __%, $(MAKECMDGOALS)), \
 	$(error targets prefixed with '__' are only for internal use))
 
@@ -38,6 +41,7 @@ __all:
 # descending is started. They are now explicitly listed as the
 # prepare rule.
 
+# MAKEFILE_LIST 提供按加载顺序排列的makefile列表
 this-makefile := $(lastword $(MAKEFILE_LIST))
 abs_srctree := $(realpath $(dir $(this-makefile)))
 abs_objtree := $(CURDIR)
@@ -46,6 +50,13 @@ ifneq ($(sub_make_done),1)
 
 # Do not use make's built-in rules and variables
 # (this increases performance and avoids hard-to-debug behaviour)
+
+# MAKEFLAGS 用于传递命令行选项和其它控制信息给make或其子进程.
+# -r: 表示不使用隐式规则(默认Make内置许多隐式规则,比如:如何处理.c文件生成.o)
+# -R: 表示不使用内置变量,例如: 
+#     CC: 默认是cc
+#     CFLAGS: 默认是空字符串
+#     AR: 默认是 ar
 MAKEFLAGS += -rR
 
 # Avoid funny character set dependencies
@@ -55,6 +66,9 @@ LC_NUMERIC=C
 export LC_COLLATE LC_NUMERIC
 
 # Avoid interference with shell env settings
+
+# GREP_OPTIONS 是旧的 grep 环境变量, 允许用户为 grep 命令定义全局默认选项
+# 在运行 grep 命令时候会自动添加 'GREP_OPTIONS' 变量中的值
 unexport GREP_OPTIONS
 
 # Beautify output
@@ -79,6 +93,14 @@ unexport GREP_OPTIONS
 # To put more focus on warnings, be less verbose as default
 # Use 'make V=1' to see the full commands
 
+# origin 用于返回 V 变量的来源, 来源有以下几种:
+#     undefined: 未定义
+#     default: Make内置变量(比如:CC默认cc)
+#     environment: 变量从环境变量继承而来
+#     environment override: 变量通过 export 语句显式导出
+#     file: 变量在Makefile中定义
+#     command line: 命令行传入
+#     override: 表示变量通过 override 关键字显式定义的(如: override V = value)
 ifeq ("$(origin V)", "command line")
   KBUILD_VERBOSE = $(V)
 endif
@@ -86,6 +108,7 @@ endif
 quiet = quiet_
 Q = @
 
+# V=1 则显式所有变量
 ifneq ($(findstring 1, $(KBUILD_VERBOSE)),)
   quiet =
   Q =
@@ -110,6 +133,8 @@ export quiet Q KBUILD_VERBOSE
 # See the file "Documentation/dev-tools/sparse.rst" for more details,
 # including where to get the "sparse" utility.
 
+# make C=1 编译时候启用sparse工具对代码进行静态分析
+# make C=2 只进行静态分析,不会进行真正的编译
 ifeq ("$(origin C)", "command line")
   KBUILD_CHECKSRC = $(C)
 endif
@@ -122,6 +147,9 @@ export KBUILD_CHECKSRC
 # Enable "clippy" (a linter) as part of the Rust compilation.
 #
 # Use 'make CLIPPY=1' to enable it.
+
+# clippy 是Rust官方的静态分析工具, 作为Rust编译器的一部分
+# 专门用于对 Rust 代码执行额外的代码检查和lint(代码风格和错误分析)
 ifeq ("$(origin CLIPPY)", "command line")
   KBUILD_CLIPPY := $(CLIPPY)
 endif
@@ -130,6 +158,8 @@ export KBUILD_CLIPPY
 
 # Use make M=dir or set the environment variable KBUILD_EXTMOD to specify the
 # directory of external module to build. Setting M= takes precedence.
+
+# M=dir 编译内核模块
 ifeq ("$(origin M)", "command line")
   KBUILD_EXTMOD := $(M)
 endif
@@ -141,6 +171,8 @@ $(foreach x, % :, $(if $(findstring $x, $(KBUILD_EXTMOD)), \
 	$(error module directory path cannot contain '$x')))
 
 # Remove trailing slashes
+
+# 格式化模块目录/a/b/c/. --> /a/b/c
 ifneq ($(filter %/, $(KBUILD_EXTMOD)),)
 KBUILD_EXTMOD := $(shell dirname $(KBUILD_EXTMOD).)
 endif
@@ -177,6 +209,8 @@ export KBUILD_EXTRA_WARN
 # variable.
 
 # Do we want to change the working directory?
+
+# 修改内核编译输出目录: make O=dir
 ifeq ("$(origin O)", "command line")
   KBUILD_OUTPUT := $(O)
 endif
@@ -197,6 +231,7 @@ export sub_make_done := 1
 
 endif # sub_make_done
 
+# 如果编译输出目录与源码目录不一样,则输出每次编译时候进入的目录路径
 ifeq ($(abs_objtree),$(CURDIR))
 # Suppress "Entering directory ..." if we are at the final work directory.
 no-print-directory := --no-print-directory
@@ -216,10 +251,14 @@ ifeq ($(need-sub-make),1)
 
 PHONY += $(MAKECMDGOALS) __sub-make
 
+# ':' 是shell中内建命令, 表示什么都不做
+# Makefile 中 '@:' 表示一个空操作、也不输出任何字符串
 $(filter-out $(this-makefile), $(MAKECMDGOALS)) __all: __sub-make
 	@:
 
 # Invoke a second make in the output directory, passing relevant variables
+
+# 开始编译
 __sub-make:
 	$(Q)$(MAKE) $(no-print-directory) -C $(abs_objtree) \
 	-f $(abs_srctree)/Makefile $(MAKECMDGOALS)
@@ -343,6 +382,7 @@ PHONY += $(MAKECMDGOALS) __build_one_by_one
 $(MAKECMDGOALS): __build_one_by_one
 	@:
 
+# 依次编译各个子系统
 __build_one_by_one:
 	$(Q)set -e; \
 	for i in $(MAKECMDGOALS); do \
@@ -351,6 +391,7 @@ __build_one_by_one:
 
 else # !mixed-build
 
+# 详细看引入的文件
 include $(srctree)/scripts/Kbuild.include
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
@@ -358,6 +399,7 @@ KERNELRELEASE = $(call read-file, include/config/kernel.release)
 KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(SUBLEVEL)))$(EXTRAVERSION)
 export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
 
+# 详细看引入的文件
 include $(srctree)/scripts/subarch.include
 
 # Cross compiling and selecting different set of gcc/bin-utils
@@ -416,6 +458,7 @@ export KCONFIG_CONFIG
 # SHELL used by kbuild
 CONFIG_SHELL := sh
 
+# getconf 获取 操作系统配置值 与 POSIX标准相关的系统限制
 HOST_LFS_CFLAGS := $(shell getconf LFS_CFLAGS 2>/dev/null)
 HOST_LFS_LDFLAGS := $(shell getconf LFS_LDFLAGS 2>/dev/null)
 HOST_LFS_LIBS := $(shell getconf LFS_LIBS 2>/dev/null)
@@ -1085,6 +1128,14 @@ export	INSTALL_PATH ?= /boot
 # Like INSTALL_MOD_PATH, it isn't defined in the Makefile, but can be passed as
 # an argument if needed. Otherwise it defaults to the kernel install path
 #
+
+# DTB(Device Tree Blob) 是设备树的二进制形式, 用于描述硬件的布局和配置信息.
+# 它根据设备树的源文件 DTS(Device Tree Source) 编译而来
+# 设备树的主要作用是帮助操作系统在启动时候识别和初始化硬件
+# DTB 描述了以下内容:
+#   1. 硬件拓扑结构: 比如处理器、内存、外设(UART、SPI、I2C等)、中断控制器等的连接方式
+#   2. 配置信息: 外设的地址范围、中断号、时钟频率、GPIO等
+#   3. 兼容性信息: 用于表明设备支持哪些驱动程序(通过compatible属性)
 export INSTALL_DTBS_PATH ?= $(INSTALL_PATH)/dtbs/$(KERNELRELEASE)
 
 #
