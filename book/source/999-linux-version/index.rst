@@ -7,3 +7,4 @@ Linux历史版本
 
     Linux-0.0.0.md
     Linux-0.0.1.md
+    Linux-6.12.0.md

@@ -253,6 +253,7 @@ PHONY += $(MAKECMDGOALS) __sub-make
 
 # ':' 是shell中内建命令, 表示什么都不做
 # Makefile 中 '@:' 表示一个空操作、也不输出任何字符串
+# filter-out 避免makefile多次调用自己
 $(filter-out $(this-makefile), $(MAKECMDGOALS)) __all: __sub-make
 	@:
 
@@ -262,6 +263,7 @@ $(filter-out $(this-makefile), $(MAKECMDGOALS)) __all: __sub-make
 __sub-make:
 	$(Q)$(MAKE) $(no-print-directory) -C $(abs_objtree) \
 	-f $(abs_srctree)/Makefile $(MAKECMDGOALS)
+	#@echo "make -C $(abs_objtree) -f $(abs_srctree)/Makefile $(MAKECMDGOALS)"
 
 else # need-sub-make
 
