@@ -326,6 +326,33 @@ vdso-install-$(CONFIG_COMPAT_32)	+= arch/x86/entry/vdso/vdso32.so.dbg
 
 archprepare: checkbin
 checkbin:
+# CONFIG_MITIGATION_RETPOLINE内核配置配置选项, 用于缓解因 Spectre v2漏洞而引入的
+# 安全风险。
+# Spectre v2(Spectre Variant 2)是一个与现代CPU的分支预测(Branch Prediction)和投机
+# 执行(Speculative Execution)相关的漏洞。
+# 攻击者可以利用间接分支预测来推测执行非法代码路径, 从而窃取敏感数据。
+#
+# Retpoline 缓解措施:
+# Retpoline是一种基于编译器的缓解技术, 旨在通过重新实现间接分支跳转的方式, 防止分支预测被滥用。
+# 它通过限制CPU分支预测引擎的功能, 确保只有合法代码路径能够被执行, 进而缓解Spectre v2的风险。
+#
+# Retpoline名字来源于"Return"和"Trampoline"的结合:
+# 1. 使用特殊的返回机制, 迫使投机执行返回到安全位置.
+# 2. 修改编译器生成的汇编代码, 使间接分支无法被攻击.
+#
+# 当启用此配置项时:
+# 1. 内核将通过Retpoline技术重新编译所有间接分支(比如函数指针调用或间接jmp指令)
+# 2. 这使得投机执行路径受到控制, 从而缓解Spectre v2漏洞的利用
+# 3. 该选项通常在CPU受Spectre v2影响时候启用, 具体情况由内核在运行时候检测
+#
+# 性能影响:
+# 启用后可能导致性能下降, 尤其在大量使用间接分支的工作负载中. 例如:
+# 1. 虚拟化(KVM等)
+# 2. 系统调用密集型任务
+#
+# 依赖条件:
+# 1. 编译器支持, GCC 7.3+ 或 Clang 6.0+
+# 2. CPU是否存在Spectre v2漏洞, 内核可能在运行时候动态检测并选择性应用
 ifdef CONFIG_MITIGATION_RETPOLINE
 ifeq ($(RETPOLINE_CFLAGS),)
 	@echo "You are building kernel with non-retpoline compiler." >&2
@@ -335,6 +362,20 @@ endif
 endif
 
 ifdef CONFIG_UNWINDER_ORC
+# Linux内核中, 堆栈展开器(unwinder)是用于分析和追踪内核函数调用栈的工具。它在以下场景中非常重要:
+# 1. 调试和分析: 通过堆栈追踪识别问题代码路径(如崩溃回溯)
+# 2. 性能分析: 帮助性能工具(如: perf)采集调用栈信息
+# 3. 错误处理: 内核错误日志(如: oops 和 panic)中的调用栈信息依赖堆栈展开器
+# 传统上, Linux内核支持多种堆栈展开方式, 如: DWAF和frame pointer(帧指针), 但他们各有优缺点.
+#
+# ORC堆栈展开器的介绍
+# ORC(Open Runtime Code unwinder)是Linux内核团队开发的一种高效堆栈展开方式, 旨在解决传统方法的不足. 它的特点包括:
+# 1. 无须帧指针: ORC不依赖帧指针展开堆栈, 从而避免了强制启用帧指针可能带来的性能损失.
+# 2. 预计展开信息: ORC使用objtool工具在编译阶段生成专门的ORC数据表, 这些表存储了每个指令的堆栈元信息
+# 3. 更高的可靠性: ORC能够准确展开复杂的内核堆栈, 支持异常情况(如: 中断、错误处理等)
+# 4. 低运行时开销: 运行时通过查表完成堆栈展开, 而无需实时解析二进制文件.
+#
+# 启用此配置后, 内核将使用ORC堆栈展开器代替其他方式. 编译过程会通过objtool生成ORC数据表, 内核运行时候根据这些表进行堆栈展开.
 orc_hash_h := arch/$(SRCARCH)/include/generated/asm/orc_hash.h
 orc_hash_sh := $(srctree)/scripts/orc_hash.sh
 targets += $(orc_hash_h)

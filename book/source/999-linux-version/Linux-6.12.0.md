@@ -304,4 +304,42 @@ For further info see the ./README file
 
 archprepare 依赖: `checkbin`、`$(srctree)/arch/x86/include/generated/asm/orc_hash.h`、`$(srctree)/arch/x86/include/asm/orc_types.h`
 
-使用脚本`$(srctree)/scripts/orc_hash.sh ` 
+使用脚本`$(srctree)/scripts/orc_hash.sh`
+
+这里使用ORC和Retpoline 这两种技术增加安全性和
+
+> 留待后续填坑 ...
+
+#### prepare
+
+`prepare`  -->  `prepare0` 和 `headers`
+
+其中`headers`目标执行的操作:
+- `include/uapi`
+- `arch/x86/include/uapi`
+
+其中`prepare0`目标执行的操作:
+- make script/mod, 生成:  mk_elfconfig modpost, 两个ELF文件
+
+其中`prepare`默认没有执行具体操作
+
+#### mdoules_prepare
+- make $(build)=scripts scripts/module.lds
+
+用于生成链接脚本文件`scripts/module.lds`, 此文件用于描述内核模块的链接布局. 内核模块需要使用特定的链接布局(比如符号表的组织和对齐方式), 以保证加载到内核时候能够正确运行.
+
+相关规则由 `scripts/Makefile.build` 和 `scripts/genksyms` 等工具生成
+
+#### modules
+
+modules 没有执行具体操作
+
+#### vmlinux
+- 目标: private
+- 目标: vmlinux.o, 依赖: modules.builtin.modinfo  modules.builtin  -->  vmlinux_o ($(srctree)/scripts/Makefile.vmlinux_o)  --> vmlinux_a(./builtin.a)
+- 目标: modpost (make -f $(srctree)/scripts/Makefile.modpost)
+- 目标: `vmlinux.lds`
+- 最后执行: make -f $(srctree)/scripts/Makefile.vmlinux
+
+> 内核依赖lds: `arch/x86/kernel/vmlinux.lds`
+
