@@ -12,5 +12,6 @@ Linux Kernel(基于X86_64)
 
     800-Filesystem/index.rst
     900-assembly/index.rst
+    997-about-others/index.rst
     998-about-hw/index.rst
     999-linux-version/index.rst
