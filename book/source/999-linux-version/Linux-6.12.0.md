@@ -306,7 +306,7 @@ archprepare 依赖: `checkbin`、`$(srctree)/arch/x86/include/generated/asm/orc_
 
 使用脚本`$(srctree)/scripts/orc_hash.sh`
 
-这里使用ORC和Retpoline 这两种技术增加安全性和
+这里使用ORC和Retpoline 这两种技术增加安全性
 
 > 留待后续填坑 ...
 
@@ -336,10 +336,102 @@ modules 没有执行具体操作
 
 #### vmlinux
 - 目标: private
-- 目标: vmlinux.o, 依赖: modules.builtin.modinfo  modules.builtin  -->  vmlinux_o ($(srctree)/scripts/Makefile.vmlinux_o)  --> vmlinux_a(./builtin.a)
+- 目标: vmlinux_o, 依赖: `vmlinux.a` 和 每个目录下的 `lib.a` 文件, 其中`lib.a`则是每个模块编译选择'y'时候生成的静态库
+- 目标: vmlinux_o、odules.builtin.modinfo、modules.builtin 依赖 vmlinux_o
 - 目标: modpost (make -f $(srctree)/scripts/Makefile.modpost)
 - 目标: `vmlinux.lds`
 - 最后执行: make -f $(srctree)/scripts/Makefile.vmlinux
 
 > 内核依赖lds: `arch/x86/kernel/vmlinux.lds`
+
+接下来看: `vmlinux.a`、所有的`lib.a`、最后看vmlinux_o、modules.builtin.modinfo、modules.builtin
+
+##### vmlinux.a
+
+```
+vmlinux.a:$(KBUILD_VMLINUX_OBJS) scripts/head-object-list.txt FORCE
+    $(call if_changed,ar_vmlinux.a)
+```
+在 `scripts/head-object-list.txt` 中保留所有CPU结构的 head.o 文件的路径.
+
+然后执行 cmd_ar_vmlinux.a 这个`shell`命令, 命令对应如下:
+
+```shell
+cmd_ar_vmlinux.a = \
+    rm -f $@; \
+    $(AR) cDPrST $@ $(KBUILD_VMLINUX_OBJS); \
+    $(AR) mPiT $$($(AR) t $@ | sed -n 1p) $@ $$($(AR) t $@ | grep -F -f $(srctree)/scripts/head-object-list.txt)
+```
+
+ar 中的配置选项解释:
+- c: 创建归档文件
+- D: 操作时候不对文件进行排序("deterministic mode")
+- P: 使用文件的完整路径存储(如果适用)
+- r: 添加文件到归档中. 如果文件已经存在, 则替换.
+- S: 不写入符号表.
+- T: 操作不适用临时文件
+- m: 移动归档成员, 重新调整他们在归档中的位置
+- i: 将指定的文件插入到某个位置之前
+- t: 列出归档文件中的所有成员文件名称
+
+总结:
+1. 创建静态库:
+```
+$(AR) cDPrST $@ $(KBUILD_VMLINUX_OBJS);
+```
+2. 调整静态库中对象的顺序, 以满足特定的内核链接顺序要求.
+```
+$(AR) mPiT $$($(AR) t $@ | sed -n 1p) $@ $$($(AR) t $@ | grep -F -f $(srctree)/scripts/head-object-list.txt)
+```
+
+##### vmlinux_o
+
+```
+make -f $(srctree)/scripts/Makefile.vmlinux_o
+```
+依次执行如下几条命令:
+
+```
+# 此目标为: modules.builtin
+# 依赖modules.builtin.modinfo
+cmd_modules_builtin = \
+    tr '\0' '\n' < $< | \
+    sed -n 's/^[[:alnum:]:_]*\.file=//p' | \
+    tr ' ' '\n' | uniq | sed -e 's:^:kernel/:' -e 's/$$/.ko/' > $@
+
+# 此目标为: modules.builtin.modinfo
+# 依赖 vmlinux.o
+# OBJCOPY = objcopy
+# OBJCOPYFLAGS := -S --remove-section __ex_table
+#  -S: 去除符号表和调试信息(保留最小的目标文件)
+#  --remove-section __ex_table: 从目标文件中移除名为 __ex_table 的段(section)
+#  __ex_table段的作用: 它存储异常处理相关信息, 用于处理内核中的异常(如内核oops或故障恢复).
+#  $(@F) 表示当前目标文件的文件名(不含路径), 内核根据不同文件应用不同的 objcopy 标志
+cmd_objcopy = \
+    $(OBJCOPY) $(OBJCOPYFLAGS) $(OBJCOPYFLAGS_$(@F)) $< $@
+
+# 此目标为：vmlinux.o
+# 依赖: $(initcalls-lds) vmlinux.a $(KBUILD_VMLINUX_LIBS)
+# 这段代码是Linux内核构建过程中生成vmlinux文件的链接指令, 它描述了 cmd_ld_vmlinux.o 的功能和目的。
+cmd_ld_vmlinux.o = \
+    $(LD) $(KBUILD_LDFLAGS) -r -o $@ \
+    $(vmlinux-o-ld-args-y) \
+    $(addprefix -T, $(initcalls-lds)) \
+    --whole-archive vmlinux.a --no-whole-archive \
+    --start-group $(KBUILD_VMLINUX_LIBS) --end-group \
+    $(cmd_objtool)
+```
+- `$(LD) $(KBUILD_LDFLAGS) -r -o $@` 调用链接程序, 进行部分链接, 生成一个中间文件: `cmd_ld_vmlinux.o`. 
+- `$(vmlinux-o-ld-args-y)` 控制具体的链接过程. 
+- `$(addprefix -T, $(initcalls-lds)) 指定链接脚本文件的路径(-T)`
+- `--whole-archive vmlinux.a`强制将存档文件(vmlinux.a)中所有对象文件包含到最终的链接结果中, 无论是否有未解决的符号依赖.
+- `--no-whole-archive` 之后的内容恢复正常的存档处理方式
+- `--start-group $(KBUILD_VMLINUX_LIBS) --end-group`: 通过 `--start-group` 和 `--end-group` 将一组静态库组合起来, 解决相互依赖的问题. 通常来说 $(KBUILD_VMLINUX_LIBS) 包含多个静态库 (例如: 内核驱动模块、内存管理模块等).
+- `$(cmd_objtool)`: 调用内核的 objtool 工具, 检查目标文件的正确性(比如: 调用栈验证、CFI检查等)
+
+以上构建意义：
+1. 生成完整内核映像, 将所有的内核组件(目标文件、静态库等)链接为一个完整的 ELF格式 的可执行文件 vmlinux, 这是内核最终运行的基础.
+2. 管理依赖与布局, 使用链接脚本`$(initcalls-lds)` 和 `--start-group/--end-group` 选项确保不同模块的正确初始化和内存布局
+3. 提高内核可靠性, 借助 objtool, 在构建过程中自动验证目标文件, 避免潜在的链接错误或运行时问题.
+4. 支持自定义与扩展, 通过KBUILD_*和vmlinux.a等机制, 构建过程具备高度的灵活性, 允许开发者根据需求定制内核.
 

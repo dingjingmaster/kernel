@@ -1172,6 +1172,8 @@ ifdef CONFIG_MODULES
 KBUILD_VMLINUX_OBJS += $(patsubst %/, %/lib.a, $(filter %/, $(libs-y)))
 KBUILD_VMLINUX_LIBS := $(filter-out %/, $(libs-y))
 else
+# '$(libs-y)' 包含了一组子目录的名称, 例如: libs-y := a/ b/ c/ d
+# 将所有 '$(libs-y)' 中的变量替换为 '%/lib.a', 比如: a/lib.a b/lib.a c/lib.a d/lib.a
 KBUILD_VMLINUX_LIBS := $(patsubst %/,%/lib.a, $(libs-y))
 endif
 

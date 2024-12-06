@@ -160,6 +160,11 @@ cmd = @$(if $(cmd_$(1)),set -e; $($(quiet)log_print) $(delete-on-interrupt) $(cm
 # if_changed_rule - as if_changed but execute rule instead
 # See Documentation/kbuild/makefiles.rst for more info
 
+# 控制是否生成 .cmd 文件中的命令依赖项, 默认为 0
+# 每个目标文件(比如: .o 文件)都生成一个对应的 .cmd 文件, 用于记录以下信息:
+#  - 构建目标的命令
+#  - 构建目标的依赖文件(如源文件和头文件)
+# 目的是确保在构建过程中, 如果构建命令本身发生变化(如:优先级改变), 可以重新生成目标文件.
 ifneq ($(KBUILD_NOCMDDEP),1)
 # Check if both commands are the same including their order. Result is empty
 # string if equal. User may override this check using make KBUILD_NOCMDDEP=1
@@ -169,6 +174,7 @@ ifneq ($(KBUILD_NOCMDDEP),1)
 cmd-check = $(filter-out $(subst $(space),$(space_escape),$(strip $(savedcmd_$@))), \
                          $(subst $(space),$(space_escape),$(strip $(cmd_$1))))
 else
+# 默认行为
 # We still need to detect missing targets.
 cmd-check = $(if $(strip $(savedcmd_$@)),,1)
 endif
