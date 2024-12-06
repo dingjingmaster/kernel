@@ -410,6 +410,11 @@ cmd_modules_builtin = \
 cmd_objcopy = \
     $(OBJCOPY) $(OBJCOPYFLAGS) $(OBJCOPYFLAGS_$(@F)) $< $@
 
+# 生成链接脚本
+cmd_gen_initcalls_lds = \
+    $(PYTHON3) $(srctree)/scripts/jobserver-exec \
+    $(PERL) $(real-prereqs) > $@
+
 # 此目标为：vmlinux.o
 # 依赖: $(initcalls-lds) vmlinux.a $(KBUILD_VMLINUX_LIBS)
 # 这段代码是Linux内核构建过程中生成vmlinux文件的链接指令, 它描述了 cmd_ld_vmlinux.o 的功能和目的。
