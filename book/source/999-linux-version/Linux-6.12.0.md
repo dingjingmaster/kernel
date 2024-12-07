@@ -414,6 +414,16 @@ cmd_objcopy = \
 cmd_gen_initcalls_lds = \
     $(PYTHON3) $(srctree)/scripts/jobserver-exec \
     $(PERL) $(real-prereqs) > $@
+# 等价于
+cmd_gen_initcalls_lds = \
+    python3 $(srctree)/scripts/jobserver-exec \
+    perl $^ $@
+
+# .tmp_initcalls.lds 生成命令: 
+# python3 $(srctree)/scripts/jobserver-exec perl \
+    $(srctree)/scripts/generate_initcall_order.pl \
+    vmlinux.a *.a \
+    > .tmp_initcalls.lds
 
 # 此目标为：vmlinux.o
 # 依赖: $(initcalls-lds) vmlinux.a $(KBUILD_VMLINUX_LIBS)
