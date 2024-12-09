@@ -450,3 +450,29 @@ cmd_ld_vmlinux.o = \
 3. 提高内核可靠性, 借助 objtool, 在构建过程中自动验证目标文件, 避免潜在的链接错误或运行时问题.
 4. 支持自定义与扩展, 通过KBUILD_*和vmlinux.a等机制, 构建过程具备高度的灵活性, 允许开发者根据需求定制内核.
 
+##### vmlinux
+
+```
+vmlinux: private vmlinux.o $(KBUILD_LDS) modpost
+    make -f $(srctree)/scripts/Makefile.vmlinux
+
+# $(srctree)/scripts/Makefile.vmlinux
+# KBUILD_LDS = arch/x86/kernel/vmlinux.lds
+# KBUILD_LDFLAGS = .... 源码目录 grep 查看
+# ARCH_POSTLINK = $(srctree)/arch/x86/Makefile.postlink
+vmlinux: scripts/link-vmlinux.sh vmlinux.o $(KBUILD_LDS)
+    $< ld $(KBUILD_LDFLAGS) $(LDFLAGS_vmlinux); \
+    $(if $(ARCH_POSTLINK), make -f $(ARCH_POSTLINK) $@, true)
+
+# postlink 中执行的命令(按需执行)
+```
+#### bzImage
+
+```
+bzImage: vmlinux
+    make -f $(srctree)/scripts/Makefile.build obj=arch/x86/boot arch/x86/boot/bzImage
+    mkdir -p $(objtree)/arch/x86_64/boot
+    ln -fsn ../../x86/boot/bzImage $(objtree)/arch/x86_64/boot/bzImage
+
+# bzImage生成的主要操作
+```
