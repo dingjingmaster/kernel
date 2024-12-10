@@ -12,6 +12,7 @@ Linux Kernel(基于X86_64)
 
     800-Filesystem/index.rst
     900-assembly/index.rst
+    994-headers/index.rst
     995-modules/index.rst
     996-about-makefile/index.rst
     997-about-others/index.rst
