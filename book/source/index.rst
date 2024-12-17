@@ -10,6 +10,7 @@ Linux Kernel(基于X86_64)
     :maxdepth: 3
     :caption: 目录
 
+    000-concepts/index.rst
     800-Filesystem/index.rst
     900-assembly/index.rst
     994-headers/index.rst
