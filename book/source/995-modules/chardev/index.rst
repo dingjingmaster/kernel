@@ -7,3 +7,4 @@
 
     0000-chardev.md
     0001-read-chardev.md
+    0002-read-write-chardev.md
