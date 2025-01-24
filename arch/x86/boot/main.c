@@ -22,10 +22,17 @@ struct port_io_ops pio_ops;
 char *HEAP = _end;
 char *heap_end = _end;		/* Default end of heap = no heap */
 
-/*
+/**
  * Copy the header into the boot parameter block.  Since this
  * screws up the old-style command line protocol, adjust by
  * filling in the new-style command line pointer instead.
+ *
+ * 复制引导头和命令行参数：
+ *	旧版命令行参数使用特定的结构体(如: old_cmdline)来存储参数
+ *	新版命令行参数直接通过boot_params.hdr.cmd_line_ptr传递，以字符串形式存储
+ *
+ *	boot_params.hdr
+ *	boot_params.hdr.cmd_line_ptr
  */
 static void copy_boot_params(void)
 {
@@ -35,9 +42,25 @@ static void copy_boot_params(void)
 	};
 	const struct old_cmdline * const oldcmd = absolute_pointer(OLD_CL_ADDRESS);
 
+	/**
+	 * <root>/include/linux/build_bug.h
+	 * 条件不满足输出编译错误: compiletime_assert(cond, msg)
+	 * 在 <root>/tools/include/linux/compoler.h 中定义: compiletime_assert()
+	 */
 	BUILD_BUG_ON(sizeof(boot_params) != 4096);
 	memcpy(&boot_params.hdr, &hdr, sizeof(hdr));
 
+	/**
+	 * 检查和处理引导程序(如:GRUB)传递过来的命令行参数
+	 *
+	 * boot_params 结构体，用于存储从引导加载程序传递过来的启动参数
+	 * hdr是boot_params中的一个子结构体，通常表示引导头(boot header)
+	 * cmd_line_ptr 是指向内核命令行参数的指针。它是一个物理地址，指向引导加载程序传递给内核的命令行字符串
+	 *
+	 * oldcmd 是一个指向旧版命令行参数结构的指针
+	 * cl_magic 是该结构中的一个字段，通常用于标识该结构的类型或版本
+	 * OLD_CL_MAGIC 是一个预定义的常量，用于验证oldcmd是否是合法的旧版本命令行参数结构
+	 */
 	if (!boot_params.hdr.cmd_line_ptr && oldcmd->cl_magic == OLD_CL_MAGIC) {
 		/* Old-style command line protocol */
 		u16 cmdline_seg;
@@ -47,10 +70,12 @@ static void copy_boot_params(void)
 		 * of memory that an old kernel would have copied up
 		 * to 0x90000...
 		 */
-		if (oldcmd->cl_offset < boot_params.hdr.setup_move_size)
+		if (oldcmd->cl_offset < boot_params.hdr.setup_move_size) {
 			cmdline_seg = ds();
-		else
+		}
+		else {
 			cmdline_seg = 0x9000;
+		}
 
 		boot_params.hdr.cmd_line_ptr = (cmdline_seg << 4) + oldcmd->cl_offset;
 	}
@@ -132,21 +157,21 @@ static void init_heap(void)
 
 void main(void)
 {
-	init_default_io_ops();
+	init_default_io_ops();			// io.h --> asm/shared/io.h 中, 定义 inb、outb、outw 三个IO操作, 封装了 in out outw 汇编指令
 
 	/* First, copy the boot header into the "zeropage" */
-	copy_boot_params();
+	copy_boot_params();				// 复制GRUB传入的命令行参数
 
 	/* Initialize the early-boot console */
-	console_init();
+	console_init();					// <src>/arch/x86/boot/early_serial_console.c, 根据命令行 earlyprintk, serial, ttyS 或 console, uart8250,uart,io 配置输出日志
 	if (cmdline_find_option_bool("debug"))
 		puts("early console in setup code\n");
 
 	/* End of heap check */
-	init_heap();
+	init_heap();					//
 
 	/* Make sure we have all the proper CPU support */
-	if (validate_cpu()) {
+	if (validate_cpu()) {			// <src>/arch/x86/boot/cpu.c
 		puts("Unable to boot - please use a kernel appropriate for your CPU.\n");
 		die();
 	}

@@ -52,7 +52,7 @@
  *  };
  */
 /**
- * 实现了函数：
+ * 实现了函数(在 boot.h 中定义)：
  *	void intcall(u8 int_no, const struct biosregs* ireg, struct biosregs* oreg);
  *  C 调用 intcall 时候 EAX、EDX和ECX分别是 int_no、ireg和oreg
  */
