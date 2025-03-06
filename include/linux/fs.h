@@ -2536,13 +2536,14 @@ int sync_inode_metadata(struct inode *inode, int wait);
 struct file_system_type {
 	const char *name;
 	int fs_flags;
-#define FS_REQUIRES_DEV		1 
-#define FS_BINARY_MOUNTDATA	2
-#define FS_HAS_SUBTYPE		4
-#define FS_USERNS_MOUNT		8	/* Can be mounted by userns root */
+#define FS_REQUIRES_DEV		1	// 文件系统必须在物理设备上面
+#define FS_BINARY_MOUNTDATA	2	// mount文件系统需要使用二进制数据结构的mount data
+#define FS_HAS_SUBTYPE		4	// 文件系统含有子类型（fuse）
+#define FS_USERNS_MOUNT		8	// 文件系统每次挂载都有不同的user namespace，比如：devpts /* Can be mounted by userns root */
 #define FS_DISALLOW_NOTIFY_PERM	16	/* Disable fanotify permission events */
 #define FS_ALLOW_IDMAP         32      /* FS has been updated to handle vfs idmappings. */
-#define FS_RENAME_DOES_D_MOVE	32768	/* FS will handle d_move() during rename() internally. */
+#define FS_RENAME_DOES_D_MOVE	32768	// 文件系统将把重命名操作rename()直接按照移动操作d_move来处理
+										// FS will handle d_move() during rename() internally.
 	int (*init_fs_context)(struct fs_context *);
 	const struct fs_parameter_spec *parameters;
 	struct dentry *(*mount) (struct file_system_type *, int,

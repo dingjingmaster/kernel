@@ -190,12 +190,12 @@ static inline struct ext2_sb_info *EXT2_SB(struct super_block *sb)
  */
 struct ext2_group_desc
 {
-	__le32	bg_block_bitmap;		/* Blocks bitmap block */
-	__le32	bg_inode_bitmap;		/* Inodes bitmap block */
-	__le32	bg_inode_table;		/* Inodes table block */
-	__le16	bg_free_blocks_count;	/* Free blocks count */
-	__le16	bg_free_inodes_count;	/* Free inodes count */
-	__le16	bg_used_dirs_count;	/* Directories count */
+	__le32	bg_block_bitmap;		/* 块位图块 Blocks bitmap block */
+	__le32	bg_inode_bitmap;		/* inode位图块 Inodes bitmap block */
+	__le32	bg_inode_table;		/* inode表块 Inodes table block */
+	__le16	bg_free_blocks_count;	/* 空闲块数 Free blocks count */
+	__le16	bg_free_inodes_count;	/* 空闲inode数 Free inodes count */
+	__le16	bg_used_dirs_count;	/* 目录数目 Directories count */
 	__le16	bg_pad;
 	__le32	bg_reserved[3];
 };
@@ -289,16 +289,16 @@ static inline __u32 ext2_mask_flags(umode_t mode, __u32 flags)
  */
 struct ext2_inode {
 	__le16	i_mode;		/* File mode */
-	__le16	i_uid;		/* Low 16 bits of Owner Uid */
-	__le32	i_size;		/* Size in bytes */
+	__le16	i_uid;		/* 所有者UID的低16位 Low 16 bits of Owner Uid */
+	__le32	i_size;		/* 文件长度，按字节计算 Size in bytes */
 	__le32	i_atime;	/* Access time */
 	__le32	i_ctime;	/* Creation time */
 	__le32	i_mtime;	/* Modification time */
 	__le32	i_dtime;	/* Deletion Time */
-	__le16	i_gid;		/* Low 16 bits of Group Id */
-	__le16	i_links_count;	/* Links count */
-	__le32	i_blocks;	/* Blocks count */
-	__le32	i_flags;	/* File flags */
+	__le16	i_gid;		/* 所有者GID低16位 Low 16 bits of Group Id */
+	__le16	i_links_count;	/* 链接计数 Links count */
+	__le32	i_blocks;	/* 块数目 Blocks count */
+	__le32	i_flags;	/* 文件标志 File flags */
 	union {
 		struct {
 			__le32  l_i_reserved1;
@@ -309,12 +309,12 @@ struct ext2_inode {
 		struct {
 			__le32  m_i_reserved1;
 		} masix1;
-	} osd1;				/* OS dependent 1 */
-	__le32	i_block[EXT2_N_BLOCKS];/* Pointers to blocks */
-	__le32	i_generation;	/* File version (for NFS) */
-	__le32	i_file_acl;	/* File ACL */
-	__le32	i_dir_acl;	/* Directory ACL */
-	__le32	i_faddr;	/* Fragment address */
+	} osd1;				/* 特定操作系统的第一个联合 OS dependent 1 */
+	__le32	i_block[EXT2_N_BLOCKS];/* 块指针（块号） Pointers to blocks */
+	__le32	i_generation;	/* 文件版本，用于NFS  File version (for NFS) */
+	__le32	i_file_acl;	/* 文件 ACL File ACL */
+	__le32	i_dir_acl;	/* 目录 ACL Directory ACL */
+	__le32	i_faddr;	/* 碎片地址 Fragment address */
 	union {
 		struct {
 			__u8	l_i_frag;	/* Fragment number */
@@ -410,29 +410,29 @@ struct ext2_inode {
 struct ext2_super_block {
 	__le32	s_inodes_count;		/* Inodes count */
 	__le32	s_blocks_count;		/* Blocks count */
-	__le32	s_r_blocks_count;	/* Reserved blocks count */
-	__le32	s_free_blocks_count;	/* Free blocks count */
-	__le32	s_free_inodes_count;	/* Free inodes count */
-	__le32	s_first_data_block;	/* First Data Block */
-	__le32	s_log_block_size;	/* Block size */
-	__le32	s_log_frag_size;	/* Fragment size */
-	__le32	s_blocks_per_group;	/* # Blocks per group */
-	__le32	s_frags_per_group;	/* # Fragments per group */
-	__le32	s_inodes_per_group;	/* # Inodes per group */
+	__le32	s_r_blocks_count;	/* 分配块的数目 Reserved blocks count */
+	__le32	s_free_blocks_count;	/* 空闲块数目 Free blocks count */
+	__le32	s_free_inodes_count;	/* 空闲 inode 数目 Free inodes count */
+	__le32	s_first_data_block;	/* 第一个数据库 First Data Block */
+	__le32	s_log_block_size;	/* 块长度 Block size */
+	__le32	s_log_frag_size;	/* 碎片长度 Fragment size */
+	__le32	s_blocks_per_group;	/* 每个块组包含块数 # Blocks per group */
+	__le32	s_frags_per_group;	/* 每个块组包含碎片 # Fragments per group */
+	__le32	s_inodes_per_group;	/* 每个块组的 inode 数目 # Inodes per group */
 	__le32	s_mtime;		/* Mount time */
 	__le32	s_wtime;		/* Write time */
 	__le16	s_mnt_count;		/* Mount count */
 	__le16	s_max_mnt_count;	/* Maximal mount count */
-	__le16	s_magic;		/* Magic signature */
-	__le16	s_state;		/* File system state */
-	__le16	s_errors;		/* Behaviour when detecting errors */
-	__le16	s_minor_rev_level; 	/* minor revision level */
-	__le32	s_lastcheck;		/* time of last check */
-	__le32	s_checkinterval;	/* max. time between checks */
-	__le32	s_creator_os;		/* OS */
-	__le32	s_rev_level;		/* Revision level */
-	__le16	s_def_resuid;		/* Default uid for reserved blocks */
-	__le16	s_def_resgid;		/* Default gid for reserved blocks */
+	__le16	s_magic;		/* 文件系统类型 Magic signature */
+	__le16	s_state;		/* 文件系统状态 File system state */
+	__le16	s_errors;		/* 检测到错误时候的行为 Behaviour when detecting errors */
+	__le16	s_minor_rev_level; 	/* 副修订号 minor revision level */
+	__le32	s_lastcheck;		/* 上一次检查的事件 time of last check */
+	__le32	s_checkinterval;	/* 两次检查允许间隔的最长事件 max. time between checks */
+	__le32	s_creator_os;		/* 创建文件系统的操作系统 OS */
+	__le32	s_rev_level;		/* 修订号 Revision level */
+	__le16	s_def_resuid;		/* 能够使用保留块的默认UID Default uid for reserved blocks */
+	__le16	s_def_resgid;		/* 能够使用保留块的默认GID Default gid for reserved blocks */
 	/*
 	 * These fields are for EXT2_DYNAMIC_REV superblocks only.
 	 *
@@ -446,21 +446,21 @@ struct ext2_super_block {
 	 * feature set, it must abort and not try to meddle with
 	 * things it doesn't understand...
 	 */
-	__le32	s_first_ino; 		/* First non-reserved inode */
-	__le16   s_inode_size; 		/* size of inode structure */
-	__le16	s_block_group_nr; 	/* block group # of this superblock */
-	__le32	s_feature_compat; 	/* compatible feature set */
-	__le32	s_feature_incompat; 	/* incompatible feature set */
-	__le32	s_feature_ro_compat; 	/* readonly-compatible feature set */
-	__u8	s_uuid[16];		/* 128-bit uuid for volume */
-	char	s_volume_name[16]; 	/* volume name */
-	char	s_last_mounted[64]; 	/* directory where last mounted */
-	__le32	s_algorithm_usage_bitmap; /* For compression */
+	__le32	s_first_ino; 		/* 第一个非保留的inode First non-reserved inode */
+	__le16   s_inode_size; 		/* inode结构的长度 size of inode structure */
+	__le16	s_block_group_nr; 	/* 当前超级块所在的块组编号 block group # of this superblock */
+	__le32	s_feature_compat; 	/* 兼容性集 compatible feature set */
+	__le32	s_feature_incompat; 	/* 不兼容特性集 incompatible feature set */
+	__le32	s_feature_ro_compat; 	/* 只读兼容特性 readonly-compatible feature set */
+	__u8	s_uuid[16];		/* 卷的128位UUID 128-bit uuid for volume */
+	char	s_volume_name[16]; 	/* 卷名 volume name */
+	char	s_last_mounted[64]; 	/* 上次装载的目录 directory where last mounted */
+	__le32	s_algorithm_usage_bitmap; /* 用于压缩 For compression */
 	/*
 	 * Performance hints.  Directory preallocation should only
 	 * happen if the EXT2_COMPAT_PREALLOC flag is on.
 	 */
-	__u8	s_prealloc_blocks;	/* Nr of blocks to try to preallocate*/
+	__u8	s_prealloc_blocks;	/* 试图预分配的块数 Nr of blocks to try to preallocate*/
 	__u8	s_prealloc_dir_blocks;	/* Nr to preallocate for dirs */
 	__u16	s_padding1;
 	/*
@@ -571,7 +571,8 @@ struct ext2_super_block {
 #define EXT3_DEFM_JMODE_ORDERED	0x0040
 #define EXT3_DEFM_JMODE_WBACK	0x0060
 
-/*
+/**
+ * @brief 目录结构
  * Structure of a directory entry
  */
 
@@ -582,17 +583,18 @@ struct ext2_dir_entry {
 	char	name[];			/* File name, up to EXT2_NAME_LEN */
 };
 
-/*
+/**
+ * @brief 目录结构
  * The new version of the directory entry.  Since EXT2 structures are
  * stored in intel byte order, and the name_len field could never be
  * bigger than 255 chars, it's safe to reclaim the extra byte for the
  * file_type field.
  */
 struct ext2_dir_entry_2 {
-	__le32	inode;			/* Inode number */
+	__le32	inode;			/* inode编号 Inode number */
 	__le16	rec_len;		/* Directory entry length */
 	__u8	name_len;		/* Name length */
-	__u8	file_type;
+	__u8	file_type; 		/* 文件类型 EXT2_FT_XXX */
 	char	name[];			/* File name, up to EXT2_NAME_LEN */
 };
 

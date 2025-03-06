@@ -114,6 +114,15 @@ extern struct vfsmount *kern_mount(struct file_system_type *);
 extern void kern_unmount(struct vfsmount *mnt);
 extern int may_umount_tree(struct vfsmount *);
 extern int may_umount(struct vfsmount *);
+
+/**
+ * @brief
+ * @param kernel_type：挂载文件系统的类型
+ * @param dir_name：挂载点的路径（用户态路径）
+ * @param kernel_dev：块设备名称
+ * @param options：选项信息
+ * @param flags：挂载选项
+ */
 extern long do_mount(const char *, const char __user *,
 		     const char *, unsigned long, void *);
 extern struct vfsmount *collect_mounts(const struct path *);

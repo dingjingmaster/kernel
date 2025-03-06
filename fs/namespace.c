@@ -4031,6 +4031,16 @@ struct dentry *mount_subtree(struct vfsmount *m, const char *name)
 }
 EXPORT_SYMBOL(mount_subtree);
 
+/**
+ * @brief 处理系统调用 mount 的函数
+ *	1. 调用user_path
+ *	2. 调用get_fs_type，很据文件系统类型名称查找file_system_type
+ *	3. 调用函数alloc_vfsmnt，分配挂载描述符
+ *	4. 调用文件系统的挂载方法，读取并解析超级块
+ *	5. 把挂载描述符添加到超级块的挂载实例链表中
+ *	6. 把挂载描述符加入散列表
+ *	7. 把挂载描述符加入父亲的孩子链表中
+ */
 SYSCALL_DEFINE5(mount, char __user *, dev_name, char __user *, dir_name,
 		char __user *, type, unsigned long, flags, void __user *, data)
 {

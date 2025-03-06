@@ -33,10 +33,10 @@ struct mountpoint {
 };
 
 struct mount {
-	struct hlist_node mnt_hash;
-	struct mount *mnt_parent;
-	struct dentry *mnt_mountpoint;
-	struct vfsmount mnt;
+	struct hlist_node mnt_hash;	// 用来挂载描述符加入全局散列表mount_hashtable，关键字是（父挂载描述符，挂载点）
+	struct mount *mnt_parent;	// 指向父亲，即文件系统1的mount实例
+	struct dentry *mnt_mountpoint;	// 指向挂载点的目录
+	struct vfsmount mnt;	// 指向文件系统2的根目录、指向文件系统2的超级块
 	union {
 		struct rcu_head mnt_rcu;
 		struct llist_node mnt_llist;
@@ -47,10 +47,10 @@ struct mount {
 	int mnt_count;
 	int mnt_writers;
 #endif
-	struct list_head mnt_mounts;	/* list of children, anchored here */
-	struct list_head mnt_child;	/* and going through their mnt_child */
-	struct list_head mnt_instance;	/* mount instance on sb->s_mounts */
-	const char *mnt_devname;	/* Name of device e.g. /dev/dsk/hda1 */
+	struct list_head mnt_mounts;	/* 子链表的头节点 list of children, anchored here */
+	struct list_head mnt_child;	/* 加入父亲的孩子链表 and going through their mnt_child */
+	struct list_head mnt_instance;	/* 把挂载描述符添加到超级块的挂载实例链表中，一个文件系统可以多次挂载  mount instance on sb->s_mounts */
+	const char *mnt_devname;	/* 存储设备的名称 Name of device e.g. /dev/dsk/hda1 */
 	union {
 		struct rb_node mnt_node;	/* Under ns->mounts */
 		struct list_head mnt_list;
@@ -60,8 +60,8 @@ struct mount {
 	struct list_head mnt_slave_list;/* list of slave mounts */
 	struct list_head mnt_slave;	/* slave list entry */
 	struct mount *mnt_master;	/* slave is on master->mnt_slave_list */
-	struct mnt_namespace *mnt_ns;	/* containing namespace */
-	struct mountpoint *mnt_mp;	/* where is it mounted */
+	struct mnt_namespace *mnt_ns;	/* 指向挂载命名空间 containing namespace */
+	struct mountpoint *mnt_mp;	/* 指向挂载点 where is it mounted */
 	union {
 		struct hlist_node mnt_mp_list;	/* list mounts with the same mountpoint */
 		struct hlist_node mnt_umount;
