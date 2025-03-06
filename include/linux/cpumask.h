@@ -118,11 +118,12 @@ extern struct cpumask __cpu_enabled_mask;
 extern struct cpumask __cpu_present_mask;
 extern struct cpumask __cpu_active_mask;
 extern struct cpumask __cpu_dying_mask;
-#define cpu_possible_mask ((const struct cpumask *)&__cpu_possible_mask)
-#define cpu_online_mask   ((const struct cpumask *)&__cpu_online_mask)
+
+#define cpu_possible_mask ((const struct cpumask *)&__cpu_possible_mask)	// 表示系统中有多少个可以执行的CPU核心
+#define cpu_online_mask   ((const struct cpumask *)&__cpu_online_mask)	// 表示系统中有多少个正在运行的CPU
 #define cpu_enabled_mask   ((const struct cpumask *)&__cpu_enabled_mask)
-#define cpu_present_mask  ((const struct cpumask *)&__cpu_present_mask)
-#define cpu_active_mask   ((const struct cpumask *)&__cpu_active_mask)
+#define cpu_present_mask  ((const struct cpumask *)&__cpu_present_mask)	// 表示系统中具备Online条件的核心，它们不一定都处于online，有的CPU核心可能被热插拔
+#define cpu_active_mask   ((const struct cpumask *)&__cpu_active_mask)	// 表示系统当中有多少个活跃的CPU核心
 #define cpu_dying_mask    ((const struct cpumask *)&__cpu_dying_mask)
 
 extern atomic_t __num_online_cpus;

@@ -584,21 +584,22 @@ struct sched_entity {
 #endif
 };
 
+// 表示实时调度的实体
 struct sched_rt_entity {
-	struct list_head		run_list;
-	unsigned long			timeout;
-	unsigned long			watchdog_stamp;
-	unsigned int			time_slice;
-	unsigned short			on_rq;
-	unsigned short			on_list;
+	struct list_head		run_list; // 专门用于加入到优先级队列中
+	unsigned long			timeout; // 设置时间超时
+	unsigned long			watchdog_stamp; // 用于记录jiffies值
+	unsigned int			time_slice; // 时间片
+	unsigned short			on_rq; //
+	unsigned short			on_list; //
 
-	struct sched_rt_entity		*back;
+	struct sched_rt_entity		*back; // 临时用于从上往下连接RT调度实体使用
 #ifdef CONFIG_RT_GROUP_SCHED
-	struct sched_rt_entity		*parent;
+	struct sched_rt_entity		*parent; // 指向父RT调度实体
 	/* rq on which this entity is (to be) queued: */
-	struct rt_rq			*rt_rq;
+	struct rt_rq			*rt_rq; // RT调度实体所属的实时运行队列，被调度
 	/* rq "owned" by this entity/group: */
-	struct rt_rq			*my_q;
+	struct rt_rq			*my_q; // RT 调度实体所拥有的实时运行队列，用于管理子任务或子组任务
 #endif
 } __randomize_layout;
 
