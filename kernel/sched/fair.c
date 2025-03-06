@@ -13564,20 +13564,21 @@ static unsigned int get_rr_interval_fair(struct rq *rq, struct task_struct *task
 	return rr_interval;
 }
 
-/*
+/**
+ * @brief 所有调度类方法
  * All the scheduling class methods:
  */
 DEFINE_SCHED_CLASS(fair) = {
 
-	.enqueue_task		= enqueue_task_fair,
-	.dequeue_task		= dequeue_task_fair,
-	.yield_task		= yield_task_fair,
+	.enqueue_task		= enqueue_task_fair, // 当任务进入可运行状态时候，用此函数将调度实体存放到红黑树中，完成入队操作
+	.dequeue_task		= dequeue_task_fair, // 当任务退出可运行状态时候，用词函数将调度实体从红黑树中移除，完成出队操作
+	.yield_task		= yield_task_fair, //
 	.yield_to_task		= yield_to_task_fair,
 
-	.wakeup_preempt		= check_preempt_wakeup_fair,
+	.wakeup_preempt		= check_preempt_wakeup_fair, //
 
 	.pick_task		= pick_task_fair,
-	.pick_next_task		= __pick_next_task_fair,
+	.pick_next_task		= __pick_next_task_fair, // 选择下一个要运行的基础南横
 	.put_prev_task		= put_prev_task_fair,
 	.set_next_task          = set_next_task_fair,
 

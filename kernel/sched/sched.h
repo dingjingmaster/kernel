@@ -661,9 +661,11 @@ struct cfs_rq {
 
 	struct rb_root_cached	tasks_timeline;
 
-	/*
+	/**
 	 * 'curr' points to currently running entity on this cfs_rq.
 	 * It is set to NULL otherwise (i.e when none are currently running).
+	 *
+	 * sched_entity 可被内核调度的实体
 	 */
 	struct sched_entity	*curr;
 	struct sched_entity	*next;
@@ -2375,15 +2377,16 @@ struct affinity_context {
 
 extern s64 update_curr_common(struct rq *rq);
 
+// 调度类结构体
 struct sched_class {
 
 #ifdef CONFIG_UCLAMP_TASK
 	int uclamp_enabled;
 #endif
 
-	void (*enqueue_task) (struct rq *rq, struct task_struct *p, int flags);
-	bool (*dequeue_task) (struct rq *rq, struct task_struct *p, int flags);
-	void (*yield_task)   (struct rq *rq);
+	void (*enqueue_task) (struct rq *rq, struct task_struct *p, int flags); // 将进程加入到执行队列中，即将调度实体（进程）存放到红黑树当中，并对 nr_running变量自动加1
+	bool (*dequeue_task) (struct rq *rq, struct task_struct *p, int flags); // 从执行队列中删除进程，并对 nr_running变量自动减1
+	void (*yield_task)   (struct rq *rq); // 放弃CPU的执行权限，实际上此函数执行先出对后入队，在这种情况下它直接将调度实体存放在红黑树的最右端
 	bool (*yield_to_task)(struct rq *rq, struct task_struct *p);
 
 	void (*wakeup_preempt)(struct rq *rq, struct task_struct *p, int flags);
@@ -2399,22 +2402,22 @@ struct sched_class {
 	 *       set_next_task_first(next);
 	 *   }
 	 */
-	struct task_struct *(*pick_next_task)(struct rq *rq, struct task_struct *prev);
+	struct task_struct *(*pick_next_task)(struct rq *rq, struct task_struct *prev);	// 选择下一个要运行的进程
 
-	void (*put_prev_task)(struct rq *rq, struct task_struct *p, struct task_struct *next);
-	void (*set_next_task)(struct rq *rq, struct task_struct *p, bool first);
+	void (*put_prev_task)(struct rq *rq, struct task_struct *p, struct task_struct *next); // 进程放回到运行队列中
+	void (*set_next_task)(struct rq *rq, struct task_struct *p, bool first); // 将进程放回到运行队列中
 
 #ifdef CONFIG_SMP
-	int  (*select_task_rq)(struct task_struct *p, int task_cpu, int flags);
+	int  (*select_task_rq)(struct task_struct *p, int task_cpu, int flags); // 为进程选择一个何时的CPU
 
-	void (*migrate_task_rq)(struct task_struct *p, int new_cpu);
+	void (*migrate_task_rq)(struct task_struct *p, int new_cpu); // 迁移任务到另一个CPU
 
-	void (*task_woken)(struct rq *this_rq, struct task_struct *task);
+	void (*task_woken)(struct rq *this_rq, struct task_struct *task); // 专门用于唤醒进程
 
-	void (*set_cpus_allowed)(struct task_struct *p, struct affinity_context *ctx);
+	void (*set_cpus_allowed)(struct task_struct *p, struct affinity_context *ctx); // 修改进程在CPU的亲和力
 
-	void (*rq_online)(struct rq *rq);
-	void (*rq_offline)(struct rq *rq);
+	void (*rq_online)(struct rq *rq); // 启动运行队列
+	void (*rq_offline)(struct rq *rq); // 禁止运行队列
 
 	struct rq *(*find_lock_rq)(struct task_struct *p, struct rq *rq);
 #endif
