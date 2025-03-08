@@ -135,54 +135,55 @@ static int is_borrowed_book(int id)
 
 static int return_book(int id, int async)
 {
-        struct Book *b = NULL;
-        struct Book *new_b = NULL;
-        struct Book *old_b = NULL;
+    struct Book *b = NULL;
+    struct Book *new_b = NULL;
+    struct Book *old_b = NULL;
 
-        rcu_read_lock();
+    rcu_read_lock();
 
-        list_for_each_entry(b, &books, node) {
-                if(b->id == id) {
-                        if(!b->borrow) {
-                                rcu_read_unlock();
-                                return -1;
-                        }
-
-                        old_b = b;
-                        break;
-                }
-        }
-
-        if(!old_b) {
+    list_for_each_entry(b, &books, node) {
+        if(b->id == id) {
+            if(!b->borrow) {
                 rcu_read_unlock();
                 return -1;
+            }
+
+            old_b = b;
+            break;
         }
+    }
 
-        new_b = kzalloc(sizeof(struct Book), GFP_ATOMIC);
-        if(!new_b) {
-                rcu_read_unlock();
-                return -1;
-        }
-
-        memcpy(new_b, old_b, sizeof(struct Book));
-        new_b->borrow = 0;
-
-        spin_lock(&booksLock);
-        list_replace_rcu(&old_b->node, &new_b->node);
-        spin_unlock(&booksLock);
-
+    if(!old_b) {
         rcu_read_unlock();
+        return -1;
+    }
 
-        if (async) {
-                call_rcu(&old_b->rcu, book_reclaim_callback);
-        }
-        else {
-                synchronize_rcu();
-                kfree(old_b);
-        }
+    new_b = kzalloc(sizeof(struct Book), GFP_ATOMIC);
+    if(!new_b) {
+        rcu_read_unlock();
+        return -1;
+    }
 
-        pr_info("return success %d, preempt_count : %d\n", id, preempt_count());
-        return 0;
+    memcpy(new_b, old_b, sizeof(struct Book));
+    new_b->borrow = 0;
+
+    spin_lock(&booksLock);
+    list_replace_rcu(&old_b->node, &new_b->node);
+    spin_unlock(&booksLock);
+
+    rcu_read_unlock();
+
+    if (async) {
+        call_rcu(&old_b->rcu, book_reclaim_callback);
+    }
+    else {
+        synchronize_rcu();
+        kfree(old_b);
+    }
+
+    pr_info("return success %d, preempt_count : %d\n", id, preempt_count());
+
+    return 0;
 }
 
 static void delete_book(int id, int async)
