@@ -4,9 +4,10 @@
 
 struct sem_undo_list;
 
-struct sysv_sem {
+struct sysv_sem
+{
 #ifdef CONFIG_SYSVIPC
-	struct sem_undo_list *undo_list;
+    struct sem_undo_list* undo_list;
 #endif
 };
 

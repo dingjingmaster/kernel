@@ -38,53 +38,51 @@
  */
 #define KCSAN_SEQLOCK_REGION_MAX 1000
 
-static inline void __seqcount_init(seqcount_t *s, const char *name,
-					  struct lock_class_key *key)
+static inline void __seqcount_init (seqcount_t* s, const char* name, struct lock_class_key* key)
 {
-	/*
+    /*
 	 * Make sure we are not reinitializing a held lock:
 	 */
-	lockdep_init_map(&s->dep_map, name, key, 0);
-	s->sequence = 0;
+    lockdep_init_map (&s->dep_map, name, key, 0);
+    s->sequence = 0;
 }
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 
-# define SEQCOUNT_DEP_MAP_INIT(lockname)				\
-		.dep_map = { .name = #lockname }
+#define SEQCOUNT_DEP_MAP_INIT(lockname) .dep_map = {.name = #lockname}
 
 /**
  * seqcount_init() - runtime initializer for seqcount_t
  * @s: Pointer to the seqcount_t instance
  */
-# define seqcount_init(s)						\
-	do {								\
-		static struct lock_class_key __key;			\
-		__seqcount_init((s), #s, &__key);			\
-	} while (0)
+#define seqcount_init(s)                    \
+    do {                                    \
+        static struct lock_class_key __key; \
+        __seqcount_init ((s), #s, &__key);  \
+    } while (0)
 
-static inline void seqcount_lockdep_reader_access(const seqcount_t *s)
+static inline void seqcount_lockdep_reader_access (const seqcount_t* s)
 {
-	seqcount_t *l = (seqcount_t *)s;
-	unsigned long flags;
+    seqcount_t*   l = (seqcount_t*)s;
+    unsigned long flags;
 
-	local_irq_save(flags);
-	seqcount_acquire_read(&l->dep_map, 0, 0, _RET_IP_);
-	seqcount_release(&l->dep_map, _RET_IP_);
-	local_irq_restore(flags);
+    local_irq_save (flags);
+    seqcount_acquire_read (&l->dep_map, 0, 0, _RET_IP_);
+    seqcount_release (&l->dep_map, _RET_IP_);
+    local_irq_restore (flags);
 }
 
 #else
-# define SEQCOUNT_DEP_MAP_INIT(lockname)
-# define seqcount_init(s) __seqcount_init(s, NULL, NULL)
-# define seqcount_lockdep_reader_access(x)
+#define SEQCOUNT_DEP_MAP_INIT(lockname)
+#define seqcount_init(s) __seqcount_init (s, NULL, NULL)
+#define seqcount_lockdep_reader_access(x)
 #endif
 
 /**
  * SEQCNT_ZERO() - static initializer for seqcount_t
  * @name: Name of the seqcount_t instance
  */
-#define SEQCNT_ZERO(name) { .sequence = 0, SEQCOUNT_DEP_MAP_INIT(name) }
+#define SEQCNT_ZERO(name) {.sequence = 0, SEQCOUNT_DEP_MAP_INIT (name)}
 
 /*
  * Sequence counters with associated locks (seqcount_LOCKNAME_t)
@@ -120,17 +118,17 @@ static inline void seqcount_lockdep_reader_access(const seqcount_t *s)
  * @lock:	Pointer to the associated lock
  */
 
-#define seqcount_LOCKNAME_init(s, _lock, lockname)			\
-	do {								\
-		seqcount_##lockname##_t *____s = (s);			\
-		seqcount_init(&____s->seqcount);			\
-		__SEQ_LOCK(____s->lock = (_lock));			\
-	} while (0)
+#define seqcount_LOCKNAME_init(s, _lock, lockname) \
+    do {                                           \
+        seqcount_##lockname##_t* ____s = (s);      \
+        seqcount_init (&____s->seqcount);          \
+        __SEQ_LOCK (____s->lock = (_lock));        \
+    } while (0)
 
-#define seqcount_raw_spinlock_init(s, lock)	seqcount_LOCKNAME_init(s, lock, raw_spinlock)
-#define seqcount_spinlock_init(s, lock)		seqcount_LOCKNAME_init(s, lock, spinlock)
-#define seqcount_rwlock_init(s, lock)		seqcount_LOCKNAME_init(s, lock, rwlock)
-#define seqcount_mutex_init(s, lock)		seqcount_LOCKNAME_init(s, lock, mutex)
+#define seqcount_raw_spinlock_init(s, lock) seqcount_LOCKNAME_init (s, lock, raw_spinlock)
+#define seqcount_spinlock_init(s, lock) seqcount_LOCKNAME_init (s, lock, spinlock)
+#define seqcount_rwlock_init(s, lock) seqcount_LOCKNAME_init (s, lock, rwlock)
+#define seqcount_mutex_init(s, lock) seqcount_LOCKNAME_init (s, lock, mutex)
 
 /*
  * SEQCOUNT_LOCKNAME()	- Instantiate seqcount_LOCKNAME_t and helpers
@@ -141,92 +139,87 @@ static inline void seqcount_lockdep_reader_access(const seqcount_t *s)
  * @preemptible:	preemptibility of above locktype
  * @lockbase:		prefix for associated lock/unlock
  */
-#define SEQCOUNT_LOCKNAME(lockname, locktype, preemptible, lockbase)	\
-static __always_inline seqcount_t *					\
-__seqprop_##lockname##_ptr(seqcount_##lockname##_t *s)			\
-{									\
-	return &s->seqcount;						\
-}									\
-									\
-static __always_inline const seqcount_t *				\
-__seqprop_##lockname##_const_ptr(const seqcount_##lockname##_t *s)	\
-{									\
-	return &s->seqcount;						\
-}									\
-									\
-static __always_inline unsigned						\
-__seqprop_##lockname##_sequence(const seqcount_##lockname##_t *s)	\
-{									\
-	unsigned seq = smp_load_acquire(&s->seqcount.sequence);		\
-									\
-	if (!IS_ENABLED(CONFIG_PREEMPT_RT))				\
-		return seq;						\
-									\
-	if (preemptible && unlikely(seq & 1)) {				\
-		__SEQ_LOCK(lockbase##_lock(s->lock));			\
-		__SEQ_LOCK(lockbase##_unlock(s->lock));			\
-									\
-		/*							\
+#define SEQCOUNT_LOCKNAME(lockname, locktype, preemptible, lockbase)                                             \
+    static __always_inline seqcount_t* __seqprop_##lockname##_ptr (seqcount_##lockname##_t* s)                   \
+    {                                                                                                            \
+        return &s->seqcount;                                                                                     \
+    }                                                                                                            \
+                                                                                                                 \
+    static __always_inline const seqcount_t* __seqprop_##lockname##_const_ptr (const seqcount_##lockname##_t* s) \
+    {                                                                                                            \
+        return &s->seqcount;                                                                                     \
+    }                                                                                                            \
+                                                                                                                 \
+    static __always_inline unsigned __seqprop_##lockname##_sequence (const seqcount_##lockname##_t* s)           \
+    {                                                                                                            \
+        unsigned seq = smp_load_acquire (&s->seqcount.sequence);                                                 \
+                                                                                                                 \
+        if (!IS_ENABLED (CONFIG_PREEMPT_RT))                                                                     \
+            return seq;                                                                                          \
+                                                                                                                 \
+        if (preemptible && unlikely (seq & 1)) {                                                                 \
+            __SEQ_LOCK (lockbase##_lock (s->lock));                                                              \
+            __SEQ_LOCK (lockbase##_unlock (s->lock));                                                            \
+                                                                                                                 \
+            /*							\
 		 * Re-read the sequence counter since the (possibly	\
 		 * preempted) writer made progress.			\
-		 */							\
-		seq = smp_load_acquire(&s->seqcount.sequence);		\
-	}								\
-									\
-	return seq;							\
-}									\
-									\
-static __always_inline bool						\
-__seqprop_##lockname##_preemptible(const seqcount_##lockname##_t *s)	\
-{									\
-	if (!IS_ENABLED(CONFIG_PREEMPT_RT))				\
-		return preemptible;					\
-									\
-	/* PREEMPT_RT relies on the above LOCK+UNLOCK */		\
-	return false;							\
-}									\
-									\
-static __always_inline void						\
-__seqprop_##lockname##_assert(const seqcount_##lockname##_t *s)		\
-{									\
-	__SEQ_LOCK(lockdep_assert_held(s->lock));			\
-}
+		 */                                                                                           \
+            seq = smp_load_acquire (&s->seqcount.sequence);                                                      \
+        }                                                                                                        \
+                                                                                                                 \
+        return seq;                                                                                              \
+    }                                                                                                            \
+                                                                                                                 \
+    static __always_inline bool __seqprop_##lockname##_preemptible (const seqcount_##lockname##_t* s)            \
+    {                                                                                                            \
+        if (!IS_ENABLED (CONFIG_PREEMPT_RT))                                                                     \
+            return preemptible;                                                                                  \
+                                                                                                                 \
+        /* PREEMPT_RT relies on the above LOCK+UNLOCK */                                                         \
+        return false;                                                                                            \
+    }                                                                                                            \
+                                                                                                                 \
+    static __always_inline void __seqprop_##lockname##_assert (const seqcount_##lockname##_t* s)                 \
+    {                                                                                                            \
+        __SEQ_LOCK (lockdep_assert_held (s->lock));                                                              \
+    }
 
 /*
  * __seqprop() for seqcount_t
  */
 
-static inline seqcount_t *__seqprop_ptr(seqcount_t *s)
+static inline seqcount_t* __seqprop_ptr (seqcount_t* s)
 {
-	return s;
+    return s;
 }
 
-static inline const seqcount_t *__seqprop_const_ptr(const seqcount_t *s)
+static inline const seqcount_t* __seqprop_const_ptr (const seqcount_t* s)
 {
-	return s;
+    return s;
 }
 
-static inline unsigned __seqprop_sequence(const seqcount_t *s)
+static inline unsigned __seqprop_sequence (const seqcount_t* s)
 {
-	return smp_load_acquire(&s->sequence);
+    return smp_load_acquire (&s->sequence);
 }
 
-static inline bool __seqprop_preemptible(const seqcount_t *s)
+static inline bool __seqprop_preemptible (const seqcount_t* s)
 {
-	return false;
+    return false;
 }
 
-static inline void __seqprop_assert(const seqcount_t *s)
+static inline void __seqprop_assert (const seqcount_t* s)
 {
-	lockdep_assert_preemption_disabled();
+    lockdep_assert_preemption_disabled ();
 }
 
-#define __SEQ_RT	IS_ENABLED(CONFIG_PREEMPT_RT)
+#define __SEQ_RT IS_ENABLED (CONFIG_PREEMPT_RT)
 
-SEQCOUNT_LOCKNAME(raw_spinlock, raw_spinlock_t,  false,    raw_spin)
-SEQCOUNT_LOCKNAME(spinlock,     spinlock_t,      __SEQ_RT, spin)
-SEQCOUNT_LOCKNAME(rwlock,       rwlock_t,        __SEQ_RT, read)
-SEQCOUNT_LOCKNAME(mutex,        struct mutex,    true,     mutex)
+SEQCOUNT_LOCKNAME (raw_spinlock, raw_spinlock_t, false, raw_spin)
+SEQCOUNT_LOCKNAME (spinlock, spinlock_t, __SEQ_RT, spin)
+SEQCOUNT_LOCKNAME (rwlock, rwlock_t, __SEQ_RT, read)
+SEQCOUNT_LOCKNAME (mutex, struct mutex, true, mutex)
 #undef SEQCOUNT_LOCKNAME
 
 /*
@@ -235,32 +228,29 @@ SEQCOUNT_LOCKNAME(mutex,        struct mutex,    true,     mutex)
  * @lock:	Pointer to the associated LOCKNAME
  */
 
-#define SEQCOUNT_LOCKNAME_ZERO(seq_name, assoc_lock) {			\
-	.seqcount		= SEQCNT_ZERO(seq_name.seqcount),	\
-	__SEQ_LOCK(.lock	= (assoc_lock))				\
-}
+#define SEQCOUNT_LOCKNAME_ZERO(seq_name, assoc_lock) {.seqcount = SEQCNT_ZERO (seq_name.seqcount), __SEQ_LOCK (.lock = (assoc_lock))}
 
-#define SEQCNT_RAW_SPINLOCK_ZERO(name, lock)	SEQCOUNT_LOCKNAME_ZERO(name, lock)
-#define SEQCNT_SPINLOCK_ZERO(name, lock)	SEQCOUNT_LOCKNAME_ZERO(name, lock)
-#define SEQCNT_RWLOCK_ZERO(name, lock)		SEQCOUNT_LOCKNAME_ZERO(name, lock)
-#define SEQCNT_MUTEX_ZERO(name, lock)		SEQCOUNT_LOCKNAME_ZERO(name, lock)
-#define SEQCNT_WW_MUTEX_ZERO(name, lock) 	SEQCOUNT_LOCKNAME_ZERO(name, lock)
+#define SEQCNT_RAW_SPINLOCK_ZERO(name, lock) SEQCOUNT_LOCKNAME_ZERO (name, lock)
+#define SEQCNT_SPINLOCK_ZERO(name, lock) SEQCOUNT_LOCKNAME_ZERO (name, lock)
+#define SEQCNT_RWLOCK_ZERO(name, lock) SEQCOUNT_LOCKNAME_ZERO (name, lock)
+#define SEQCNT_MUTEX_ZERO(name, lock) SEQCOUNT_LOCKNAME_ZERO (name, lock)
+#define SEQCNT_WW_MUTEX_ZERO(name, lock) SEQCOUNT_LOCKNAME_ZERO (name, lock)
 
-#define __seqprop_case(s, lockname, prop)				\
-	seqcount_##lockname##_t: __seqprop_##lockname##_##prop
+#define __seqprop_case(s, lockname, prop) seqcount_##lockname##_t : __seqprop_##lockname##_##prop
 
-#define __seqprop(s, prop) _Generic(*(s),				\
-	seqcount_t:		__seqprop_##prop,			\
-	__seqprop_case((s),	raw_spinlock,	prop),			\
-	__seqprop_case((s),	spinlock,	prop),			\
-	__seqprop_case((s),	rwlock,		prop),			\
-	__seqprop_case((s),	mutex,		prop))
+#define __seqprop(s, prop)                            \
+    _Generic (*(s),                                   \
+            seqcount_t: __seqprop_##prop,             \
+            __seqprop_case ((s), raw_spinlock, prop), \
+            __seqprop_case ((s), spinlock, prop),     \
+            __seqprop_case ((s), rwlock, prop),       \
+            __seqprop_case ((s), mutex, prop))
 
-#define seqprop_ptr(s)			__seqprop(s, ptr)(s)
-#define seqprop_const_ptr(s)		__seqprop(s, const_ptr)(s)
-#define seqprop_sequence(s)		__seqprop(s, sequence)(s)
-#define seqprop_preemptible(s)		__seqprop(s, preemptible)(s)
-#define seqprop_assert(s)		__seqprop(s, assert)(s)
+#define seqprop_ptr(s) __seqprop (s, ptr) (s)
+#define seqprop_const_ptr(s) __seqprop (s, const_ptr) (s)
+#define seqprop_sequence(s) __seqprop (s, sequence) (s)
+#define seqprop_preemptible(s) __seqprop (s, preemptible) (s)
+#define seqprop_assert(s) __seqprop (s, assert) (s)
 
 /**
  * __read_seqcount_begin() - begin a seqcount_t read section
@@ -268,16 +258,16 @@ SEQCOUNT_LOCKNAME(mutex,        struct mutex,    true,     mutex)
  *
  * Return: count to be passed to read_seqcount_retry()
  */
-#define __read_seqcount_begin(s)					\
-({									\
-	unsigned __seq;							\
-									\
-	while ((__seq = seqprop_sequence(s)) & 1)			\
-		cpu_relax();						\
-									\
-	kcsan_atomic_next(KCSAN_SEQLOCK_REGION_MAX);			\
-	__seq;								\
-})
+#define __read_seqcount_begin(s)                      \
+    ({                                                \
+        unsigned __seq;                               \
+                                                      \
+        while ((__seq = seqprop_sequence (s)) & 1)    \
+            cpu_relax ();                             \
+                                                      \
+        kcsan_atomic_next (KCSAN_SEQLOCK_REGION_MAX); \
+        __seq;                                        \
+    })
 
 /**
  * raw_read_seqcount_begin() - begin a seqcount_t read section w/o lockdep
@@ -285,7 +275,7 @@ SEQCOUNT_LOCKNAME(mutex,        struct mutex,    true,     mutex)
  *
  * Return: count to be passed to read_seqcount_retry()
  */
-#define raw_read_seqcount_begin(s) __read_seqcount_begin(s)
+#define raw_read_seqcount_begin(s) __read_seqcount_begin (s)
 
 /**
  * read_seqcount_begin() - begin a seqcount_t read critical section
@@ -293,11 +283,11 @@ SEQCOUNT_LOCKNAME(mutex,        struct mutex,    true,     mutex)
  *
  * Return: count to be passed to read_seqcount_retry()
  */
-#define read_seqcount_begin(s)						\
-({									\
-	seqcount_lockdep_reader_access(seqprop_const_ptr(s));		\
-	raw_read_seqcount_begin(s);					\
-})
+#define read_seqcount_begin(s)                                  \
+    ({                                                          \
+        seqcount_lockdep_reader_access (seqprop_const_ptr (s)); \
+        raw_read_seqcount_begin (s);                            \
+    })
 
 /**
  * raw_read_seqcount() - read the raw seqcount_t counter value
@@ -310,13 +300,13 @@ SEQCOUNT_LOCKNAME(mutex,        struct mutex,    true,     mutex)
  *
  * Return: count to be passed to read_seqcount_retry()
  */
-#define raw_read_seqcount(s)						\
-({									\
-	unsigned __seq = seqprop_sequence(s);				\
-									\
-	kcsan_atomic_next(KCSAN_SEQLOCK_REGION_MAX);			\
-	__seq;								\
-})
+#define raw_read_seqcount(s)                          \
+    ({                                                \
+        unsigned __seq = seqprop_sequence (s);        \
+                                                      \
+        kcsan_atomic_next (KCSAN_SEQLOCK_REGION_MAX); \
+        __seq;                                        \
+    })
 
 /**
  * raw_seqcount_begin() - begin a seqcount_t read critical section w/o
@@ -335,14 +325,14 @@ SEQCOUNT_LOCKNAME(mutex,        struct mutex,    true,     mutex)
  *
  * Return: count to be passed to read_seqcount_retry()
  */
-#define raw_seqcount_begin(s)						\
-({									\
-	/*								\
+#define raw_seqcount_begin(s)       \
+    ({                              \
+        /*								\
 	 * If the counter is odd, let read_seqcount_retry() fail	\
 	 * by decrementing the counter.					\
-	 */								\
-	raw_read_seqcount(s) & ~1;					\
-})
+	 */                 \
+        raw_read_seqcount (s) & ~1; \
+    })
 
 /**
  * __read_seqcount_retry() - end a seqcount_t read section w/o barrier
@@ -359,13 +349,12 @@ SEQCOUNT_LOCKNAME(mutex,        struct mutex,    true,     mutex)
  *
  * Return: true if a read section retry is required, else false
  */
-#define __read_seqcount_retry(s, start)					\
-	do___read_seqcount_retry(seqprop_const_ptr(s), start)
+#define __read_seqcount_retry(s, start) do___read_seqcount_retry (seqprop_const_ptr (s), start)
 
-static inline int do___read_seqcount_retry(const seqcount_t *s, unsigned start)
+static inline int do___read_seqcount_retry (const seqcount_t* s, unsigned start)
 {
-	kcsan_atomic_next(0);
-	return unlikely(READ_ONCE(s->sequence) != start);
+    kcsan_atomic_next (0);
+    return unlikely (READ_ONCE (s->sequence) != start);
 }
 
 /**
@@ -379,13 +368,12 @@ static inline int do___read_seqcount_retry(const seqcount_t *s, unsigned start)
  *
  * Return: true if a read section retry is required, else false
  */
-#define read_seqcount_retry(s, start)					\
-	do_read_seqcount_retry(seqprop_const_ptr(s), start)
+#define read_seqcount_retry(s, start) do_read_seqcount_retry (seqprop_const_ptr (s), start)
 
-static inline int do_read_seqcount_retry(const seqcount_t *s, unsigned start)
+static inline int do_read_seqcount_retry (const seqcount_t* s, unsigned start)
 {
-	smp_rmb();
-	return do___read_seqcount_retry(s, start);
+    smp_rmb ();
+    return do___read_seqcount_retry (s, start);
 }
 
 /**
@@ -394,19 +382,19 @@ static inline int do_read_seqcount_retry(const seqcount_t *s, unsigned start)
  *
  * Context: check write_seqcount_begin()
  */
-#define raw_write_seqcount_begin(s)					\
-do {									\
-	if (seqprop_preemptible(s))					\
-		preempt_disable();					\
-									\
-	do_raw_write_seqcount_begin(seqprop_ptr(s));			\
-} while (0)
+#define raw_write_seqcount_begin(s)                    \
+    do {                                               \
+        if (seqprop_preemptible (s))                   \
+            preempt_disable ();                        \
+                                                       \
+        do_raw_write_seqcount_begin (seqprop_ptr (s)); \
+    } while (0)
 
-static inline void do_raw_write_seqcount_begin(seqcount_t *s)
+static inline void do_raw_write_seqcount_begin (seqcount_t* s)
 {
-	kcsan_nestable_atomic_begin();
-	s->sequence++;
-	smp_wmb();
+    kcsan_nestable_atomic_begin ();
+    s->sequence++;
+    smp_wmb ();
 }
 
 /**
@@ -415,19 +403,19 @@ static inline void do_raw_write_seqcount_begin(seqcount_t *s)
  *
  * Context: check write_seqcount_end()
  */
-#define raw_write_seqcount_end(s)					\
-do {									\
-	do_raw_write_seqcount_end(seqprop_ptr(s));			\
-									\
-	if (seqprop_preemptible(s))					\
-		preempt_enable();					\
-} while (0)
+#define raw_write_seqcount_end(s)                    \
+    do {                                             \
+        do_raw_write_seqcount_end (seqprop_ptr (s)); \
+                                                     \
+        if (seqprop_preemptible (s))                 \
+            preempt_enable ();                       \
+    } while (0)
 
-static inline void do_raw_write_seqcount_end(seqcount_t *s)
+static inline void do_raw_write_seqcount_end (seqcount_t* s)
 {
-	smp_wmb();
-	s->sequence++;
-	kcsan_nestable_atomic_end();
+    smp_wmb ();
+    s->sequence++;
+    kcsan_nestable_atomic_end ();
 }
 
 /**
@@ -439,20 +427,20 @@ static inline void do_raw_write_seqcount_end(seqcount_t *s)
  * See Documentation/locking/lockdep-design.rst
  * Context: check write_seqcount_begin()
  */
-#define write_seqcount_begin_nested(s, subclass)			\
-do {									\
-	seqprop_assert(s);						\
-									\
-	if (seqprop_preemptible(s))					\
-		preempt_disable();					\
-									\
-	do_write_seqcount_begin_nested(seqprop_ptr(s), subclass);	\
-} while (0)
+#define write_seqcount_begin_nested(s, subclass)                    \
+    do {                                                            \
+        seqprop_assert (s);                                         \
+                                                                    \
+        if (seqprop_preemptible (s))                                \
+            preempt_disable ();                                     \
+                                                                    \
+        do_write_seqcount_begin_nested (seqprop_ptr (s), subclass); \
+    } while (0)
 
-static inline void do_write_seqcount_begin_nested(seqcount_t *s, int subclass)
+static inline void do_write_seqcount_begin_nested (seqcount_t* s, int subclass)
 {
-	seqcount_acquire(&s->dep_map, subclass, 0, _RET_IP_);
-	do_raw_write_seqcount_begin(s);
+    seqcount_acquire (&s->dep_map, subclass, 0, _RET_IP_);
+    do_raw_write_seqcount_begin (s);
 }
 
 /**
@@ -465,19 +453,19 @@ static inline void do_write_seqcount_begin_nested(seqcount_t *s, int subclass)
  * preemptible.  If readers can be invoked from hardirq or softirq
  * context, interrupts or bottom halves must be respectively disabled.
  */
-#define write_seqcount_begin(s)						\
-do {									\
-	seqprop_assert(s);						\
-									\
-	if (seqprop_preemptible(s))					\
-		preempt_disable();					\
-									\
-	do_write_seqcount_begin(seqprop_ptr(s));			\
-} while (0)
+#define write_seqcount_begin(s)                    \
+    do {                                           \
+        seqprop_assert (s);                        \
+                                                   \
+        if (seqprop_preemptible (s))               \
+            preempt_disable ();                    \
+                                                   \
+        do_write_seqcount_begin (seqprop_ptr (s)); \
+    } while (0)
 
-static inline void do_write_seqcount_begin(seqcount_t *s)
+static inline void do_write_seqcount_begin (seqcount_t* s)
 {
-	do_write_seqcount_begin_nested(s, 0);
+    do_write_seqcount_begin_nested (s, 0);
 }
 
 /**
@@ -487,18 +475,18 @@ static inline void do_write_seqcount_begin(seqcount_t *s)
  * Context: Preemption will be automatically re-enabled if and only if
  * the seqcount write serialization lock is associated, and preemptible.
  */
-#define write_seqcount_end(s)						\
-do {									\
-	do_write_seqcount_end(seqprop_ptr(s));				\
-									\
-	if (seqprop_preemptible(s))					\
-		preempt_enable();					\
-} while (0)
+#define write_seqcount_end(s)                    \
+    do {                                         \
+        do_write_seqcount_end (seqprop_ptr (s)); \
+                                                 \
+        if (seqprop_preemptible (s))             \
+            preempt_enable ();                   \
+    } while (0)
 
-static inline void do_write_seqcount_end(seqcount_t *s)
+static inline void do_write_seqcount_end (seqcount_t* s)
 {
-	seqcount_release(&s->dep_map, _RET_IP_);
-	do_raw_write_seqcount_end(s);
+    seqcount_release (&s->dep_map, _RET_IP_);
+    do_raw_write_seqcount_end (s);
 }
 
 /**
@@ -542,16 +530,15 @@ static inline void do_write_seqcount_end(seqcount_t *s)
  *		WRITE_ONCE(X, false);
  *      }
  */
-#define raw_write_seqcount_barrier(s)					\
-	do_raw_write_seqcount_barrier(seqprop_ptr(s))
+#define raw_write_seqcount_barrier(s) do_raw_write_seqcount_barrier (seqprop_ptr (s))
 
-static inline void do_raw_write_seqcount_barrier(seqcount_t *s)
+static inline void do_raw_write_seqcount_barrier (seqcount_t* s)
 {
-	kcsan_nestable_atomic_begin();
-	s->sequence++;
-	smp_wmb();
-	s->sequence++;
-	kcsan_nestable_atomic_end();
+    kcsan_nestable_atomic_begin ();
+    s->sequence++;
+    smp_wmb ();
+    s->sequence++;
+    kcsan_nestable_atomic_end ();
 }
 
 /**
@@ -562,15 +549,14 @@ static inline void do_raw_write_seqcount_barrier(seqcount_t *s)
  * After write_seqcount_invalidate, no seqcount_t read side operations
  * will complete successfully and see data older than this.
  */
-#define write_seqcount_invalidate(s)					\
-	do_write_seqcount_invalidate(seqprop_ptr(s))
+#define write_seqcount_invalidate(s) do_write_seqcount_invalidate (seqprop_ptr (s))
 
-static inline void do_write_seqcount_invalidate(seqcount_t *s)
+static inline void do_write_seqcount_invalidate (seqcount_t* s)
 {
-	smp_wmb();
-	kcsan_nestable_atomic_begin();
-	s->sequence+=2;
-	kcsan_nestable_atomic_end();
+    smp_wmb ();
+    kcsan_nestable_atomic_begin ();
+    s->sequence += 2;
+    kcsan_nestable_atomic_end ();
 }
 
 /*
@@ -583,23 +569,25 @@ static inline void do_write_seqcount_invalidate(seqcount_t *s)
  * As the write sections are fully preemptible, no special handling for
  * PREEMPT_RT is needed.
  */
-typedef struct {
-	seqcount_t seqcount;
+typedef struct
+{
+    seqcount_t seqcount;
 } seqcount_latch_t;
 
 /**
  * SEQCNT_LATCH_ZERO() - static initializer for seqcount_latch_t
  * @seq_name: Name of the seqcount_latch_t instance
  */
-#define SEQCNT_LATCH_ZERO(seq_name) {					\
-	.seqcount		= SEQCNT_ZERO(seq_name.seqcount),	\
-}
+#define SEQCNT_LATCH_ZERO(seq_name)                      \
+    {                                                    \
+            .seqcount = SEQCNT_ZERO (seq_name.seqcount), \
+    }
 
 /**
  * seqcount_latch_init() - runtime initializer for seqcount_latch_t
  * @s: Pointer to the seqcount_latch_t instance
  */
-#define seqcount_latch_init(s) seqcount_init(&(s)->seqcount)
+#define seqcount_latch_init(s) seqcount_init (&(s)->seqcount)
 
 /**
  * raw_read_seqcount_latch() - pick even/odd latch data copy
@@ -612,13 +600,13 @@ typedef struct {
  * picking which data copy to read. The full counter must then be checked
  * with raw_read_seqcount_latch_retry().
  */
-static __always_inline unsigned raw_read_seqcount_latch(const seqcount_latch_t *s)
+static __always_inline unsigned raw_read_seqcount_latch (const seqcount_latch_t* s)
 {
-	/*
+    /*
 	 * Pairs with the first smp_wmb() in raw_write_seqcount_latch().
 	 * Due to the dependent load, a full smp_rmb() is not needed.
 	 */
-	return READ_ONCE(s->seqcount.sequence);
+    return READ_ONCE (s->seqcount.sequence);
 }
 
 /**
@@ -628,11 +616,10 @@ static __always_inline unsigned raw_read_seqcount_latch(const seqcount_latch_t *
  *
  * Return: true if a read section retry is required, else false
  */
-static __always_inline int
-raw_read_seqcount_latch_retry(const seqcount_latch_t *s, unsigned start)
+static __always_inline int raw_read_seqcount_latch_retry (const seqcount_latch_t* s, unsigned start)
 {
-	smp_rmb();
-	return unlikely(READ_ONCE(s->seqcount.sequence) != start);
+    smp_rmb ();
+    return unlikely (READ_ONCE (s->seqcount.sequence) != start);
 }
 
 /**
@@ -716,35 +703,30 @@ raw_read_seqcount_latch_retry(const seqcount_latch_t *s, unsigned start)
  *	When data is a dynamic data structure; one should use regular RCU
  *	patterns to manage the lifetimes of the objects within.
  */
-static inline void raw_write_seqcount_latch(seqcount_latch_t *s)
+static inline void raw_write_seqcount_latch (seqcount_latch_t* s)
 {
-	smp_wmb();	/* prior stores before incrementing "sequence" */
-	s->seqcount.sequence++;
-	smp_wmb();      /* increment "sequence" before following stores */
+    smp_wmb (); /* prior stores before incrementing "sequence" */
+    s->seqcount.sequence++;
+    smp_wmb (); /* increment "sequence" before following stores */
 }
 
-#define __SEQLOCK_UNLOCKED(lockname)					\
-	{								\
-		.seqcount = SEQCNT_SPINLOCK_ZERO(lockname, &(lockname).lock), \
-		.lock =	__SPIN_LOCK_UNLOCKED(lockname)			\
-	}
+#define __SEQLOCK_UNLOCKED(lockname) {.seqcount = SEQCNT_SPINLOCK_ZERO (lockname, &(lockname).lock), .lock = __SPIN_LOCK_UNLOCKED (lockname)}
 
 /**
  * seqlock_init() - dynamic initializer for seqlock_t
  * @sl: Pointer to the seqlock_t instance
  */
-#define seqlock_init(sl)						\
-	do {								\
-		spin_lock_init(&(sl)->lock);				\
-		seqcount_spinlock_init(&(sl)->seqcount, &(sl)->lock);	\
-	} while (0)
+#define seqlock_init(sl)                                       \
+    do {                                                       \
+        spin_lock_init (&(sl)->lock);                          \
+        seqcount_spinlock_init (&(sl)->seqcount, &(sl)->lock); \
+    } while (0)
 
 /**
  * DEFINE_SEQLOCK(sl) - Define a statically allocated seqlock_t
  * @sl: Name of the seqlock_t instance
  */
-#define DEFINE_SEQLOCK(sl) \
-		seqlock_t sl = __SEQLOCK_UNLOCKED(sl)
+#define DEFINE_SEQLOCK(sl) seqlock_t sl = __SEQLOCK_UNLOCKED (sl)
 
 /**
  * read_seqbegin() - start a seqlock_t read side critical section
@@ -752,13 +734,13 @@ static inline void raw_write_seqcount_latch(seqcount_latch_t *s)
  *
  * Return: count, to be passed to read_seqretry()
  */
-static inline unsigned read_seqbegin(const seqlock_t *sl)
+static inline unsigned read_seqbegin (const seqlock_t* sl)
 {
-	unsigned ret = read_seqcount_begin(&sl->seqcount);
+    unsigned ret = read_seqcount_begin (&sl->seqcount);
 
-	kcsan_atomic_next(0);  /* non-raw usage, assume closing read_seqretry() */
-	kcsan_flat_atomic_begin();
-	return ret;
+    kcsan_atomic_next (0); /* non-raw usage, assume closing read_seqretry() */
+    kcsan_flat_atomic_begin ();
+    return ret;
 }
 
 /**
@@ -772,15 +754,15 @@ static inline unsigned read_seqbegin(const seqlock_t *sl)
  *
  * Return: true if a read section retry is required, else false
  */
-static inline unsigned read_seqretry(const seqlock_t *sl, unsigned start)
+static inline unsigned read_seqretry (const seqlock_t* sl, unsigned start)
 {
-	/*
+    /*
 	 * Assume not nested: read_seqretry() may be called multiple times when
 	 * completing read critical section.
 	 */
-	kcsan_flat_atomic_end();
+    kcsan_flat_atomic_end ();
 
-	return read_seqcount_retry(&sl->seqcount, start);
+    return read_seqcount_retry (&sl->seqcount, start);
 }
 
 /*
@@ -802,10 +784,10 @@ static inline unsigned read_seqretry(const seqlock_t *sl, unsigned start)
  * sections, can be invoked from hardirq or softirq contexts, use the
  * _irqsave or _bh variants of this function instead.
  */
-static inline void write_seqlock(seqlock_t *sl)
+static inline void write_seqlock (seqlock_t* sl)
 {
-	spin_lock(&sl->lock);
-	do_write_seqcount_begin(&sl->seqcount.seqcount);
+    spin_lock (&sl->lock);
+    do_write_seqcount_begin (&sl->seqcount.seqcount);
 }
 
 /**
@@ -815,10 +797,10 @@ static inline void write_seqlock(seqlock_t *sl)
  * write_sequnlock closes the (serialized and non-preemptible) write side
  * critical section of given seqlock_t.
  */
-static inline void write_sequnlock(seqlock_t *sl)
+static inline void write_sequnlock (seqlock_t* sl)
 {
-	do_write_seqcount_end(&sl->seqcount.seqcount);
-	spin_unlock(&sl->lock);
+    do_write_seqcount_end (&sl->seqcount.seqcount);
+    spin_unlock (&sl->lock);
 }
 
 /**
@@ -828,10 +810,10 @@ static inline void write_sequnlock(seqlock_t *sl)
  * _bh variant of write_seqlock(). Use only if the read side section, or
  * other write side sections, can be invoked from softirq contexts.
  */
-static inline void write_seqlock_bh(seqlock_t *sl)
+static inline void write_seqlock_bh (seqlock_t* sl)
 {
-	spin_lock_bh(&sl->lock);
-	do_write_seqcount_begin(&sl->seqcount.seqcount);
+    spin_lock_bh (&sl->lock);
+    do_write_seqcount_begin (&sl->seqcount.seqcount);
 }
 
 /**
@@ -842,10 +824,10 @@ static inline void write_seqlock_bh(seqlock_t *sl)
  * softirqs-disabled, seqlock_t write side critical section opened with
  * write_seqlock_bh().
  */
-static inline void write_sequnlock_bh(seqlock_t *sl)
+static inline void write_sequnlock_bh (seqlock_t* sl)
 {
-	do_write_seqcount_end(&sl->seqcount.seqcount);
-	spin_unlock_bh(&sl->lock);
+    do_write_seqcount_end (&sl->seqcount.seqcount);
+    spin_unlock_bh (&sl->lock);
 }
 
 /**
@@ -855,10 +837,10 @@ static inline void write_sequnlock_bh(seqlock_t *sl)
  * _irq variant of write_seqlock(). Use only if the read side section, or
  * other write sections, can be invoked from hardirq contexts.
  */
-static inline void write_seqlock_irq(seqlock_t *sl)
+static inline void write_seqlock_irq (seqlock_t* sl)
 {
-	spin_lock_irq(&sl->lock);
-	do_write_seqcount_begin(&sl->seqcount.seqcount);
+    spin_lock_irq (&sl->lock);
+    do_write_seqcount_begin (&sl->seqcount.seqcount);
 }
 
 /**
@@ -868,19 +850,19 @@ static inline void write_seqlock_irq(seqlock_t *sl)
  * write_sequnlock_irq closes the serialized and non-interruptible
  * seqlock_t write side section opened with write_seqlock_irq().
  */
-static inline void write_sequnlock_irq(seqlock_t *sl)
+static inline void write_sequnlock_irq (seqlock_t* sl)
 {
-	do_write_seqcount_end(&sl->seqcount.seqcount);
-	spin_unlock_irq(&sl->lock);
+    do_write_seqcount_end (&sl->seqcount.seqcount);
+    spin_unlock_irq (&sl->lock);
 }
 
-static inline unsigned long __write_seqlock_irqsave(seqlock_t *sl)
+static inline unsigned long __write_seqlock_irqsave (seqlock_t* sl)
 {
-	unsigned long flags;
+    unsigned long flags;
 
-	spin_lock_irqsave(&sl->lock, flags);
-	do_write_seqcount_begin(&sl->seqcount.seqcount);
-	return flags;
+    spin_lock_irqsave (&sl->lock, flags);
+    do_write_seqcount_begin (&sl->seqcount.seqcount);
+    return flags;
 }
 
 /**
@@ -893,8 +875,10 @@ static inline unsigned long __write_seqlock_irqsave(seqlock_t *sl)
  * _irqsave variant of write_seqlock(). Use it only if the read side
  * section, or other write sections, can be invoked from hardirq context.
  */
-#define write_seqlock_irqsave(lock, flags)				\
-	do { flags = __write_seqlock_irqsave(lock); } while (0)
+#define write_seqlock_irqsave(lock, flags)      \
+    do {                                        \
+        flags = __write_seqlock_irqsave (lock); \
+    } while (0)
 
 /**
  * write_sequnlock_irqrestore() - end non-interruptible seqlock_t write
@@ -905,11 +889,10 @@ static inline unsigned long __write_seqlock_irqsave(seqlock_t *sl)
  * write_sequnlock_irqrestore closes the serialized and non-interruptible
  * seqlock_t write section previously opened with write_seqlock_irqsave().
  */
-static inline void
-write_sequnlock_irqrestore(seqlock_t *sl, unsigned long flags)
+static inline void write_sequnlock_irqrestore (seqlock_t* sl, unsigned long flags)
 {
-	do_write_seqcount_end(&sl->seqcount.seqcount);
-	spin_unlock_irqrestore(&sl->lock, flags);
+    do_write_seqcount_end (&sl->seqcount.seqcount);
+    spin_unlock_irqrestore (&sl->lock, flags);
 }
 
 /**
@@ -928,18 +911,18 @@ write_sequnlock_irqrestore(seqlock_t *sl, unsigned long flags)
  *
  * The opened read section must be closed with read_sequnlock_excl().
  */
-static inline void read_seqlock_excl(seqlock_t *sl)
+static inline void read_seqlock_excl (seqlock_t* sl)
 {
-	spin_lock(&sl->lock);
+    spin_lock (&sl->lock);
 }
 
 /**
  * read_sequnlock_excl() - end a seqlock_t locking reader critical section
  * @sl: Pointer to seqlock_t
  */
-static inline void read_sequnlock_excl(seqlock_t *sl)
+static inline void read_sequnlock_excl (seqlock_t* sl)
 {
-	spin_unlock(&sl->lock);
+    spin_unlock (&sl->lock);
 }
 
 /**
@@ -951,9 +934,9 @@ static inline void read_sequnlock_excl(seqlock_t *sl)
  * seqlock_t write side section, *or other read sections*, can be invoked
  * from softirq contexts.
  */
-static inline void read_seqlock_excl_bh(seqlock_t *sl)
+static inline void read_seqlock_excl_bh (seqlock_t* sl)
 {
-	spin_lock_bh(&sl->lock);
+    spin_lock_bh (&sl->lock);
 }
 
 /**
@@ -961,9 +944,9 @@ static inline void read_seqlock_excl_bh(seqlock_t *sl)
  *			      reader section
  * @sl: Pointer to seqlock_t
  */
-static inline void read_sequnlock_excl_bh(seqlock_t *sl)
+static inline void read_sequnlock_excl_bh (seqlock_t* sl)
 {
-	spin_unlock_bh(&sl->lock);
+    spin_unlock_bh (&sl->lock);
 }
 
 /**
@@ -975,9 +958,9 @@ static inline void read_sequnlock_excl_bh(seqlock_t *sl)
  * write side section, *or other read sections*, can be invoked from a
  * hardirq context.
  */
-static inline void read_seqlock_excl_irq(seqlock_t *sl)
+static inline void read_seqlock_excl_irq (seqlock_t* sl)
 {
-	spin_lock_irq(&sl->lock);
+    spin_lock_irq (&sl->lock);
 }
 
 /**
@@ -985,17 +968,17 @@ static inline void read_seqlock_excl_irq(seqlock_t *sl)
  *                             locking reader section
  * @sl: Pointer to seqlock_t
  */
-static inline void read_sequnlock_excl_irq(seqlock_t *sl)
+static inline void read_sequnlock_excl_irq (seqlock_t* sl)
 {
-	spin_unlock_irq(&sl->lock);
+    spin_unlock_irq (&sl->lock);
 }
 
-static inline unsigned long __read_seqlock_excl_irqsave(seqlock_t *sl)
+static inline unsigned long __read_seqlock_excl_irqsave (seqlock_t* sl)
 {
-	unsigned long flags;
+    unsigned long flags;
 
-	spin_lock_irqsave(&sl->lock, flags);
-	return flags;
+    spin_lock_irqsave (&sl->lock, flags);
+    return flags;
 }
 
 /**
@@ -1009,8 +992,10 @@ static inline unsigned long __read_seqlock_excl_irqsave(seqlock_t *sl)
  * write side section, *or other read sections*, can be invoked from a
  * hardirq context.
  */
-#define read_seqlock_excl_irqsave(lock, flags)				\
-	do { flags = __read_seqlock_excl_irqsave(lock); } while (0)
+#define read_seqlock_excl_irqsave(lock, flags)      \
+    do {                                            \
+        flags = __read_seqlock_excl_irqsave (lock); \
+    } while (0)
 
 /**
  * read_sequnlock_excl_irqrestore() - end non-interruptible seqlock_t
@@ -1018,10 +1003,9 @@ static inline unsigned long __read_seqlock_excl_irqsave(seqlock_t *sl)
  * @sl:    Pointer to seqlock_t
  * @flags: Caller saved interrupt state, from read_seqlock_excl_irqsave()
  */
-static inline void
-read_sequnlock_excl_irqrestore(seqlock_t *sl, unsigned long flags)
+static inline void read_sequnlock_excl_irqrestore (seqlock_t* sl, unsigned long flags)
 {
-	spin_unlock_irqrestore(&sl->lock, flags);
+    spin_unlock_irqrestore (&sl->lock, flags);
 }
 
 /**
@@ -1055,12 +1039,12 @@ read_sequnlock_excl_irqrestore(seqlock_t *sl, unsigned long flags)
  * be retried, this returned value must also be passed as the @seq
  * parameter of the next read_seqbegin_or_lock() iteration.
  */
-static inline void read_seqbegin_or_lock(seqlock_t *lock, int *seq)
+static inline void read_seqbegin_or_lock (seqlock_t* lock, int* seq)
 {
-	if (!(*seq & 1))	/* Even */
-		*seq = read_seqbegin(lock);
-	else			/* Odd */
-		read_seqlock_excl(lock);
+    if (!(*seq & 1)) /* Even */
+        *seq = read_seqbegin (lock);
+    else             /* Odd */
+        read_seqlock_excl (lock);
 }
 
 /**
@@ -1070,9 +1054,9 @@ static inline void read_seqbegin_or_lock(seqlock_t *lock, int *seq)
  *
  * Return: true if a read section retry is required, false otherwise
  */
-static inline int need_seqretry(seqlock_t *lock, int seq)
+static inline int need_seqretry (seqlock_t* lock, int seq)
 {
-	return !(seq & 1) && read_seqretry(lock, seq);
+    return !(seq & 1) && read_seqretry (lock, seq);
 }
 
 /**
@@ -1083,10 +1067,10 @@ static inline int need_seqretry(seqlock_t *lock, int seq)
  * done_seqretry finishes the seqlock_t read side critical section started
  * with read_seqbegin_or_lock() and validated by need_seqretry().
  */
-static inline void done_seqretry(seqlock_t *lock, int seq)
+static inline void done_seqretry (seqlock_t* lock, int seq)
 {
-	if (seq & 1)
-		read_sequnlock_excl(lock);
+    if (seq & 1)
+        read_sequnlock_excl (lock);
 }
 
 /**
@@ -1109,17 +1093,16 @@ static inline void done_seqretry(seqlock_t *lock, int seq)
  *   2. The encountered sequence counter value, returned through @seq
  *      overloaded as a return parameter. Check read_seqbegin_or_lock().
  */
-static inline unsigned long
-read_seqbegin_or_lock_irqsave(seqlock_t *lock, int *seq)
+static inline unsigned long read_seqbegin_or_lock_irqsave (seqlock_t* lock, int* seq)
 {
-	unsigned long flags = 0;
+    unsigned long flags = 0;
 
-	if (!(*seq & 1))	/* Even */
-		*seq = read_seqbegin(lock);
-	else			/* Odd */
-		read_seqlock_excl_irqsave(lock, flags);
+    if (!(*seq & 1)) /* Even */
+        *seq = read_seqbegin (lock);
+    else             /* Odd */
+        read_seqlock_excl_irqsave (lock, flags);
 
-	return flags;
+    return flags;
 }
 
 /**
@@ -1134,10 +1117,9 @@ read_seqbegin_or_lock_irqsave(seqlock_t *lock, int *seq)
  * must've been opened with read_seqbegin_or_lock_irqsave(), and validated
  * by need_seqretry().
  */
-static inline void
-done_seqretry_irqrestore(seqlock_t *lock, int seq, unsigned long flags)
+static inline void done_seqretry_irqrestore (seqlock_t* lock, int seq, unsigned long flags)
 {
-	if (seq & 1)
-		read_sequnlock_excl_irqrestore(lock, flags);
+    if (seq & 1)
+        read_sequnlock_excl_irqrestore (lock, flags);
 }
 #endif /* __LINUX_SEQLOCK_H */

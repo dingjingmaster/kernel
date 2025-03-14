@@ -4,7 +4,8 @@
 
 定义位置：`include/linux/mutex.h`、`include/linux/mutex_types.h`
 
-## 互斥锁结构
+## 定义
+
 ```c
 struct mutex
 {

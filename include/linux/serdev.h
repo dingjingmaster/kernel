@@ -26,9 +26,10 @@ struct serdev_device;
  * @write_wakeup:	Function called when ready to transmit more data; must
  *			not sleep.
  */
-struct serdev_device_ops {
-	size_t (*receive_buf)(struct serdev_device *, const u8 *, size_t);
-	void (*write_wakeup)(struct serdev_device *);
+struct serdev_device_ops
+{
+    size_t (*receive_buf) (struct serdev_device*, const u8*, size_t);
+    void (*write_wakeup) (struct serdev_device*);
 };
 
 /**
@@ -40,18 +41,19 @@ struct serdev_device_ops {
  * @write_comp	Completion used by serdev_device_write() internally
  * @write_lock	Lock to serialize access when writing data
  */
-struct serdev_device {
-	struct device dev;
-	int nr;
-	struct serdev_controller *ctrl;
-	const struct serdev_device_ops *ops;
-	struct completion write_comp;
-	struct mutex write_lock;
+struct serdev_device
+{
+    struct device                   dev;
+    int                             nr;
+    struct serdev_controller*       ctrl;
+    const struct serdev_device_ops* ops;
+    struct completion               write_comp;
+    struct mutex                    write_lock;
 };
 
-static inline struct serdev_device *to_serdev_device(struct device *d)
+static inline struct serdev_device* to_serdev_device (struct device* d)
 {
-	return container_of(d, struct serdev_device, dev);
+    return container_of (d, struct serdev_device, dev);
 }
 
 /**
@@ -61,39 +63,42 @@ static inline struct serdev_device *to_serdev_device(struct device *d)
  * @probe:	binds this driver to a serdev device.
  * @remove:	unbinds this driver from the serdev device.
  */
-struct serdev_device_driver {
-	struct device_driver driver;
-	int	(*probe)(struct serdev_device *);
-	void	(*remove)(struct serdev_device *);
+struct serdev_device_driver
+{
+    struct device_driver driver;
+    int (*probe) (struct serdev_device*);
+    void (*remove) (struct serdev_device*);
 };
 
-static inline struct serdev_device_driver *to_serdev_device_driver(struct device_driver *d)
+static inline struct serdev_device_driver* to_serdev_device_driver (struct device_driver* d)
 {
-	return container_of(d, struct serdev_device_driver, driver);
+    return container_of (d, struct serdev_device_driver, driver);
 }
 
-enum serdev_parity {
-	SERDEV_PARITY_NONE,
-	SERDEV_PARITY_EVEN,
-	SERDEV_PARITY_ODD,
+enum serdev_parity
+{
+    SERDEV_PARITY_NONE,
+    SERDEV_PARITY_EVEN,
+    SERDEV_PARITY_ODD,
 };
 
 /*
  * serdev controller structures
  */
-struct serdev_controller_ops {
-	ssize_t (*write_buf)(struct serdev_controller *, const u8 *, size_t);
-	void (*write_flush)(struct serdev_controller *);
-	int (*write_room)(struct serdev_controller *);
-	int (*open)(struct serdev_controller *);
-	void (*close)(struct serdev_controller *);
-	void (*set_flow_control)(struct serdev_controller *, bool);
-	int (*set_parity)(struct serdev_controller *, enum serdev_parity);
-	unsigned int (*set_baudrate)(struct serdev_controller *, unsigned int);
-	void (*wait_until_sent)(struct serdev_controller *, long);
-	int (*get_tiocm)(struct serdev_controller *);
-	int (*set_tiocm)(struct serdev_controller *, unsigned int, unsigned int);
-	int (*break_ctl)(struct serdev_controller *ctrl, unsigned int break_state);
+struct serdev_controller_ops
+{
+    ssize_t (*write_buf) (struct serdev_controller*, const u8*, size_t);
+    void (*write_flush) (struct serdev_controller*);
+    int (*write_room) (struct serdev_controller*);
+    int (*open) (struct serdev_controller*);
+    void (*close) (struct serdev_controller*);
+    void (*set_flow_control) (struct serdev_controller*, bool);
+    int (*set_parity) (struct serdev_controller*, enum serdev_parity);
+    unsigned int (*set_baudrate) (struct serdev_controller*, unsigned int);
+    void (*wait_until_sent) (struct serdev_controller*, long);
+    int (*get_tiocm) (struct serdev_controller*);
+    int (*set_tiocm) (struct serdev_controller*, unsigned int, unsigned int);
+    int (*break_ctl) (struct serdev_controller* ctrl, unsigned int break_state);
 };
 
 /**
@@ -104,178 +109,174 @@ struct serdev_controller_ops {
  * @serdev:	Pointer to slave device for this controller.
  * @ops:	Controller operations.
  */
-struct serdev_controller {
-	struct device		dev;
-	struct device		*host;
-	unsigned int		nr;
-	struct serdev_device	*serdev;
-	const struct serdev_controller_ops *ops;
+struct serdev_controller
+{
+    struct device                       dev;
+    struct device*                      host;
+    unsigned int                        nr;
+    struct serdev_device*               serdev;
+    const struct serdev_controller_ops* ops;
 };
 
-static inline struct serdev_controller *to_serdev_controller(struct device *d)
+static inline struct serdev_controller* to_serdev_controller (struct device* d)
 {
-	return container_of(d, struct serdev_controller, dev);
+    return container_of (d, struct serdev_controller, dev);
 }
 
-static inline void *serdev_device_get_drvdata(const struct serdev_device *serdev)
+static inline void* serdev_device_get_drvdata (const struct serdev_device* serdev)
 {
-	return dev_get_drvdata(&serdev->dev);
+    return dev_get_drvdata (&serdev->dev);
 }
 
-static inline void serdev_device_set_drvdata(struct serdev_device *serdev, void *data)
+static inline void serdev_device_set_drvdata (struct serdev_device* serdev, void* data)
 {
-	dev_set_drvdata(&serdev->dev, data);
+    dev_set_drvdata (&serdev->dev, data);
 }
 
 /**
  * serdev_device_put() - decrement serdev device refcount
  * @serdev	serdev device.
  */
-static inline void serdev_device_put(struct serdev_device *serdev)
+static inline void serdev_device_put (struct serdev_device* serdev)
 {
-	if (serdev)
-		put_device(&serdev->dev);
+    if (serdev)
+        put_device (&serdev->dev);
 }
 
-static inline void serdev_device_set_client_ops(struct serdev_device *serdev,
-					      const struct serdev_device_ops *ops)
+static inline void serdev_device_set_client_ops (struct serdev_device* serdev, const struct serdev_device_ops* ops)
 {
-	serdev->ops = ops;
+    serdev->ops = ops;
 }
 
-static inline
-void *serdev_controller_get_drvdata(const struct serdev_controller *ctrl)
+static inline void* serdev_controller_get_drvdata (const struct serdev_controller* ctrl)
 {
-	return ctrl ? dev_get_drvdata(&ctrl->dev) : NULL;
+    return ctrl ? dev_get_drvdata (&ctrl->dev) : NULL;
 }
 
-static inline void serdev_controller_set_drvdata(struct serdev_controller *ctrl,
-					       void *data)
+static inline void serdev_controller_set_drvdata (struct serdev_controller* ctrl, void* data)
 {
-	dev_set_drvdata(&ctrl->dev, data);
+    dev_set_drvdata (&ctrl->dev, data);
 }
 
 /**
  * serdev_controller_put() - decrement controller refcount
  * @ctrl	serdev controller.
  */
-static inline void serdev_controller_put(struct serdev_controller *ctrl)
+static inline void serdev_controller_put (struct serdev_controller* ctrl)
 {
-	if (ctrl)
-		put_device(&ctrl->dev);
+    if (ctrl)
+        put_device (&ctrl->dev);
 }
 
-struct serdev_device *serdev_device_alloc(struct serdev_controller *);
-int serdev_device_add(struct serdev_device *);
-void serdev_device_remove(struct serdev_device *);
+struct serdev_device*     serdev_device_alloc (struct serdev_controller*);
+int                       serdev_device_add (struct serdev_device*);
+void                      serdev_device_remove (struct serdev_device*);
 
-struct serdev_controller *serdev_controller_alloc(struct device *host,
-						  struct device *parent,
-						  size_t size);
-int serdev_controller_add(struct serdev_controller *);
-void serdev_controller_remove(struct serdev_controller *);
+struct serdev_controller* serdev_controller_alloc (struct device* host, struct device* parent, size_t size);
+int                       serdev_controller_add (struct serdev_controller*);
+void                      serdev_controller_remove (struct serdev_controller*);
 
-static inline void serdev_controller_write_wakeup(struct serdev_controller *ctrl)
+static inline void        serdev_controller_write_wakeup (struct serdev_controller* ctrl)
 {
-	struct serdev_device *serdev = ctrl->serdev;
+    struct serdev_device* serdev = ctrl->serdev;
 
-	if (!serdev || !serdev->ops->write_wakeup)
-		return;
+    if (!serdev || !serdev->ops->write_wakeup)
+        return;
 
-	serdev->ops->write_wakeup(serdev);
+    serdev->ops->write_wakeup (serdev);
 }
 
-static inline size_t serdev_controller_receive_buf(struct serdev_controller *ctrl,
-						   const u8 *data,
-						   size_t count)
+static inline size_t serdev_controller_receive_buf (struct serdev_controller* ctrl, const u8* data, size_t count)
 {
-	struct serdev_device *serdev = ctrl->serdev;
+    struct serdev_device* serdev = ctrl->serdev;
 
-	if (!serdev || !serdev->ops->receive_buf)
-		return 0;
+    if (!serdev || !serdev->ops->receive_buf)
+        return 0;
 
-	return serdev->ops->receive_buf(serdev, data, count);
+    return serdev->ops->receive_buf (serdev, data, count);
 }
 
 #if IS_ENABLED(CONFIG_SERIAL_DEV_BUS)
 
-int serdev_device_open(struct serdev_device *);
-void serdev_device_close(struct serdev_device *);
-int devm_serdev_device_open(struct device *, struct serdev_device *);
-unsigned int serdev_device_set_baudrate(struct serdev_device *, unsigned int);
-void serdev_device_set_flow_control(struct serdev_device *, bool);
-int serdev_device_write_buf(struct serdev_device *, const u8 *, size_t);
-void serdev_device_wait_until_sent(struct serdev_device *, long);
-int serdev_device_get_tiocm(struct serdev_device *);
-int serdev_device_set_tiocm(struct serdev_device *, int, int);
-int serdev_device_break_ctl(struct serdev_device *serdev, int break_state);
-void serdev_device_write_wakeup(struct serdev_device *);
-ssize_t serdev_device_write(struct serdev_device *, const u8 *, size_t, long);
-void serdev_device_write_flush(struct serdev_device *);
-int serdev_device_write_room(struct serdev_device *);
+int          serdev_device_open (struct serdev_device*);
+void         serdev_device_close (struct serdev_device*);
+int          devm_serdev_device_open (struct device*, struct serdev_device*);
+unsigned int serdev_device_set_baudrate (struct serdev_device*, unsigned int);
+void         serdev_device_set_flow_control (struct serdev_device*, bool);
+int          serdev_device_write_buf (struct serdev_device*, const u8*, size_t);
+void         serdev_device_wait_until_sent (struct serdev_device*, long);
+int          serdev_device_get_tiocm (struct serdev_device*);
+int          serdev_device_set_tiocm (struct serdev_device*, int, int);
+int          serdev_device_break_ctl (struct serdev_device* serdev, int break_state);
+void         serdev_device_write_wakeup (struct serdev_device*);
+ssize_t      serdev_device_write (struct serdev_device*, const u8*, size_t, long);
+void         serdev_device_write_flush (struct serdev_device*);
+int          serdev_device_write_room (struct serdev_device*);
 
 /*
  * serdev device driver functions
  */
-int __serdev_device_driver_register(struct serdev_device_driver *, struct module *);
-#define serdev_device_driver_register(sdrv) \
-	__serdev_device_driver_register(sdrv, THIS_MODULE)
+int          __serdev_device_driver_register (struct serdev_device_driver*, struct module*);
+#define serdev_device_driver_register(sdrv) __serdev_device_driver_register (sdrv, THIS_MODULE)
 
 /**
  * serdev_device_driver_unregister() - unregister an serdev client driver
  * @sdrv:	the driver to unregister
  */
-static inline void serdev_device_driver_unregister(struct serdev_device_driver *sdrv)
+static inline void serdev_device_driver_unregister (struct serdev_device_driver* sdrv)
 {
-	if (sdrv)
-		driver_unregister(&sdrv->driver);
+    if (sdrv)
+        driver_unregister (&sdrv->driver);
 }
 
 #define module_serdev_device_driver(__serdev_device_driver) \
-	module_driver(__serdev_device_driver, serdev_device_driver_register, \
-			serdev_device_driver_unregister)
+    module_driver (__serdev_device_driver, serdev_device_driver_register, serdev_device_driver_unregister)
 
 #else
 
-static inline int serdev_device_open(struct serdev_device *sdev)
+static inline int serdev_device_open (struct serdev_device* sdev)
 {
-	return -ENODEV;
+    return -ENODEV;
 }
-static inline void serdev_device_close(struct serdev_device *sdev) {}
-static inline unsigned int serdev_device_set_baudrate(struct serdev_device *sdev, unsigned int baudrate)
+static inline void serdev_device_close (struct serdev_device* sdev)
 {
-	return 0;
 }
-static inline void serdev_device_set_flow_control(struct serdev_device *sdev, bool enable) {}
-static inline int serdev_device_write_buf(struct serdev_device *serdev,
-					  const u8 *buf,
-					  size_t count)
+static inline unsigned int serdev_device_set_baudrate (struct serdev_device* sdev, unsigned int baudrate)
 {
-	return -ENODEV;
+    return 0;
 }
-static inline void serdev_device_wait_until_sent(struct serdev_device *sdev, long timeout) {}
-static inline int serdev_device_get_tiocm(struct serdev_device *serdev)
+static inline void serdev_device_set_flow_control (struct serdev_device* sdev, bool enable)
 {
-	return -EOPNOTSUPP;
 }
-static inline int serdev_device_set_tiocm(struct serdev_device *serdev, int set, int clear)
+static inline int serdev_device_write_buf (struct serdev_device* serdev, const u8* buf, size_t count)
 {
-	return -EOPNOTSUPP;
+    return -ENODEV;
 }
-static inline int serdev_device_break_ctl(struct serdev_device *serdev, int break_state)
+static inline void serdev_device_wait_until_sent (struct serdev_device* sdev, long timeout)
 {
-	return -EOPNOTSUPP;
 }
-static inline ssize_t serdev_device_write(struct serdev_device *sdev,
-					  const u8 *buf, size_t count,
-					  unsigned long timeout)
+static inline int serdev_device_get_tiocm (struct serdev_device* serdev)
 {
-	return -ENODEV;
+    return -EOPNOTSUPP;
 }
-static inline void serdev_device_write_flush(struct serdev_device *sdev) {}
-static inline int serdev_device_write_room(struct serdev_device *sdev)
+static inline int serdev_device_set_tiocm (struct serdev_device* serdev, int set, int clear)
 {
-	return 0;
+    return -EOPNOTSUPP;
+}
+static inline int serdev_device_break_ctl (struct serdev_device* serdev, int break_state)
+{
+    return -EOPNOTSUPP;
+}
+static inline ssize_t serdev_device_write (struct serdev_device* sdev, const u8* buf, size_t count, unsigned long timeout)
+{
+    return -ENODEV;
+}
+static inline void serdev_device_write_flush (struct serdev_device* sdev)
+{
+}
+static inline int serdev_device_write_room (struct serdev_device* sdev)
+{
+    return 0;
 }
 
 #define serdev_device_driver_register(x)
@@ -283,30 +284,28 @@ static inline int serdev_device_write_room(struct serdev_device *sdev)
 
 #endif /* CONFIG_SERIAL_DEV_BUS */
 
-static inline bool serdev_device_get_cts(struct serdev_device *serdev)
+static inline bool serdev_device_get_cts (struct serdev_device* serdev)
 {
-	int status = serdev_device_get_tiocm(serdev);
-	return !!(status & TIOCM_CTS);
+    int status = serdev_device_get_tiocm (serdev);
+    return !!(status & TIOCM_CTS);
 }
 
-static inline int serdev_device_wait_for_cts(struct serdev_device *serdev, bool state, int timeout_ms)
+static inline int serdev_device_wait_for_cts (struct serdev_device* serdev, bool state, int timeout_ms)
 {
-	bool signal;
+    bool signal;
 
-	return readx_poll_timeout(serdev_device_get_cts, serdev, signal, signal == state,
-				  2000, timeout_ms * 1000);
+    return readx_poll_timeout (serdev_device_get_cts, serdev, signal, signal == state, 2000, timeout_ms * 1000);
 }
 
-static inline int serdev_device_set_rts(struct serdev_device *serdev, bool enable)
+static inline int serdev_device_set_rts (struct serdev_device* serdev, bool enable)
 {
-	if (enable)
-		return serdev_device_set_tiocm(serdev, TIOCM_RTS, 0);
-	else
-		return serdev_device_set_tiocm(serdev, 0, TIOCM_RTS);
+    if (enable)
+        return serdev_device_set_tiocm (serdev, TIOCM_RTS, 0);
+    else
+        return serdev_device_set_tiocm (serdev, 0, TIOCM_RTS);
 }
 
-int serdev_device_set_parity(struct serdev_device *serdev,
-			     enum serdev_parity parity);
+int serdev_device_set_parity (struct serdev_device* serdev, enum serdev_parity parity);
 
 /*
  * serdev hooks into TTY core
@@ -315,22 +314,16 @@ struct tty_port;
 struct tty_driver;
 
 #ifdef CONFIG_SERIAL_DEV_CTRL_TTYPORT
-struct device *serdev_tty_port_register(struct tty_port *port,
-					struct device *host,
-					struct device *parent,
-					struct tty_driver *drv, int idx);
-int serdev_tty_port_unregister(struct tty_port *port);
+struct device* serdev_tty_port_register (struct tty_port* port, struct device* host, struct device* parent, struct tty_driver* drv, int idx);
+int            serdev_tty_port_unregister (struct tty_port* port);
 #else
-static inline struct device *serdev_tty_port_register(struct tty_port *port,
-					   struct device *host,
-					   struct device *parent,
-					   struct tty_driver *drv, int idx)
+static inline struct device* serdev_tty_port_register (struct tty_port* port, struct device* host, struct device* parent, struct tty_driver* drv, int idx)
 {
-	return ERR_PTR(-ENODEV);
+    return ERR_PTR (-ENODEV);
 }
-static inline int serdev_tty_port_unregister(struct tty_port *port)
+static inline int serdev_tty_port_unregister (struct tty_port* port)
 {
-	return -ENODEV;
+    return -ENODEV;
 }
 #endif /* CONFIG_SERIAL_DEV_CTRL_TTYPORT */
 
@@ -338,13 +331,11 @@ struct acpi_resource;
 struct acpi_resource_uart_serialbus;
 
 #ifdef CONFIG_ACPI
-bool serdev_acpi_get_uart_resource(struct acpi_resource *ares,
-				   struct acpi_resource_uart_serialbus **uart);
+bool serdev_acpi_get_uart_resource (struct acpi_resource* ares, struct acpi_resource_uart_serialbus** uart);
 #else
-static inline bool serdev_acpi_get_uart_resource(struct acpi_resource *ares,
-						 struct acpi_resource_uart_serialbus **uart)
+static inline bool serdev_acpi_get_uart_resource (struct acpi_resource* ares, struct acpi_resource_uart_serialbus** uart)
 {
-	return false;
+    return false;
 }
 #endif /* CONFIG_ACPI */
 

@@ -6,7 +6,7 @@
 
 定义在`include/linux/spinlock_types.h`中
 
-## 类型
+## 定义
 
 ```c
 // 单处理器

@@ -8,3 +8,4 @@
     001-mutex.md
     002-rwlocker.md
     003-spinlock.md
+    004-semaphore.md

@@ -4,7 +4,7 @@
 
 定义位置：`include/linux/rwsem.h`
 
-## 结构
+## 定义
 
 ```c
 struct rw_semaphore
