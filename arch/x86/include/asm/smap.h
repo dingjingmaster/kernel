@@ -14,56 +14,46 @@
 #include <asm/alternative.h>
 
 /* "Raw" instruction opcodes */
-#define __ASM_CLAC	".byte 0x0f,0x01,0xca"
-#define __ASM_STAC	".byte 0x0f,0x01,0xcb"
+#define __ASM_CLAC ".byte 0x0f,0x01,0xca"
+#define __ASM_STAC ".byte 0x0f,0x01,0xcb"
 
 #ifdef __ASSEMBLY__
 
-#define ASM_CLAC \
-	ALTERNATIVE "", __ASM_CLAC, X86_FEATURE_SMAP
+#define ASM_CLAC ALTERNATIVE "", __ASM_CLAC, X86_FEATURE_SMAP
 
-#define ASM_STAC \
-	ALTERNATIVE "", __ASM_STAC, X86_FEATURE_SMAP
+#define ASM_STAC ALTERNATIVE "", __ASM_STAC, X86_FEATURE_SMAP
 
-#else /* __ASSEMBLY__ */
+#else  /* __ASSEMBLY__ */
 
-static __always_inline void clac(void)
+static __always_inline void clac (void)
 {
-	/* Note: a barrier is implicit in alternative() */
-	alternative("", __ASM_CLAC, X86_FEATURE_SMAP);
+    /* Note: a barrier is implicit in alternative() */
+    alternative ("", __ASM_CLAC, X86_FEATURE_SMAP);
 }
 
-static __always_inline void stac(void)
+static __always_inline void stac (void)
 {
-	/* Note: a barrier is implicit in alternative() */
-	alternative("", __ASM_STAC, X86_FEATURE_SMAP);
+    /* Note: a barrier is implicit in alternative() */
+    alternative ("", __ASM_STAC, X86_FEATURE_SMAP);
 }
 
-static __always_inline unsigned long smap_save(void)
+static __always_inline unsigned long smap_save (void)
 {
-	unsigned long flags;
+    unsigned long flags;
 
-	asm volatile ("# smap_save\n\t"
-		      ALTERNATIVE("", "pushf; pop %0; " __ASM_CLAC "\n\t",
-				  X86_FEATURE_SMAP)
-		      : "=rm" (flags) : : "memory", "cc");
+    asm volatile ("# smap_save\n\t" ALTERNATIVE ("", "pushf; pop %0; " __ASM_CLAC "\n\t", X86_FEATURE_SMAP) : "=rm"(flags) : : "memory", "cc");
 
-	return flags;
+    return flags;
 }
 
-static __always_inline void smap_restore(unsigned long flags)
+static __always_inline void smap_restore (unsigned long flags)
 {
-	asm volatile ("# smap_restore\n\t"
-		      ALTERNATIVE("", "push %0; popf\n\t",
-				  X86_FEATURE_SMAP)
-		      : : "g" (flags) : "memory", "cc");
+    asm volatile ("# smap_restore\n\t" ALTERNATIVE ("", "push %0; popf\n\t", X86_FEATURE_SMAP) : : "g"(flags) : "memory", "cc");
 }
 
 /* These macros can be used in asm() statements */
-#define ASM_CLAC \
-	ALTERNATIVE("", __ASM_CLAC, X86_FEATURE_SMAP)
-#define ASM_STAC \
-	ALTERNATIVE("", __ASM_STAC, X86_FEATURE_SMAP)
+#define ASM_CLAC ALTERNATIVE ("", __ASM_CLAC, X86_FEATURE_SMAP)
+#define ASM_STAC ALTERNATIVE ("", __ASM_STAC, X86_FEATURE_SMAP)
 
 #endif /* __ASSEMBLY__ */
 
