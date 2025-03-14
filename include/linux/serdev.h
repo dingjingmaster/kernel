@@ -21,10 +21,10 @@ struct serdev_device;
 
 /**
  * struct serdev_device_ops - Callback operations for a serdev device
- * @receive_buf:	Function called with data received from device;
- *			returns number of bytes accepted; may sleep.
- * @write_wakeup:	Function called when ready to transmit more data; must
- *			not sleep.
+ * @receive_buf:    Function called with data received from device;
+ *            returns number of bytes accepted; may sleep.
+ * @write_wakeup:    Function called when ready to transmit more data; must
+ *            not sleep.
  */
 struct serdev_device_ops
 {
@@ -34,12 +34,12 @@ struct serdev_device_ops
 
 /**
  * struct serdev_device - Basic representation of an serdev device
- * @dev:	Driver model representation of the device.
- * @nr:		Device number on serdev bus.
- * @ctrl:	serdev controller managing this device.
- * @ops:	Device operations.
- * @write_comp	Completion used by serdev_device_write() internally
- * @write_lock	Lock to serialize access when writing data
+ * @dev:    Driver model representation of the device.
+ * @nr:        Device number on serdev bus.
+ * @ctrl:    serdev controller managing this device.
+ * @ops:    Device operations.
+ * @write_comp    Completion used by serdev_device_write() internally
+ * @write_lock    Lock to serialize access when writing data
  */
 struct serdev_device
 {
@@ -58,10 +58,10 @@ static inline struct serdev_device* to_serdev_device (struct device* d)
 
 /**
  * struct serdev_device_driver - serdev slave device driver
- * @driver:	serdev device drivers should initialize name field of this
- *		structure.
- * @probe:	binds this driver to a serdev device.
- * @remove:	unbinds this driver from the serdev device.
+ * @driver:    serdev device drivers should initialize name field of this
+ *        structure.
+ * @probe:    binds this driver to a serdev device.
+ * @remove:    unbinds this driver from the serdev device.
  */
 struct serdev_device_driver
 {
@@ -103,11 +103,11 @@ struct serdev_controller_ops
 
 /**
  * struct serdev_controller - interface to the serdev controller
- * @dev:	Driver model representation of the device.
- * @host:	Serial port hardware controller device
- * @nr:		number identifier for this controller/bus.
- * @serdev:	Pointer to slave device for this controller.
- * @ops:	Controller operations.
+ * @dev:    Driver model representation of the device.
+ * @host:    Serial port hardware controller device
+ * @nr:        number identifier for this controller/bus.
+ * @serdev:    Pointer to slave device for this controller.
+ * @ops:    Controller operations.
  */
 struct serdev_controller
 {
@@ -135,7 +135,7 @@ static inline void serdev_device_set_drvdata (struct serdev_device* serdev, void
 
 /**
  * serdev_device_put() - decrement serdev device refcount
- * @serdev	serdev device.
+ * @serdev    serdev device.
  */
 static inline void serdev_device_put (struct serdev_device* serdev)
 {
@@ -160,7 +160,7 @@ static inline void serdev_controller_set_drvdata (struct serdev_controller* ctrl
 
 /**
  * serdev_controller_put() - decrement controller refcount
- * @ctrl	serdev controller.
+ * @ctrl    serdev controller.
  */
 static inline void serdev_controller_put (struct serdev_controller* ctrl)
 {
@@ -221,7 +221,7 @@ int          __serdev_device_driver_register (struct serdev_device_driver*, stru
 
 /**
  * serdev_device_driver_unregister() - unregister an serdev client driver
- * @sdrv:	the driver to unregister
+ * @sdrv:    the driver to unregister
  */
 static inline void serdev_device_driver_unregister (struct serdev_device_driver* sdrv)
 {

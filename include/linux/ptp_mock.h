@@ -21,7 +21,7 @@ int mock_phc_index(struct mock_phc *phc);
 
 static inline struct mock_phc *mock_phc_create(struct device *dev)
 {
-	return NULL;
+    return NULL;
 }
 
 static inline void mock_phc_destroy(struct mock_phc *phc)
@@ -30,7 +30,7 @@ static inline void mock_phc_destroy(struct mock_phc *phc)
 
 static inline int mock_phc_index(struct mock_phc *phc)
 {
-	return -1;
+    return -1;
 }
 
 #endif

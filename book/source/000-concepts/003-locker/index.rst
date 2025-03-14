@@ -9,3 +9,4 @@
     002-rwlocker.md
     003-spinlock.md
     004-semaphore.md
+    005-rcu.md

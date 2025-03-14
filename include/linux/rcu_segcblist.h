@@ -18,13 +18,14 @@
 #include <linux/atomic.h>
 
 /* Simple unsegmented callback lists. */
-struct rcu_cblist {
-	struct rcu_head *head;
-	struct rcu_head **tail;
-	long len;
+struct rcu_cblist
+{
+    struct rcu_head*  head;
+    struct rcu_head** tail;
+    long              len;
 };
 
-#define RCU_CBLIST_INITIALIZER(n) { .head = NULL, .tail = &n.head }
+#define RCU_CBLIST_INITIALIZER(n) {.head = NULL, .tail = &n.head}
 
 /* Complicated segmented callback lists.  ;-) */
 
@@ -34,18 +35,18 @@ struct rcu_cblist {
  * The segments are as follows:
  *
  * [head, *tails[RCU_DONE_TAIL]):
- *	Callbacks whose grace period has elapsed, and thus can be invoked.
+ *    Callbacks whose grace period has elapsed, and thus can be invoked.
  * [*tails[RCU_DONE_TAIL], *tails[RCU_WAIT_TAIL]):
- *	Callbacks waiting for the current GP from the current CPU's viewpoint.
+ *    Callbacks waiting for the current GP from the current CPU's viewpoint.
  * [*tails[RCU_WAIT_TAIL], *tails[RCU_NEXT_READY_TAIL]):
- *	Callbacks that arrived before the next GP started, again from
- *	the current CPU's viewpoint.  These can be handled by the next GP.
+ *    Callbacks that arrived before the next GP started, again from
+ *    the current CPU's viewpoint.  These can be handled by the next GP.
  * [*tails[RCU_NEXT_READY_TAIL], *tails[RCU_NEXT_TAIL]):
- *	Callbacks that might have arrived after the next GP started.
- *	There is some uncertainty as to when a given GP starts and
- *	ends, but a CPU knows the exact times if it is the one starting
- *	or ending the GP.  Other CPUs know that the previous GP ends
- *	before the next one starts.
+ *    Callbacks that might have arrived after the next GP started.
+ *    There is some uncertainty as to when a given GP starts and
+ *    ends, but a CPU knows the exact times if it is the one starting
+ *    or ending the GP.  Other CPUs know that the previous GP ends
+ *    before the next one starts.
  *
  * Note that RCU_WAIT_TAIL cannot be empty unless RCU_NEXT_READY_TAIL is also
  * empty.
@@ -57,12 +58,11 @@ struct rcu_cblist {
  * are already ready to invoke) or for RCU_NEXT_TAIL (whose callbacks have
  * not yet been assigned a grace-period number).
  */
-#define RCU_DONE_TAIL		0	/* Also RCU_WAIT head. */
-#define RCU_WAIT_TAIL		1	/* Also RCU_NEXT_READY head. */
-#define RCU_NEXT_READY_TAIL	2	/* Also RCU_NEXT head. */
-#define RCU_NEXT_TAIL		3
-#define RCU_CBLIST_NSEGS	4
-
+#define RCU_DONE_TAIL 0       /* Also RCU_WAIT head. */
+#define RCU_WAIT_TAIL 1       /* Also RCU_NEXT_READY head. */
+#define RCU_NEXT_READY_TAIL 2 /* Also RCU_NEXT head. */
+#define RCU_NEXT_TAIL 3
+#define RCU_CBLIST_NSEGS 4
 
 /*
  *                     ==NOCB Offloading state machine==
@@ -114,8 +114,6 @@ struct rcu_cblist {
  *  |   handling callbacks. Enable bypass queueing.                            |
  *  ----------------------------------------------------------------------------
  */
-
-
 
 /*
  *                       ==NOCB De-Offloading state machine==
@@ -184,29 +182,30 @@ struct rcu_cblist {
  *  |  rcuc kthread, without holding nocb_lock.                                |
  *  ----------------------------------------------------------------------------
  */
-#define SEGCBLIST_ENABLED	BIT(0)
-#define SEGCBLIST_OFFLOADED	BIT(1)
+#define SEGCBLIST_ENABLED BIT (0)
+#define SEGCBLIST_OFFLOADED BIT (1)
 
-struct rcu_segcblist {
-	struct rcu_head *head;
-	struct rcu_head **tails[RCU_CBLIST_NSEGS];
-	unsigned long gp_seq[RCU_CBLIST_NSEGS];
+struct rcu_segcblist
+{
+    struct rcu_head*  head;
+    struct rcu_head** tails[RCU_CBLIST_NSEGS];
+    unsigned long     gp_seq[RCU_CBLIST_NSEGS];
 #ifdef CONFIG_RCU_NOCB_CPU
-	atomic_long_t len;
+    atomic_long_t len;
 #else
-	long len;
+    long len;
 #endif
-	long seglen[RCU_CBLIST_NSEGS];
-	u8 flags;
+    long seglen[RCU_CBLIST_NSEGS];
+    u8   flags;
 };
 
-#define RCU_SEGCBLIST_INITIALIZER(n) \
-{ \
-	.head = NULL, \
-	.tails[RCU_DONE_TAIL] = &n.head, \
-	.tails[RCU_WAIT_TAIL] = &n.head, \
-	.tails[RCU_NEXT_READY_TAIL] = &n.head, \
-	.tails[RCU_NEXT_TAIL] = &n.head, \
-}
+#define RCU_SEGCBLIST_INITIALIZER(n)               \
+    {                                              \
+            .head                       = NULL,    \
+            .tails[RCU_DONE_TAIL]       = &n.head, \
+            .tails[RCU_WAIT_TAIL]       = &n.head, \
+            .tails[RCU_NEXT_READY_TAIL] = &n.head, \
+            .tails[RCU_NEXT_TAIL]       = &n.head, \
+    }
 
 #endif /* __INCLUDE_LINUX_RCU_SEGCBLIST_H */
