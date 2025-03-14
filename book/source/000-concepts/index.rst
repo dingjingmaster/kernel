@@ -8,3 +8,4 @@
     000-turing/index.rst
     001-base/index.rst
     002-elf/index.rst
+    003-locker/index.rst
