@@ -85,12 +85,12 @@ SEQCOUNT_LOCKNAME (mutex, struct mutex, true, mutex)
  */
 typedef struct
 {
-    /*
-	 * Make sure that readers don't starve writers on PREEMPT_RT: use
-	 * seqcount_spinlock_t instead of seqcount_t. Check __SEQ_LOCK().
-	 */
-    seqcount_spinlock_t seqcount;
-    spinlock_t          lock;
+    /**
+     * Make sure that readers don't starve writers on PREEMPT_RT: use
+     * seqcount_spinlock_t instead of seqcount_t. Check __SEQ_LOCK().
+     */
+    seqcount_spinlock_t seqcount; // 序列号计数器
+    spinlock_t          lock;     // 自旋锁(仅用于写操作互斥)
 } seqlock_t;
 
-#endif /* __LINUX_SEQLOCK_TYPES_H */
+#endif                            /* __LINUX_SEQLOCK_TYPES_H */

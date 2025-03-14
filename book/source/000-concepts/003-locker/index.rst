@@ -10,3 +10,4 @@
     003-spinlock.md
     004-semaphore.md
     005-rcu.md
+    006-seqlocks.md
