@@ -114,7 +114,7 @@
 
 #include <kunit/test.h>
 
-static int kernel_init (void*);
+static int                      kernel_init (void*);
 
 /*
  * Debug helper: via this flag we know that we are in 'early bootup code'
@@ -123,7 +123,7 @@ static int kernel_init (void*);
  * operations which are not allowed with IRQ disabled are allowed while the
  * flag is set.
  */
-bool early_boot_irqs_disabled __read_mostly;
+bool early_boot_irqs_disabled   __read_mostly;
 
 enum system_states system_state __read_mostly;
 EXPORT_SYMBOL (system_state);
@@ -138,28 +138,28 @@ EXPORT_SYMBOL (system_state);
 void (*__initdata late_time_init) (void);
 
 /* Untouched command line saved by arch-specific code. */
-char __initdata boot_command_line[COMMAND_LINE_SIZE];
+char __initdata                     boot_command_line[COMMAND_LINE_SIZE];
 /* Untouched saved command line (eg. for /proc) */
-char* saved_command_line __ro_after_init;
+char* saved_command_line            __ro_after_init;
 unsigned int saved_command_line_len __ro_after_init;
 /* Command line for parameter parsing */
-static char* static_command_line;
+static char*                        static_command_line;
 /* Untouched extra command line */
-static char* extra_command_line;
+static char*                        extra_command_line;
 /* Extra init arguments */
-static char* extra_init_args;
+static char*                        extra_init_args;
 
 #ifdef CONFIG_BOOT_CONFIG
 /* Is bootconfig on command line? */
-static bool bootconfig_found;
+static bool   bootconfig_found;
 static size_t initargs_offs;
 #else
-#define bootconfig_found false
-#define initargs_offs 0
+#    define bootconfig_found false
+#    define initargs_offs 0
 #endif
 
-static char* execute_command;
-static char* ramdisk_execute_command = "/init";
+static char*                execute_command;
+static char*                ramdisk_execute_command = "/init";
 
 /*
  * Used to generate warnings if static_key manipulation functions are used
@@ -189,22 +189,22 @@ static int __init set_reset_devices (char* str)
 __setup ("reset_devices", set_reset_devices);
 
 static const char* argv_init[MAX_INIT_ARGS + 2] = {
-    "init",
-    NULL,
+        "init",
+        NULL,
 };
 const char* envp_init[MAX_INIT_ENVS + 2] = {
-    "HOME=/",
-    "TERM=linux",
-    NULL,
+        "HOME=/",
+        "TERM=linux",
+        NULL,
 };
 static const char *panic_later, *panic_param;
 
 static bool __init obsolete_checksetup (char* line)
 {
     const struct obs_kernel_param* p;
-    bool had_early_param = false;
+    bool                           had_early_param = false;
 
-    p                    = __setup_start;
+    p                                              = __setup_start;
     do {
         int n = strlen (p->str);
         if (parameqn (line, p->str, n)) {
@@ -271,10 +271,10 @@ early_param ("loglevel", loglevel);
 #ifdef CONFIG_BLK_DEV_INITRD
 static void* __init get_boot_config_from_initrd (size_t* _size)
 {
-    u32 size, csum;
+    u32   size, csum;
     char* data;
-    u32* hdr;
-    int i;
+    u32*  hdr;
+    int   i;
 
     if (!initrd_end)
         return NULL;
@@ -325,14 +325,14 @@ static void* __init get_boot_config_from_initrd (size_t* _size)
 
 static char xbc_namebuf[XBC_KEYLEN_MAX] __initdata;
 
-#define rest(dst, end) ((end) > (dst) ? (end) - (dst) : 0)
+#    define rest(dst, end) ((end) > (dst) ? (end) - (dst) : 0)
 
 static int __init xbc_snprint_cmdline (char* buf, size_t size, struct xbc_node* root)
 {
     struct xbc_node *knode, *vnode;
-    char* end = buf + size;
-    const char *val, *q;
-    int ret;
+    char*            end = buf + size;
+    const char *     val, *q;
+    int              ret;
 
     xbc_node_for_each_key_value (root, knode, val) {
         ret = xbc_node_compose_key_after (root, knode, xbc_namebuf, XBC_KEYLEN_MAX);
@@ -363,14 +363,14 @@ static int __init xbc_snprint_cmdline (char* buf, size_t size, struct xbc_node* 
 
     return buf - (end - size);
 }
-#undef rest
+#    undef rest
 
 /* Make an extra command line under given key word */
 static char* __init xbc_make_cmdline (const char* key)
 {
     struct xbc_node* root;
-    char* new_cmdline;
-    int ret, len = 0;
+    char*            new_cmdline;
+    int              ret, len = 0;
 
     root = xbc_find_node (key);
     if (!root)
@@ -415,9 +415,9 @@ static void __init setup_boot_config (void)
 {
     static char tmp_cmdline[COMMAND_LINE_SIZE] __initdata;
     const char *msg, *data;
-    int pos, ret;
-    size_t size;
-    char* err;
+    int         pos, ret;
+    size_t      size;
+    char*       err;
 
     /* Cut out the bootconfig data even if we have no bootconfig option */
     data = get_boot_config_from_initrd (&size);
@@ -485,9 +485,9 @@ static int __init warn_bootconfig (char* str)
     return 0;
 }
 
-#define exit_boot_config() \
-    do {                   \
-    } while (0)
+#    define exit_boot_config() \
+        do {                   \
+        } while (0)
 
 #endif /* CONFIG_BOOT_CONFIG */
 
@@ -697,12 +697,12 @@ static void __init setup_command_line (char* command_line)
  * gcc-3.4 accidentally inlines this function, so use noinline.
  */
 
-static __initdata DECLARE_COMPLETION (kthreadd_done);
+static __initdata                     DECLARE_COMPLETION (kthreadd_done);
 
 static noinline void __ref __noreturn rest_init (void)
 {
     struct task_struct* tsk;
-    int pid;
+    int                 pid;
 
     rcu_scheduler_starting ();
     /*
@@ -772,7 +772,7 @@ void __init parse_early_options (char* cmdline)
 void __init parse_early_param (void)
 {
     static int done __initdata;
-    static char tmp_cmdline[COMMAND_LINE_SIZE] __initdata;
+    static char     tmp_cmdline[COMMAND_LINE_SIZE] __initdata;
 
     if (done)
         return;
@@ -830,7 +830,7 @@ DEFINE_PER_CPU (u32, kstack_offset);
 
 static int __init early_randomize_kstack_offset (char* buf)
 {
-    int ret;
+    int  ret;
     bool bool_result;
 
     ret = kstrtobool (buf, &bool_result);
@@ -848,10 +848,10 @@ early_param ("randomize_kstack_offset", early_randomize_kstack_offset);
 
 static void __init print_unknown_bootoptions (void)
 {
-    char* unknown_options;
-    char* end;
+    char*              unknown_options;
+    char*              end;
     const char* const* p;
-    size_t len;
+    size_t             len;
 
     if (panic_later || (!argv_init[1] && !envp_init[2]))
         return;
@@ -890,13 +890,13 @@ static void __init print_unknown_bootoptions (void)
 static void __init early_numa_node_init (void)
 {
 #ifdef CONFIG_USE_PERCPU_NUMA_NODE_ID
-#ifndef cpu_to_node
+#    ifndef cpu_to_node
     int cpu;
 
     /* The early_cpu_to_node() should be ready here. */
     for_each_possible_cpu (cpu)
         set_cpu_numa_node (cpu, early_cpu_to_node (cpu));
-#endif
+#    endif
 #endif
 }
 
@@ -1121,17 +1121,16 @@ static void __init do_ctors (void)
 }
 
 #ifdef CONFIG_KALLSYMS
-struct blacklist_entry
-{
+struct blacklist_entry {
     struct list_head next;
-    char* buf;
+    char*            buf;
 };
 
 static __initdata_or_module LIST_HEAD (blacklisted_initcalls);
 
-static int __init initcall_blacklist (char* str)
+static int __init           initcall_blacklist (char* str)
 {
-    char* str_entry;
+    char*                   str_entry;
     struct blacklist_entry* entry;
 
     /* str argument is a comma-separated list of functions */
@@ -1156,8 +1155,8 @@ static int __init initcall_blacklist (char* str)
 static bool __init_or_module initcall_blacklisted (initcall_t fn)
 {
     struct blacklist_entry* entry;
-    char fn_name[KSYM_SYMBOL_LEN];
-    unsigned long addr;
+    char                    fn_name[KSYM_SYMBOL_LEN];
+    unsigned long           addr;
 
     if (list_empty (&blacklisted_initcalls))
         return false;
@@ -1221,8 +1220,8 @@ static void __init initcall_debug_enable (void)
     ret |= register_trace_initcall_finish (trace_initcall_finish_cb, &initcall_calltime);
     WARN (ret, "Failed to register initcall tracepoints\n");
 }
-#define do_trace_initcall_start trace_initcall_start
-#define do_trace_initcall_finish trace_initcall_finish
+#    define do_trace_initcall_start trace_initcall_start
+#    define do_trace_initcall_finish trace_initcall_finish
 #else
 static inline void do_trace_initcall_start (initcall_t fn)
 {
@@ -1240,9 +1239,9 @@ static inline void do_trace_initcall_finish (initcall_t fn, int ret)
 
 int __init_or_module do_one_initcall (initcall_t fn)
 {
-    int count = preempt_count ();
+    int  count = preempt_count ();
     char msgbuf[64];
-    int ret;
+    int  ret;
 
     if (initcall_blacklisted (fn))
         return -EPERM;
@@ -1268,13 +1267,13 @@ int __init_or_module do_one_initcall (initcall_t fn)
 }
 
 static initcall_entry_t* initcall_levels[] __initdata = {
-    __initcall0_start, __initcall1_start, __initcall2_start, __initcall3_start, __initcall4_start,
-    __initcall5_start, __initcall6_start, __initcall7_start, __initcall_end,
+        __initcall0_start, __initcall1_start, __initcall2_start, __initcall3_start, __initcall4_start,
+        __initcall5_start, __initcall6_start, __initcall7_start, __initcall_end,
 };
 
 /* Keep these in sync with initcalls in include/linux/init.h */
 static const char* initcall_level_names[] __initdata = {
-    "pure", "core", "postcore", "arch", "subsys", "fs", "device", "late",
+        "pure", "core", "postcore", "arch", "subsys", "fs", "device", "late",
 };
 
 static int __init ignore_unknown_bootoption (char* param, char* val, const char* unused, void* arg)
@@ -1295,9 +1294,9 @@ static void __init do_initcall_level (int level, char* command_line)
 
 static void __init do_initcalls (void)
 {
-    int level;
+    int    level;
     size_t len = saved_command_line_len + 1;
-    char* command_line;
+    char*  command_line;
 
     command_line = kzalloc (len, GFP_KERNEL);
     if (!command_line)
@@ -1370,12 +1369,12 @@ static noinline void __init kernel_init_freeable (void);
 #if defined(CONFIG_STRICT_KERNEL_RWX) || defined(CONFIG_STRICT_MODULE_RWX)
 bool rodata_enabled __ro_after_init = true;
 
-#ifndef arch_parse_debug_rodata
+#    ifndef arch_parse_debug_rodata
 static inline bool arch_parse_debug_rodata (char* str)
 {
     return false;
 }
-#endif
+#    endif
 
 static int __init set_debug_rodata (char* str)
 {
@@ -1483,8 +1482,8 @@ static int __ref kernel_init (void* unused)
             return 0;
     }
 
-    if (!try_to_run_init_process ("/sbin/init") || !try_to_run_init_process ("/etc/init") || !try_to_run_init_process ("/bin/init") ||
-        !try_to_run_init_process ("/bin/sh"))
+    if (!try_to_run_init_process ("/sbin/init") || !try_to_run_init_process ("/etc/init") || !try_to_run_init_process ("/bin/init")
+        || !try_to_run_init_process ("/bin/sh"))
         return 0;
 
     panic ("No working init found.  Try passing init= option to kernel. "

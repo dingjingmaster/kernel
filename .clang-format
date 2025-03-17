@@ -23,7 +23,7 @@ AlignEscapedNewlines: Left
 AlignOperands: AlignAfterOperator
 AlignTrailingComments:
   Kind: Always
-  OverEmptyLines: 10
+  OverEmptyLines: 3
 AllowAllParametersOfDeclarationOnNextLine: true
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true
@@ -38,6 +38,7 @@ BreakTemplateDeclarations: Yes
 BinPackArguments: true
 BinPackParameters: OnePerLine
 BraceWrapping:
+  AfterCaseLabel: false
   AfterClass: true
   AfterControlStatement: false
   AfterEnum: true
@@ -53,12 +54,12 @@ BraceWrapping:
   SplitEmptyFunction: true
   SplitEmptyRecord: true
   SplitEmptyNamespace: true
-BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBinaryOperators: All
 BreakBeforeBraces: Custom
 BreakBeforeInheritanceComma: false
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializersBeforeComma: false
-BreakConstructorInitializers: BeforeComma
+BreakConstructorInitializers: BeforeColon
 BreakAfterJavaFieldAnnotations: true
 BreakStringLiterals: true
 ColumnLimit: 160
@@ -725,7 +726,7 @@ IncludeCategories:
 IncludeIsMainRegex: '(Test)?$'
 IndentCaseLabels: false
 IndentGotoLabels: false
-IndentPPDirectives: None
+IndentPPDirectives: AfterHash
 IndentWidth: 4
 IndentWrappedFunctionNames: false
 JavaScriptQuotes: Leave

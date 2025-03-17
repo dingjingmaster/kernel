@@ -30,8 +30,7 @@
  *
  * See Documentation/locking/seqlock.rst
  */
-typedef struct seqcount
-{
+typedef struct seqcount {
     unsigned sequence;
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
     struct lockdep_map dep_map;
@@ -55,14 +54,13 @@ typedef struct seqcount
  * sleeping locks.  See Documentation/locking/locktypes.rst
  */
 #if defined(CONFIG_LOCKDEP) || defined(CONFIG_PREEMPT_RT)
-#define __SEQ_LOCK(expr) expr
+#    define __SEQ_LOCK(expr) expr
 #else
-#define __SEQ_LOCK(expr)
+#    define __SEQ_LOCK(expr)
 #endif
 
 #define SEQCOUNT_LOCKNAME(lockname, locktype, preemptible, lockbase) \
-    typedef struct seqcount_##lockname                               \
-    {                                                                \
+    typedef struct seqcount_##lockname {                             \
         seqcount_t seqcount;                                         \
         __SEQ_LOCK (locktype* lock);                                 \
     } seqcount_##lockname##_t;
@@ -83,8 +81,7 @@ SEQCOUNT_LOCKNAME (mutex, struct mutex, true, mutex)
  *    - Comments on top of seqcount_t
  *    - Documentation/locking/seqlock.rst
  */
-typedef struct
-{
+typedef struct {
     /**
      * Make sure that readers don't starve writers on PREEMPT_RT: use
      * seqcount_spinlock_t instead of seqcount_t. Check __SEQ_LOCK().

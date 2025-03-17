@@ -9,4 +9,5 @@
     001-base/index.rst
     002-elf/index.rst
     003-locker/index.rst
-    004-mm/index.rst
+    004-boot/index.rst
+    005-mm/index.rst
