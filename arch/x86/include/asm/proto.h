@@ -37,6 +37,12 @@ void entry_SYSRETL_compat_end(void);
 #define entry_SYSENTER_compat NULL
 #endif
 
+/**
+ * 根据 CPU 是否支持 NX 位（No-Execute），设置内核内存管理中的 _PAGE_NX 标志位。
+ * 该标志位用于控制内存页的访问权限，禁止将数据页（如堆栈、堆）作为代码执行，从而防范 数据执行攻击（DEP）
+ * - 若 CPU 支持 NX 位（如较新的 x86_64 处理器），则启用 _PAGE_NX，禁止数据页执行代码
+ * - 若不支持 NX 位（如老旧的 x86 处理器），则回退到传统的保护机制（如页表权限控制）
+ */
 void x86_configure_nx(void);
 
 extern int reboot_force;

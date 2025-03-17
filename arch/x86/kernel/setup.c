@@ -80,15 +80,31 @@ struct boot_params     boot_params;
  * These are the four main kernel memory regions, we put them into
  * the resource tree so that kdump tools and other debugging tools
  * recover it:
+ *
+ * 这是四个主要的内核内存区域，我们把它们放到资源树中，以便kdump工具和其他调试工具恢复它：
+ *
+ * 四区：
+ * .text    代码(可执行)    内核函数
+ * .rodata  只读数据        常量、字符串、配置
+ * .data    可读写数据      全局变量、堆栈
+ * .bss     未初始化数据    动态分配缓存区
  */
 
-static struct resource rodata_resource = {.name = "Kernel rodata", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
+// 内核只读数据段(常量、字符串、配置)
+static struct resource rodata_resource = {
+        .name = "Kernel rodata", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
 
-static struct resource data_resource   = {.name = "Kernel data", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
+// 数据区
+static struct resource data_resource = {
+        .name = "Kernel data", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
 
-static struct resource code_resource   = {.name = "Kernel code", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
+// 代码区
+static struct resource code_resource = {
+        .name = "Kernel code", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
 
-static struct resource bss_resource    = {.name = "Kernel bss", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
+// 未初始化数据区
+static struct resource bss_resource = {
+        .name = "Kernel bss", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
 
 #ifdef CONFIG_X86_32
 /* CPU data as detected by the assembly code in head_32.S */
@@ -163,6 +179,11 @@ static inline void __init copy_edd (void)
     edd.edd_info_nr      = boot_params.eddbuf_entries;
 }
 #else
+/**
+ * copy_edd 函数是 Linux 内核初始化阶段的重要函数之一，负责从 BIOS 的 EDD(Enhanced Disk Drive)
+ * 数据结构中提取并复制磁盘设备信息到内核的 boot_params 结构中。
+ * 以下是其核心作用和功能详解：
+ */
 static inline void __init copy_edd (void)
 {
 }
@@ -242,7 +263,8 @@ static void __init relocate_initrd (void)
 
     initrd_start = relocated_ramdisk + PAGE_OFFSET;
     initrd_end   = initrd_start + ramdisk_size;
-    printk (KERN_INFO "Allocated new RAMDISK: [mem %#010llx-%#010llx]\n", relocated_ramdisk, relocated_ramdisk + ramdisk_size - 1);
+    printk (KERN_INFO "Allocated new RAMDISK: [mem %#010llx-%#010llx]\n", relocated_ramdisk,
+            relocated_ramdisk + ramdisk_size - 1);
 
     copy_from_early_mem ((void*)initrd_start, ramdisk_image, ramdisk_size);
 
@@ -348,6 +370,12 @@ int __init ima_get_kexec_buffer (void** addr, size_t* size)
 }
 #endif
 
+/**
+ * 负责解析和初始化 BIOS 传递的启动参数（Setup Data），为内核后续的硬件探测和资源分配提供基础信息。
+ * 1. 桥梁功能：作为内核与 BIOS 之间的中间层，将 BIOS 存储在特定内存区域（如 0x9FC00 或 0xFFFF0000）的启动参数结构（setup_header）
+ *    解析到内核可用的数据结构（boot_params）中
+ * 2. 关键初始化：完成内核启动参数的早期解析，为后续的硬件探测（如 CPU、内存、PCI 设备）、命令行参数处理等步骤提供必要信息。
+ */
 static void __init parse_setup_data (void)
 {
     struct setup_data* data;
@@ -445,18 +473,19 @@ static void __init arch_reserve_crashkernel (void)
     reserve_crashkernel_generic (cmdline, crash_size, crash_base, low_size, high);
 }
 
-static struct resource standard_io_resources[] = {{.name = "dma1", .start = 0x00, .end = 0x1f, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-                                                  {.name = "pic1", .start = 0x20, .end = 0x21, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-                                                  {.name = "timer0", .start = 0x40, .end = 0x43, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-                                                  {.name = "timer1", .start = 0x50, .end = 0x53, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-                                                  {.name = "keyboard", .start = 0x60, .end = 0x60, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-                                                  {.name = "keyboard", .start = 0x64, .end = 0x64, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-                                                  {.name = "dma page reg", .start = 0x80, .end = 0x8f, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-                                                  {.name = "pic2", .start = 0xa0, .end = 0xa1, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-                                                  {.name = "dma2", .start = 0xc0, .end = 0xdf, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-                                                  {.name = "fpu", .start = 0xf0, .end = 0xff, .flags = IORESOURCE_BUSY | IORESOURCE_IO}};
+static struct resource standard_io_resources[] = {
+        {.name = "dma1", .start = 0x00, .end = 0x1f, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name = "pic1", .start = 0x20, .end = 0x21, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name = "timer0", .start = 0x40, .end = 0x43, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name = "timer1", .start = 0x50, .end = 0x53, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name = "keyboard", .start = 0x60, .end = 0x60, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name = "keyboard", .start = 0x64, .end = 0x64, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name = "dma page reg", .start = 0x80, .end = 0x8f, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name = "pic2", .start = 0xa0, .end = 0xa1, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name = "dma2", .start = 0xc0, .end = 0xdf, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name = "fpu", .start = 0xf0, .end = 0xff, .flags = IORESOURCE_BUSY | IORESOURCE_IO}};
 
-void __init            reserve_standard_io_resources (void)
+void __init reserve_standard_io_resources (void)
 {
     int i;
 
@@ -609,7 +638,8 @@ static void __init early_reserve_memory (void)
 static int dump_kernel_offset (struct notifier_block* self, unsigned long v, void* p)
 {
     if (kaslr_enabled ()) {
-        pr_emerg ("Kernel Offset: 0x%lx from 0x%lx (relocation range: 0x%lx-0x%lx)\n", kaslr_offset (), __START_KERNEL, __START_KERNEL_map, MODULES_VADDR - 1);
+        pr_emerg ("Kernel Offset: 0x%lx from 0x%lx (relocation range: 0x%lx-0x%lx)\n", kaslr_offset (), __START_KERNEL,
+                  __START_KERNEL_map, MODULES_VADDR - 1);
     } else {
         pr_emerg ("Kernel Offset: disabled\n");
     }
@@ -755,6 +785,10 @@ void __init setup_arch (char** cmdline_p)
      * This call needs to happen before e820__memory_setup() which calls the
      * xen_memory_setup() on Xen dom0 which relies on the fact that those
      * early reservations have happened already.
+     *
+     * 在内存被添加到memblock之前做一些内存预留，这样memblock分配就不会覆盖它。
+     * 在此之后，引导加载程序或固件或内核文本中仍然需要的所有内容都应该在e820中提前保留或标记为非RAM。所有其他内存都是释放的。
+     * 这个调用需要发生在e820__memory_setup（）之前，e820__memory_setup（）调用Xen dom0上的xen_memory_setup()，这依赖于这些早期的保留已经发生的事实。
      */
     early_reserve_memory ();
 
@@ -762,13 +796,32 @@ void __init setup_arch (char** cmdline_p)
     e820__memory_setup ();
     parse_setup_data ();
 
-    copy_edd ();
+    // 桥梁功能：作为内核与 BIOS 之间的接口，将 BIOS 存储的 EDD 数据（包含硬盘、光驱等存储设备的详细信息）解析到内核可用的数据结构中。
+    copy_edd ();        // 空实现
 
     if (!boot_params.hdr.root_flags) {
         root_mountflags &= ~MS_RDONLY;
     }
+
+    /**
+     * Linux 内核初始化过程中用于设置初始内存管理结构（Initial Memory Management, init_mm）的核心函数，其作用主要包括以下方面:
+     *  1. 初始化初始内存描述符
+     *      创建内存描述符：该函数负责创建并初始化全局内存描述符 init_mm，该结构体记录了内核早期阶段使用的内存布局信息，包括:
+     *        - 虚拟地址空间：定义内核初始的虚拟地址范围（如 0xFFFF800000000000 到 0xFFFFFFFFFFFFFFFF）
+     *        - 页表配置：设置初始页表（如临时页表），确保内核能够访问物理内存和设备I/O空间
+     *        - 内存区域注册：将 BIOS/E820 探测到的可用内存区域（如 E820_RAM）注册到 init_mm 中，为后续内存管理模块提供基础数据
+     *  2. 页表初始化
+     *      - 临时页表构建：在 MMU 启用前，setup_initial_init_mm 会构建一个临时的页表，将物理内存映射到内核的虚拟地址空间，
+     *        确保内核代码和数据可访问。地址空间隔离：通过页表设置，区分内核空间和用户空间的地址范围，防止早期阶段的内存越界访问
+     *      - 地址空间隔离：通过页表设置，区分内核空间和用户空间的地址范围，防止早期阶段的内存越界访问
+     *   3. 内存管理子系统准备
+     *      - 初始化内存管理数据结构：如页缓存（page cache）、内存分配器（如 vmalloc）等，为后续内存分配和页面管理奠定基础
+     *      - 中断处理支持：配置内存管理相关的中断处理程序，确保在内存访问异常时能够正确响应
+     *   4. 在内核启动流程中的位置
+     */
     setup_initial_init_mm (_text, _etext, _edata, (void*)_brk_end);
 
+    // 初始化代码段、数据段、只读数据段、未初始化数据段 范围
     code_resource.start   = __pa_symbol (_text);
     code_resource.end     = __pa_symbol (_etext) - 1;
     rodata_resource.start = __pa_symbol (__start_rodata);
@@ -778,17 +831,12 @@ void __init setup_arch (char** cmdline_p)
     bss_resource.start    = __pa_symbol (__bss_start);
     bss_resource.end      = __pa_symbol (__bss_stop) - 1;
 
-    /*
-     * x86_configure_nx() is called before parse_early_param() to detect
-     * whether hardware doesn't support NX (so that the early EHCI debug
-     * console setup can safely call set_fixmap()).
-     */
-    x86_configure_nx ();
-
+    x86_configure_nx ();    // CPU 是否包含NX功能(禁止数据段执行)
     parse_early_param ();
 
-    if (efi_enabled (EFI_BOOT))
+    if (efi_enabled (EFI_BOOT)) {
         efi_memblock_x86_reserve_range ();
+    }
 
 #ifdef CONFIG_MEMORY_HOTPLUG
     /*
@@ -814,9 +862,8 @@ void __init setup_arch (char** cmdline_p)
         memblock_set_bottom_up (true);
 #endif
 
-    x86_report_nx ();
-
-    apic_setup_apic_calls ();
+    x86_report_nx ();           // 打印输出 nx 支持情况
+    apic_setup_apic_calls ();   // APIC
 
     if (acpi_mps_check ()) {
 #ifdef CONFIG_X86_LOCAL_APIC
@@ -828,17 +875,21 @@ void __init setup_arch (char** cmdline_p)
     e820__reserve_setup_data ();
     e820__finish_early_params ();
 
-    if (efi_enabled (EFI_BOOT))
+    if (efi_enabled (EFI_BOOT)) {
         efi_init ();
+    }
 
     reserve_ibft_region ();
     x86_init.resources.dmi_setup ();
 
-    /*
+    /**
      * VMware detection requires dmi to be available, so this
      * needs to be done after dmi_setup(), for the boot CPU.
      * For some guest types (Xen PV, SEV-SNP, TDX) it is required to be
      * called before cache_bp_init() for setting up MTRR state.
+     *
+     * VMware检测需要dmi可用，所以这需要在dmi_setup（）之后完成，用于引导CPU。
+     * 对于某些客户机类型（Xen PV、SEV-SNP、TDX），需要在cache_bp_init（）之前调用它来设置MTRR状态。
      */
     init_hypervisor_platform ();
 
@@ -1116,9 +1167,10 @@ void __init setup_arch (char** cmdline_p)
 
 #ifdef CONFIG_X86_32
 
-static struct resource video_ram_resource = {.name = "Video RAM area", .start = 0xa0000, .end = 0xbffff, .flags = IORESOURCE_BUSY | IORESOURCE_MEM};
+static struct resource video_ram_resource = {
+        .name = "Video RAM area", .start = 0xa0000, .end = 0xbffff, .flags = IORESOURCE_BUSY | IORESOURCE_MEM};
 
-void __init            i386_reserve_resources (void)
+void __init i386_reserve_resources (void)
 {
     request_resource (&iomem_resource, &video_ram_resource);
     reserve_standard_io_resources ();

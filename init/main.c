@@ -774,8 +774,9 @@ void __init parse_early_param (void)
     static int done __initdata;
     static char     tmp_cmdline[COMMAND_LINE_SIZE] __initdata;
 
-    if (done)
+    if (done) {
         return;
+    }
 
     /* All fall through to do_early_param. */
     strscpy (tmp_cmdline, boot_command_line, COMMAND_LINE_SIZE);
