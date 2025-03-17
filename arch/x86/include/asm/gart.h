@@ -45,6 +45,10 @@ void gart_iommu_hole_init(void);
 #define gart_iommu_aperture_allowed    0
 #define gart_iommu_aperture_disabled   1
 
+/**
+ * Linux 内核在早期初始化阶段用于检测和配置 GPU 地址重映射表（GART）或 IOMMU（输入输出内存管理单元）硬件支持的核心功能。
+ * 其核心作用是确保系统能够正确利用硬件级别的内存隔离和设备访问控制机制，为后续的图形驱动和 PCI 设备 DMA 分配提供基础。
+ */
 static inline void early_gart_iommu_check(void)
 {
 }

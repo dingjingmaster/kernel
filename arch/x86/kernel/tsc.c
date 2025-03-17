@@ -1479,15 +1479,29 @@ static void __init tsc_enable_sched_clock (void)
     static_branch_enable (&__use_tsc);
 }
 
+/**
+ * 内核在早期初始化阶段用于配置和校准 CPU 时间戳计数器（TSC）的核心函数。其核心作用是确保内核能够基于 TSC 提供精确的时间戳和时钟频率，为后续的时间管理、调度和性能分析提供可靠基础。
+ *  1. 检测 CPU 是否支持 TSC 寄存器（通过 CPUID 指令或架构特性标志，如 cpu_has_tsc）
+ *  2. 读取 TSC 的时钟频率（单位为 Hz），通常通过 cpuid 获取 TSC_FREQ 或通过测量 TSC 在已知时间间隔内的增量计算
+ *  3. 多核同步：在多核系统中，通过 ACPI 的 TSC_ADJUSTMENT 字段校准不同核心的 TSC 值，确保所有核心的 TSC 读数一致
+ *  4. 设置时钟源：将 TSC 配置为内核时间戳的默认来源（如 ktime 的底层实现）
+ *  5. 初始化中断时间戳：为硬件中断（如 PIT、HPET）配置 TSC 基准，确保中断时间戳的精确性
+ */
 void __init tsc_early_init (void)
 {
-    if (!boot_cpu_has (X86_FEATURE_TSC))
+    if (!boot_cpu_has (X86_FEATURE_TSC)) {
         return;
+    }
+
     /* Don't change UV TSC multi-chassis synchronization */
-    if (is_early_uv_system ())
+    if (is_early_uv_system ()) {
         return;
-    if (!determine_cpu_tsc_frequencies (true))
+    }
+
+    if (!determine_cpu_tsc_frequencies (true)) {
         return;
+    }
+
     tsc_enable_sched_clock ();
 }
 

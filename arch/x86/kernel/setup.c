@@ -576,7 +576,13 @@ static void __init trim_bios_range (void)
     e820__update_table (e820_table);
 }
 
-/* called before trim_bios_range() to spare extra sanitize */
+/**
+ * called before trim_bios_range() to spare extra sanitize
+ * Linux 内核中用于整合 BIOS 通过 E820 接口探测到的物理内存布局的核心组件，其作用可概括为以下方面：
+ *  1. 内存区域添加与标记: 将 BIOS 通过 E820 接口提供的物理内存区域（如可用 RAM、保留区域）添加到内核的 e820_table 中，并标记其类型（如 E820_RAM、E820_RESERVED）
+ *  2. 全局内存参数初始化: 根据 E820 探测结果设置关键全局变量，如 max_pfn（最大物理帧号）和 max_low_pfn（低内存最大帧号），用于确定内存分区的范围（如 DMA、NORMAL、HIGHMEM）
+ *  3. 内存预分配准备: 通过 memblock_x86_fill() 初始化内存预分配系统，将可用内存标记为可分配（memory 类型），保留区域标记为不可分配（reserved 类型）
+ */
 static void __init e820_add_kernel_range (void)
 {
     u64 start = __pa_symbol (_text);
@@ -589,8 +595,9 @@ static void __init e820_add_kernel_range (void)
      * exclude kernel range. If we really are running on top non-RAM,
      * we will crash later anyways.
      */
-    if (e820__mapped_all (start, start + size, E820_TYPE_RAM))
+    if (e820__mapped_all (start, start + size, E820_TYPE_RAM)) {
         return;
+    }
 
     pr_warn (".text .data .bss are not marked as E820_TYPE_RAM!\n");
     e820__range_remove (start, size, E820_TYPE_RAM, 0);
@@ -603,7 +610,7 @@ static void __init e820_add_kernel_range (void)
  */
 static void __init early_reserve_memory (void)
 {
-    /*
+    /**
      * Reserve the memory occupied by the kernel between _text and
      * __end_of_kernel_reserve symbols. Any kernel sections after the
      * __end_of_kernel_reserve symbol must be explicitly reserved with a
@@ -923,8 +930,9 @@ void __init setup_arch (char** cmdline_p)
 
     /* update e820 for memory not covered by WB MTRRs */
     cache_bp_init ();
-    if (mtrr_trim_uncached_memory (max_pfn))
+    if (mtrr_trim_uncached_memory (max_pfn)) {
         max_pfn = e820__end_of_ram_pfn ();
+    }
 
     max_possible_pfn = max_pfn;
 
@@ -942,10 +950,12 @@ void __init setup_arch (char** cmdline_p)
 
     /* How many end-of-memory variables you have, grandma! */
     /* need this before calling reserve_initrd */
-    if (max_pfn > (1UL << (32 - PAGE_SHIFT)))
+    if (max_pfn > (1UL << (32 - PAGE_SHIFT))) {
         max_low_pfn = e820__end_of_low_ram_pfn ();
-    else
+    }
+    else {
         max_low_pfn = max_pfn;
+    }
 
     high_memory = (void*)__va (max_pfn * PAGE_SIZE - 1) + 1;
 #endif

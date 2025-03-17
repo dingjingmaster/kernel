@@ -854,6 +854,12 @@ static unsigned long __init e820__end_ram_pfn (unsigned long limit_pfn)
     return last_pfn;
 }
 
+/**
+ * Linux 内核中用于确定系统可用物理内存最大页帧号（max_pfn）的核心函数
+ * 1. 检测最大物理内存页帧号; 通过解析 BIOS 提供的 E820 内存映射表(e820.map)，遍历所有内存区域，找到类型为 E820_RAM 的可用内存块，并计算其最大页帧号
+ * 2. 在 x86 32 位系统中，物理内存地址空间最大为 4GB（MAX_ARCH_PFN = 1ULL << (32-PAGE_SHIFT)），函数会截断超过该值的页帧号
+ * 3. 将计算得到的最大页帧号保存到内核全局变量 max_pfn，作为物理内存管理的基准值
+ */
 unsigned long __init e820__end_of_ram_pfn (void)
 {
     return e820__end_ram_pfn (MAX_ARCH_PFN);
