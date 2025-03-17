@@ -20,28 +20,28 @@
  */
 static __always_inline void *task_stack_page(const struct task_struct *task)
 {
-	return task->stack;
+    return task->stack;
 }
 
-#define setup_thread_stack(new,old)	do { } while(0)
+#define setup_thread_stack(new,old)    do { } while(0)
 
 static __always_inline unsigned long *end_of_stack(const struct task_struct *task)
 {
 #ifdef CONFIG_STACK_GROWSUP
-	return (unsigned long *)((unsigned long)task->stack + THREAD_SIZE) - 1;
+    return (unsigned long *)((unsigned long)task->stack + THREAD_SIZE) - 1;
 #else
-	return task->stack;
+    return task->stack;
 #endif
 }
 
 #elif !defined(__HAVE_THREAD_FUNCTIONS)
 
-#define task_stack_page(task)	((void *)(task)->stack)
+#define task_stack_page(task)    ((void *)(task)->stack)
 
 static inline void setup_thread_stack(struct task_struct *p, struct task_struct *org)
 {
-	*task_thread_info(p) = *task_thread_info(org);
-	task_thread_info(p)->task = p;
+    *task_thread_info(p) = *task_thread_info(org);
+    task_thread_info(p)->task = p;
 }
 
 /*
@@ -56,9 +56,9 @@ static inline void setup_thread_stack(struct task_struct *p, struct task_struct 
 static inline unsigned long *end_of_stack(struct task_struct *p)
 {
 #ifdef CONFIG_STACK_GROWSUP
-	return (unsigned long *)((unsigned long)task_thread_info(p) + THREAD_SIZE) - 1;
+    return (unsigned long *)((unsigned long)task_thread_info(p) + THREAD_SIZE) - 1;
 #else
-	return (unsigned long *)(task_thread_info(p) + 1);
+    return (unsigned long *)(task_thread_info(p) + 1);
 #endif
 }
 
@@ -67,15 +67,15 @@ static inline unsigned long *end_of_stack(struct task_struct *p)
 #ifdef CONFIG_THREAD_INFO_IN_TASK
 static inline void *try_get_task_stack(struct task_struct *tsk)
 {
-	return refcount_inc_not_zero(&tsk->stack_refcount) ?
-		task_stack_page(tsk) : NULL;
+    return refcount_inc_not_zero(&tsk->stack_refcount) ?
+        task_stack_page(tsk) : NULL;
 }
 
 extern void put_task_stack(struct task_struct *tsk);
 #else
 static inline void *try_get_task_stack(struct task_struct *tsk)
 {
-	return task_stack_page(tsk);
+    return task_stack_page(tsk);
 }
 
 static inline void put_task_stack(struct task_struct *tsk) {}
@@ -84,14 +84,14 @@ static inline void put_task_stack(struct task_struct *tsk) {}
 void exit_task_stack_account(struct task_struct *tsk);
 
 #define task_stack_end_corrupted(task) \
-		(*(end_of_stack(task)) != STACK_END_MAGIC)
+        (*(end_of_stack(task)) != STACK_END_MAGIC)
 
 static inline int object_is_on_stack(const void *obj)
 {
-	void *stack = task_stack_page(current);
+    void *stack = task_stack_page(current);
 
-	obj = kasan_reset_tag(obj);
-	return (obj >= stack) && (obj < (stack + THREAD_SIZE));
+    obj = kasan_reset_tag(obj);
+    return (obj >= stack) && (obj < (stack + THREAD_SIZE));
 }
 
 extern void thread_stack_cache_init(void);
@@ -101,7 +101,7 @@ unsigned long stack_not_used(struct task_struct *p);
 #else
 static inline unsigned long stack_not_used(struct task_struct *p)
 {
-	return 0;
+    return 0;
 }
 #endif
 extern void set_task_stack_end_magic(struct task_struct *tsk);
@@ -109,10 +109,10 @@ extern void set_task_stack_end_magic(struct task_struct *tsk);
 #ifndef __HAVE_ARCH_KSTACK_END
 static inline int kstack_end(void *addr)
 {
-	/* Reliable end of stack detection:
-	 * Some APM bios versions misalign the stack
-	 */
-	return !(((unsigned long)addr+sizeof(void*)-1) & (THREAD_SIZE-sizeof(void*)));
+    /* Reliable end of stack detection:
+     * Some APM bios versions misalign the stack
+     */
+    return !(((unsigned long)addr+sizeof(void*)-1) & (THREAD_SIZE-sizeof(void*)));
 }
 #endif
 

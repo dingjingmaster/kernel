@@ -58,9 +58,10 @@ static struct sighand_struct init_sighand = {
 unsigned long init_shadow_call_stack[SCS_SIZE / sizeof (long)] = {[(SCS_SIZE / sizeof (long)) - 1] = SCS_END_MAGIC};
 #endif
 
-/*
+/**
  * Set up the first task table, touch at your own risk!. Base=0,
  * limit=0x1fffff (=2MB)
+ * 64 字节对齐
  */
 struct task_struct init_task __aligned (L1_CACHE_BYTES) = {
 #ifdef CONFIG_THREAD_INFO_IN_TASK
@@ -71,15 +72,15 @@ struct task_struct init_task __aligned (L1_CACHE_BYTES) = {
         .stack                   = init_stack,
         .usage                   = REFCOUNT_INIT (2),
         .flags                   = PF_KTHREAD,
-        .prio                    = MAX_PRIO - 20,
-        .static_prio             = MAX_PRIO - 20,
-        .normal_prio             = MAX_PRIO - 20,
-        .policy                  = SCHED_NORMAL,
+        .prio                    = MAX_PRIO - 20,   // 120
+        .static_prio             = MAX_PRIO - 20,   // 120
+        .normal_prio             = MAX_PRIO - 20,   // 120
+        .policy                  = SCHED_NORMAL,    // 调度策略
         .cpus_ptr                = &init_task.cpus_mask,
         .user_cpus_ptr           = NULL,
         .cpus_mask               = CPU_MASK_ALL,
         .max_allowed_capacity    = SCHED_CAPACITY_SCALE,
-        .nr_cpus_allowed         = NR_CPUS,
+        .nr_cpus_allowed         = NR_CPUS,         // 默认 1 cpu
         .mm                      = NULL,
         .active_mm               = &init_mm,
         .faults_disabled_mapping = NULL,

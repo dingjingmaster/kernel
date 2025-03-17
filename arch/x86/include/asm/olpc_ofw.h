@@ -30,6 +30,13 @@ extern bool olpc_ofw_present(void);
 extern void olpc_dt_build_devicetree(void);
 
 #else /* !CONFIG_OLPC */
+/**
+ * @brief
+ * 在启动过程中检测是否存在 ​OLPC Open Firmware (OFW)
+ *
+ * OLPC（One Laptop Per Child）项目使用 Open Firmware 作为其固件接口，以支持特定的硬件初始化和引导过程。
+ * olpc_ofw_detect 的主要作用是识别系统是否基于 OLPC 的硬件平台，并相应地进行后续的引导和初始化操作。
+ */
 static inline void olpc_ofw_detect(void) { }
 static inline void setup_olpc_ofw_pgd(void) { }
 static inline void olpc_dt_build_devicetree(void) { }

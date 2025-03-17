@@ -116,7 +116,7 @@
 
 static int                      kernel_init (void*);
 
-/*
+/**
  * Debug helper: via this flag we know that we are in 'early bootup code'
  * where only the boot processor is running with IRQ disabled.  This means
  * two things - IRQ must not be enabled before the flag is cleared and some
@@ -905,7 +905,7 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
     char* command_line;
     char* after_dashes;
 
-    set_task_stack_end_magic (&init_task);
+    set_task_stack_end_magic (&init_task);      // init_task, 内核启动的第一个进程
     smp_setup_processor_id ();
     debug_objects_early_init ();
     init_vmlinux_build_id ();
@@ -915,11 +915,11 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
     local_irq_disable ();
     early_boot_irqs_disabled = true;
 
-    /*
+    /**
      * Interrupts are still disabled. Do necessary setups, then
      * enable them.
      */
-    boot_cpu_init ();
+    boot_cpu_init ();       // 设置CPU0的状态为可用
     page_address_init ();
     pr_notice ("%s", linux_banner);
     setup_arch (&command_line);

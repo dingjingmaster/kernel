@@ -7,121 +7,120 @@
 
 #ifndef __ASSEMBLY__
 
-#define DECLARE_BITMAP(name,bits) \
-	unsigned long name[BITS_TO_LONGS(bits)]
+#    define DECLARE_BITMAP(name, bits) unsigned long name[BITS_TO_LONGS (bits)]
 
-#ifdef __SIZEOF_INT128__
+#    ifdef __SIZEOF_INT128__
 typedef __s128 s128;
 typedef __u128 u128;
-#endif
+#    endif
 
-typedef u32 __kernel_dev_t;
+typedef u32                  __kernel_dev_t;
 
-typedef __kernel_fd_set		fd_set;
-typedef __kernel_dev_t		dev_t;
-typedef __kernel_ulong_t	ino_t;
-typedef __kernel_mode_t		mode_t;
-typedef unsigned short		umode_t;
-typedef u32			nlink_t;
-typedef __kernel_off_t		off_t;
-typedef __kernel_pid_t		pid_t;
-typedef __kernel_daddr_t	daddr_t;
-typedef __kernel_key_t		key_t;
-typedef __kernel_suseconds_t	suseconds_t;
-typedef __kernel_timer_t	timer_t;
-typedef __kernel_clockid_t	clockid_t;
-typedef __kernel_mqd_t		mqd_t;
+typedef __kernel_fd_set      fd_set;
+typedef __kernel_dev_t       dev_t;
+typedef __kernel_ulong_t     ino_t;
+typedef __kernel_mode_t      mode_t;
+typedef unsigned short       umode_t;
+typedef u32                  nlink_t;
+typedef __kernel_off_t       off_t;
+typedef __kernel_pid_t       pid_t;
+typedef __kernel_daddr_t     daddr_t;
+typedef __kernel_key_t       key_t;
+typedef __kernel_suseconds_t suseconds_t;
+typedef __kernel_timer_t     timer_t;
+typedef __kernel_clockid_t   clockid_t;
+typedef __kernel_mqd_t       mqd_t;
 
-typedef _Bool			bool;
+typedef _Bool bool;
 
-typedef __kernel_uid32_t	uid_t;
-typedef __kernel_gid32_t	gid_t;
-typedef __kernel_uid16_t        uid16_t;
-typedef __kernel_gid16_t        gid16_t;
+typedef __kernel_uid32_t uid_t;
+typedef __kernel_gid32_t gid_t;
+typedef __kernel_uid16_t uid16_t;
+typedef __kernel_gid16_t gid16_t;
 
-typedef unsigned long		uintptr_t;
-typedef long			intptr_t;
+typedef unsigned long    uintptr_t;
+typedef long             intptr_t;
 
-#ifdef CONFIG_HAVE_UID16
+#    ifdef CONFIG_HAVE_UID16
 /* This is defined by include/asm-{arch}/posix_types.h */
-typedef __kernel_old_uid_t	old_uid_t;
-typedef __kernel_old_gid_t	old_gid_t;
-#endif /* CONFIG_UID16 */
+typedef __kernel_old_uid_t old_uid_t;
+typedef __kernel_old_gid_t old_gid_t;
+#    endif /* CONFIG_UID16 */
 
-#if defined(__GNUC__)
-typedef __kernel_loff_t		loff_t;
-#endif
+#    if defined(__GNUC__)
+typedef __kernel_loff_t loff_t;
+#    endif
 
 /*
  * The following typedefs are also protected by individual ifdefs for
  * historical reasons:
  */
-#ifndef _SIZE_T
-#define _SIZE_T
-typedef __kernel_size_t		size_t;
-#endif
+#    ifndef _SIZE_T
+#        define _SIZE_T
+typedef __kernel_size_t size_t;
+#    endif
 
-#ifndef _SSIZE_T
-#define _SSIZE_T
-typedef __kernel_ssize_t	ssize_t;
-#endif
+#    ifndef _SSIZE_T
+#        define _SSIZE_T
+typedef __kernel_ssize_t ssize_t;
+#    endif
 
-#ifndef _PTRDIFF_T
-#define _PTRDIFF_T
-typedef __kernel_ptrdiff_t	ptrdiff_t;
-#endif
+#    ifndef _PTRDIFF_T
+#        define _PTRDIFF_T
+typedef __kernel_ptrdiff_t ptrdiff_t;
+#    endif
 
-#ifndef _CLOCK_T
-#define _CLOCK_T
-typedef __kernel_clock_t	clock_t;
-#endif
+#    ifndef _CLOCK_T
+#        define _CLOCK_T
+typedef __kernel_clock_t clock_t;
+#    endif
 
-#ifndef _CADDR_T
-#define _CADDR_T
-typedef __kernel_caddr_t	caddr_t;
-#endif
+#    ifndef _CADDR_T
+#        define _CADDR_T
+typedef __kernel_caddr_t caddr_t;
+#    endif
 
 /* bsd */
-typedef unsigned char		u_char;
-typedef unsigned short		u_short;
-typedef unsigned int		u_int;
-typedef unsigned long		u_long;
+typedef unsigned char  u_char;
+typedef unsigned short u_short;
+typedef unsigned int   u_int;
+typedef unsigned long  u_long;
 
 /* sysv */
-typedef unsigned char		unchar;
-typedef unsigned short		ushort;
-typedef unsigned int		uint;
-typedef unsigned long		ulong;
+typedef unsigned char  unchar;
+typedef unsigned short ushort;
+typedef unsigned int   uint;
+typedef unsigned long  ulong;
 
-#ifndef __BIT_TYPES_DEFINED__
-#define __BIT_TYPES_DEFINED__
+#    ifndef __BIT_TYPES_DEFINED__
+#        define __BIT_TYPES_DEFINED__
 
-typedef u8			u_int8_t;
-typedef s8			int8_t;
-typedef u16			u_int16_t;
-typedef s16			int16_t;
-typedef u32			u_int32_t;
-typedef s32			int32_t;
+typedef u8  u_int8_t;
+typedef s8  int8_t;
+typedef u16 u_int16_t;
+typedef s16 int16_t;
+typedef u32 u_int32_t;
+typedef s32 int32_t;
 
-#endif /* !(__BIT_TYPES_DEFINED__) */
+#    endif /* !(__BIT_TYPES_DEFINED__) */
 
-typedef u8			uint8_t;
-typedef u16			uint16_t;
-typedef u32			uint32_t;
+typedef u8  uint8_t;
+typedef u16 uint16_t;
+typedef u32 uint32_t;
 
-#if defined(__GNUC__)
-typedef u64			uint64_t;
-typedef u64			u_int64_t;
-typedef s64			int64_t;
-#endif
+#    if defined(__GNUC__)
+typedef u64 uint64_t;
+typedef u64 u_int64_t;
+typedef s64 int64_t;
+#    endif
 
 /* this is a special 64bit data type that is 8-byte aligned */
-#define aligned_u64		__aligned_u64
-#define aligned_be64		__aligned_be64
-#define aligned_le64		__aligned_le64
+#    define aligned_u64 __aligned_u64
+#    define aligned_be64 __aligned_be64
+#    define aligned_le64 __aligned_le64
 
 /* Nanosecond scalar representation for kernel time values */
-typedef s64	ktime_t;
+typedef s64 ktime_t;
 
 /**
  * The type used for indexing onto a disc or disc partition.
@@ -137,7 +136,7 @@ typedef u64 blkcnt_t;
 /*
  * The type of an index into the pagecache.
  */
-#define pgoff_t unsigned long
+#    define pgoff_t unsigned long
 
 /*
  * A dma_addr_t can hold any valid DMA address, i.e., any address returned
@@ -148,23 +147,23 @@ typedef u64 blkcnt_t;
  * but drivers do memory-mapped I/O to ioremapped kernel virtual addresses,
  * so they don't care about the size of the actual bus addresses.
  */
-#ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
+#    ifdef CONFIG_ARCH_DMA_ADDR_T_64BIT
 typedef u64 dma_addr_t;
-#else
+#    else
 typedef u32 dma_addr_t;
-#endif
+#    endif
 
 typedef unsigned int __bitwise gfp_t;
 typedef unsigned int __bitwise slab_flags_t;
 typedef unsigned int __bitwise fmode_t;
 
-#ifdef CONFIG_PHYS_ADDR_T_64BIT
+#    ifdef CONFIG_PHYS_ADDR_T_64BIT
 typedef u64 phys_addr_t;
-#else
+#    else
 typedef u32 phys_addr_t;
-#endif
+#    endif
 
-typedef phys_addr_t resource_size_t;
+typedef phys_addr_t   resource_size_t;
 
 /*
  * This type is the placeholder for a hardware interrupt number. It has to be
@@ -172,45 +171,52 @@ typedef phys_addr_t resource_size_t;
  */
 typedef unsigned long irq_hw_number_t;
 
-typedef struct {
-	int counter;
+typedef struct
+{
+    int counter;
 } atomic_t;
 
-#define ATOMIC_INIT(i) { (i) }
+#    define ATOMIC_INIT(i) {(i)}
 
-#ifdef CONFIG_64BIT
-typedef struct {
-	s64 counter;
+#    ifdef CONFIG_64BIT
+typedef struct
+{
+    s64 counter;
 } atomic64_t;
-#endif
+#    endif
 
-typedef struct {
-	atomic_t refcnt;
+typedef struct
+{
+    atomic_t refcnt;
 } rcuref_t;
 
-#define RCUREF_INIT(i)	{ .refcnt = ATOMIC_INIT(i - 1) }
+#    define RCUREF_INIT(i) {.refcnt = ATOMIC_INIT (i - 1)}
 
-struct list_head {
-	struct list_head *next, *prev;
+struct list_head
+{
+    struct list_head *next, *prev;
 };
 
-struct hlist_head {
-	struct hlist_node *first;
+struct hlist_head
+{
+    struct hlist_node* first;
 };
 
-struct hlist_node {
-	struct hlist_node *next, **pprev;
+struct hlist_node
+{
+    struct hlist_node *next, **pprev;
 };
 
-struct ustat {
-	__kernel_daddr_t	f_tfree;
-#ifdef CONFIG_ARCH_32BIT_USTAT_F_TINODE
-	unsigned int		f_tinode;
-#else
-	unsigned long		f_tinode;
-#endif
-	char			f_fname[6];
-	char			f_fpack[6];
+struct ustat
+{
+    __kernel_daddr_t f_tfree;
+#    ifdef CONFIG_ARCH_32BIT_USTAT_F_TINODE
+    unsigned int f_tinode;
+#    else
+    unsigned long f_tinode;
+#    endif
+    char f_fname[6];
+    char f_fpack[6];
 };
 
 /**
@@ -232,20 +238,21 @@ struct ustat {
  *    which encode PageTail() in bit 0. The guarantee is needed to avoid
  *    false-positive PageTail().
  */
-struct callback_head {
-	struct callback_head *next;
-	void (*func)(struct callback_head *head);
-} __attribute__((aligned(sizeof(void *))));
-#define rcu_head callback_head
+struct callback_head
+{
+    struct callback_head* next;
+    void (*func) (struct callback_head* head);
+} __attribute__ ((aligned (sizeof (void*))));
+#    define rcu_head callback_head
 
-typedef void (*rcu_callback_t)(struct rcu_head *head);
-typedef void (*call_rcu_func_t)(struct rcu_head *head, rcu_callback_t func);
+typedef void (*rcu_callback_t) (struct rcu_head* head);
+typedef void (*call_rcu_func_t) (struct rcu_head* head, rcu_callback_t func);
 
-typedef void (*swap_r_func_t)(void *a, void *b, int size, const void *priv);
-typedef void (*swap_func_t)(void *a, void *b, int size);
+typedef void (*swap_r_func_t) (void* a, void* b, int size, const void* priv);
+typedef void (*swap_func_t) (void* a, void* b, int size);
 
-typedef int (*cmp_r_func_t)(const void *a, const void *b, const void *priv);
-typedef int (*cmp_func_t)(const void *a, const void *b);
+typedef int (*cmp_r_func_t) (const void* a, const void* b, const void* priv);
+typedef int (*cmp_func_t) (const void* a, const void* b);
 
 #endif /*  __ASSEMBLY__ */
 #endif /* _LINUX_TYPES_H */
