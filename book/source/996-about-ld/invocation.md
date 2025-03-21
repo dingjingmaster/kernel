@@ -474,5 +474,55 @@ MODE可以是以下任意值：
 #### -z keyword
 
 可识别的关键字有：
-- 'call-nop=prefix-addr'、'call-nop=suffix-nop'、'call-nop=prefix-byte'、'call-nop=suffix-byte'：在通过GOT槽转换对本地定义函数foo的间接调用时，指定1字节的NOP填充。call-nop=prefix-addr产生0x67呼叫foo。call-nop=suffix-nop产生呼叫foo 0x90。call-nop=prefix-byte生成字节调用foo。call-nop=suffix-byte生成call foo字节。支持i386和x86_64。
-
+- 'call-nop=prefix-addr'、'call-nop=suffix-nop'、'call-nop=prefix-byte'、'call-nop=suffix-byte'：在通过GOT槽转换对本地定义函数foo的间接调用时，指定1字节的NOP填充。call-nop=prefix-addr产生0x67调用foo。call-nop=suffix-nop产生0x90调用foo。call-nop=prefix-byte生成字节调用foo。call-nop=suffix-byte生成call foo字节。支持i386和x86_64。
+- 'cet-report=none'、'cet-report=warning'、'cet-report=error'：在input `.note.gnu`中指定如何报告丢失的`GNU_PROPERTY_X86_FEATURE_1_IBT`和`GNU_PROPERTY_X86_FEATURE_1_SHSTK`属性。属性部分。`Cet-report=none`是默认值，它将使链接器不报告输入文件中丢失的属性。`Cet-report=warning`将使链接器对输入文件中缺少的属性发出警告。`Cet-report=error`将使链接器对输入文件中缺少的属性发出错误。注意，ibt将关闭丢失的`GNU_PROPERTY_X86_FEATURE_1_IBT`属性报告，shstk将关闭丢失的`GNU_PROPERTY_X86_FEATURE_1_SHSTK`属性报告。支持Linux/i386和Linux/x86_64。
+- 'combreloc'、'nocombreloc'：组合多个动态重定位节和排序以改进动态符号查找缓存。如果‘nocombreloc’，不要这样做。
+- 'common'、'nocommon'：在可重定位链接期间生成`STT_COMMON`类型的公共符号。如果`nocommon`使用`STT_OBJECT`类型。
+- 'common-page-size=value'：设置最常用的页面大小为value。如果系统使用这种大小的页面，将对内存映像布局进行优化，以最小化内存页面
+- 'defs'：报告常规对象文件中未解析的符号引用。即使链接器正在创建非符号共享库，也会执行此操作。这个选项与'-z undefs' 相反。
+- 'dynamic-undefined-weak'、'nodynamic-undefined-weak'：在构建动态对象时，如果未定义的弱符号是从常规对象文件引用的，并且没有通过符号可见性或版本控制强制在本地引用，则将其设置为动态。如果是“nodynamic-undefined-weak”，不要将它们设置为动态的。如果两个选项都没有给出，目标可能默认使用其中一个选项，或者动态选择其他未定义的弱符号。并非所有目标都支持这些选项。
+- 'execstack'：将对象标记为需要可执行堆栈。
+- 'global'：此选项仅在构建共享对象时才有意义。它使此共享对象定义的符号可用于随后加载的库的符号解析。
+- 'globalaudit'：此选项仅在构建动态可执行文件时才有意义。该选项通过在`DT_FLAGS_1`动态标记中设置`DF_1_GLOBAUDIT`位，将可执行文件标记为需要全局审计。全局审计要求对应用程序加载的所有动态对象运行通过`--deaudit`或`-P`命令行选项定义的任何审计库
+- 'ibtplt'：生成Intel间接分支跟踪（IBT）使能PLT条目。支持Linux/i386和Linux/x86_64。
+- 'ibt'：在`.note.gnu`中生成`GNU_PROPERTY_X86_FEATURE_1_IBT`。属性部分，以指示与IBT的兼容性。这也意味着ibtplt。支持Linux/i386和Linux/x86_64。
+- 'indirect-extern-access'、'noindirect-extern-access'：在`.note.gnu`中生成`GNU_PROPERTY_1_NEEDED_INDIRECT_EXTERN_ACCESS`。属性节以指示目标文件需要规范函数指针，并且不能与副本重定位一起使用。此选项还意味着没有外部保护数据和没有copyreloc。支持i386和x86-64。
+- 'initfirst'：此选项仅在构建共享对象时才有意义。它标记对象，以便它的运行时初始化将在同时带入进程的任何其他对象的运行时初始化之前发生。类似地，对象的运行时结束将发生在任何其他对象的运行时结束之后。
+- 'interpose'：指定动态加载器应修改其符号搜索顺序，以便此共享库中的符号可以插入所有其他没有这样标记的共享库。
+- 'unique'、'nounique'：在生成共享库或其他可动态加载的ELF对象时，将其标记为（默认情况下）只应该加载一次，并且只在主名称空间中（使用dlmopen时）。这主要用于标记基本库，如libc， libpthread等，这些库通常不能正常工作，除非它们是自身的唯一实例。这种行为可以被dlmopen调用者覆盖，并且不适用于某些加载机制（例如审计库）。
+- 'lam-u48'：在`.note.gnu`中生成`GNU_PROPERTY_X86_FEATURE_1_LAM_U48`。属性节以指示与Intel `LAM_U48`的兼容性。支持Linux/x86_64。
+- 'lam-u57'：在`.note.gnu`中生成`GNU_PROPERTY_X86_FEATURE_1_LAM_U57`。属性节以指示与Intel `LAM_U57`的兼容性。支持Linux/x86_64。
+- 'lam-u48-report=none'、'lam-u48-report=warning'、'lam-u48-report=error'：在input `.note.gnu`中指定如何报告丢失的`GNU_PROPERTY_X86_FEATURE_1_LAM_U48`属性。`Lam-u48-report=none`，这是默认值，将使链接器不报告输入文件中丢失的属性。`Lam-u48-report=warning`将使链接器对输入文件中缺少的属性发出警告。`Lam-u48-report=error`将使链接器对输入文件中缺少的属性发出错误。支持Linux/x86_64。
+- 'lam-u57-report=none'、'lam-u57-report=warning'、'lam-u57-report=error'：在input `.note.gnu`中指定如何报告丢失的`GNU_PROPERTY_X86_FEATURE_1_LAM_U57`属性。`Lam-u57-report=none`，默认值，将使链接器不报告输入文件中丢失的属性。`Lam-u57-report=warning`将使链接器对输入文件中缺少的属性发出警告。`Lam-u57-report=error`将使链接器对输入文件中丢失的属性发出错误。支持Linux/x86_64。
+- 'lam-report=none'、'lam-report=warning'、'lam-report=error'：在input `.note.gnu`中指定如何报告丢失的`GNU_PROPERTY_X86_FEATURE_1_LAM_U48`和`GNU_PROPERTY_X86_FEATURE_1_LAM_U57`属性。`Lam-report=none`是默认值，它将使链接器不报告输入文件中丢失的属性。`Lam-report=warning`将使链接器对输入文件中缺少的属性发出警告。`Lam-report=error`将使链接器对输入文件中缺少的属性发出错误。支持Linux/x86_64。
+- 'lazy'：在生成可执行库或共享库时，标记它以告诉动态链接器将函数调用解析推迟到调用函数时（惰性绑定），而不是在加载时。惰性绑定是默认的。
+- 'loadfltr'：指定在运行时立即处理对象的筛选器。
+- 'max-page-size=value'：将支持的最大内存页大小设置为value。
+- 'mark-plt'、'nomark-plt'：用动态标记标记PLT表项，`DT_X86_64_PLT`，`DT_X86_64_PLTSZ`和`DT_X86_64_PLTENT`。由于该选项在`R_X86_64_JUMP_SLOT`重定位的`r_addend`字段中存储非零值，因此产生的可执行文件和共享库与动态链接器不兼容，例如那些在旧版本的glibc中没有更改在`R_X86_64_GLOB_DAT`和`R_X86_64_JUMP_SLOT`重定位中忽略`r_addend`的可执行文件和共享库，它们不会忽略`R_X86_64_JUMP_SLOT`重定位的`r_addend`字段。支持x86_64。
+- 'muldefs'：允许多个定义
+- 'nocopyreloc'：禁用链接器生成的`.dynbss`变量，以取代共享库中定义的变量。可能导致动态文本重定位。
+- 'nodefaultlib'：指定动态加载器搜索此对象的依赖项时应忽略任何默认库搜索路径。
+- 'nodelete'：指定不应在运行时卸载对象
+- 'nodlopen'：指定对象不可由dlopen访问。
+- 'nodump'：指定对象不可以使用dldump转储
+- 'noexecstack'：将对象标记为不需要可执行堆栈。
+- 'noextern-protected-data'：在构建共享库时，不要将受保护的数据符号视为外部的。此选项覆盖链接器后端默认值。它可用于解决编译器生成的受保护数据符号的错误重定位。其他模块对受保护数据符号的更新对生成的共享库是不可见的。支持i386和x86-64。
+- 'noreloc-overflow'：禁用重新定位溢出检查。如果在运行时没有动态重定位溢出，则可使用此选项禁用重定位溢出检查。支持x86_64。
+- 'memory-seal'、'nomemory-seal'：指示可执行库或共享库应该对所有PT_LOAD段进行密封，以避免进一步的操作（例如更改保护标志，段大小或删除映射）。这是一个需要系统支持的安全加固。这会在`.note.gnu`中生成`GNU_PROPERTY_MEMORY_SEAL`。属性节
+- 'now'：在生成可执行库或共享库时，标记它以告诉动态链接器在程序启动时或通过dlopen加载共享库时解析所有符号，而不是将函数调用解析延迟到函数第一次调用时。
+- 'origin'：指定对象在路径中需要‘$ORIGIN’处理
+- 'pack-relative-relocs'、'nopack-relative-relocs'：在位置无关的可执行和共享库中生成紧凑的相对重定位。它将`DT_RELR`、`DT_RELRSZ`和`DT_RELRENT`表项添加到动态`section`中。在构建依赖于位置的可执行输出和可重定位输出时，它将被忽略。`Nopack-relative-relocs`是默认值，它禁用紧凑的相对重定位。当链接到GNU C库时，对共享C库的`GLIBC_ABI_DT_RELR`符号版本依赖被添加到输出中。支持i386和x86-64。
+- 'relro'、'norelro'：在对象中创建一个`ELF PT_GNU_RELRO`段头。这指定了一个内存段，如果支持，在重定位后应该使其只读。指定“common-page size”小于系统页面大小将使此保护失效。如果‘ norelro ’，不要创建一个ELF `PT_GNU_RELRO`段。
+- 'report-relative-reloc'：报告由链接器生成的动态相对重定位。支持Linux/i386和Linux/x86_64。
+- 'sectionheader'、'nosectionheader'：生成节头。如果使用‘nosectionheader’，则不要生成节头。Sectionheader是默认的。
+- 'separate-code'、'noseparate-code'：在对象中创建单独的代码PT_LOAD段头。这指定了一个内存段，该段应该只包含指令，并且必须位于与任何其他数据完全分离的页面中。如果使用‘noseparate-code’，不要创建单独的PT_LOAD段。
+- 'shstk'：在`.note.gnu`中生成`GNU_PROPERTY_X86_FEATURE_1_SHSTK`。属性部分以指示与Intel Shadow Stack的兼容性。支持Linux/i386和Linux/x86_64。
+- 'stack-size=value'：指定一个ELF PT_GNU_STACK段的堆栈大小。指定零将覆盖任何默认的非零大小的PT_GNU_STACK段创建。
+- 'start-stop-gc'、'nostart-stop-gc'：当‘--gc-sections’生效时，如果SECNAME可表示为C标识符，并且链接器合成了`__start_SECNAME`或`__stop_SECNAME`，则从保留节到`__start_SECNAME`或`__stop_SECNAME`的引用将导致所有名为SECNAME的输入节也被保留。‘-z start-stop-gc’禁用这种效果，允许对部分进行垃圾收集，就好像没有定义特殊的合成符号一样。‘-z start-stop-gc’对对象文件或链接器脚本中`__start_SECNAME`或`__stop_SECNAME`的定义没有影响。这样的定义将防止链接器分别提供合成的`__start_SECNAME`或`__stop_SECNAME`，因此垃圾收集对这些引用进行特殊处理。
+- 'start-stop-visibility=value'：为合成的`__start_SECNAME`和`__stop_SECNAME`符号指定ELF符号可见性（参见输入部分示例）。值必须恰好是‘default’、‘internal’、‘hidden’或‘protected’。如果没有给出‘-z start-stop-visibility’选项，则使用‘protected’以与历史实践兼容。然而，强烈建议在新程序和共享库中使用‘-z start-stop-visibility=hidden’，这样这些符号就不会在共享对象之间导出，这通常不是我们想要的。
+- 'text'、'notext'、'textoff'：如果设置了`DT_TEXTREL`，即，如果位置无关或共享对象在只读段中有动态重定位，则报告错误。如果‘notext’或‘textoff’，不要报告错误。
+- 'undefs'：在创建可执行文件或创建共享库时，不要报告来自常规对象文件的未解析符号引用。这个选项与‘-z defs’相反。
+- 'unique-symbol'、'nounique-symbol'：避免在符号字符串表中出现重复的局部符号名。添加'.number'如果使用‘unique-symbol’，则为重复的本地符号名称。唯一符号是默认值。
+- 'x86-64-baseline'、'x86-64-v2'、'x86-64-v3'、'x86-64-v4'：指定`.note.gnu.property`段中所需的x86-64 ISA级别。`x86-64-baseline`生成`GNU_PROPERTY_X86_ISA_1_BASELINE`。`x86-64-v2`生成`GNU_PROPERTY_X86_ISA_1_V2`。`x86-64-v3`生成`GNU_PROPERTY_X86_ISA_1_V3`。`x86-64-v4`生成`GNU_PROPERTY_X86_ISA_1_V4`。支持Linux/i386和Linux/x86_64。
+- 'isa-level-report=none'、'isa-level-report=all'、'isa-level-report=needed'、'isa-level-report=used'：指定如何在输入可重定位文件中报告x86-64 ISA级别。`isa-level-report=none`，这是默认值，将使链接器不在输入文件中报告x86-64 ISA级别。`isa-level-report=all`将在输入文件中生成所需和使用的x86-64 ISA级别的链接器报告。`isa-level-report=needed`将使链接器报告输入文件中所需的x86-64 ISA级别。`isa-level-report=used`将使链接器报告输入文件中使用的x86-64 ISA级别。支持Linux/i386和Linux/x86_64。
+为了Solaris兼容性，忽略其他关键字。
