@@ -17,6 +17,7 @@ Linux Kernel(基于X86_64)
     994-headers/index.rst
     995-modules/index.rst
     996-about-makefile/index.rst
+    996-about-ld/index.rst
     997-about-others/index.rst
     998-about-hw/index.rst
     999-linux-version/index.rst
