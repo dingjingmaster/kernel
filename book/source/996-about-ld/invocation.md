@@ -526,3 +526,684 @@ MODE可以是以下任意值：
 - 'x86-64-baseline'、'x86-64-v2'、'x86-64-v3'、'x86-64-v4'：指定`.note.gnu.property`段中所需的x86-64 ISA级别。`x86-64-baseline`生成`GNU_PROPERTY_X86_ISA_1_BASELINE`。`x86-64-v2`生成`GNU_PROPERTY_X86_ISA_1_V2`。`x86-64-v3`生成`GNU_PROPERTY_X86_ISA_1_V3`。`x86-64-v4`生成`GNU_PROPERTY_X86_ISA_1_V4`。支持Linux/i386和Linux/x86_64。
 - 'isa-level-report=none'、'isa-level-report=all'、'isa-level-report=needed'、'isa-level-report=used'：指定如何在输入可重定位文件中报告x86-64 ISA级别。`isa-level-report=none`，这是默认值，将使链接器不在输入文件中报告x86-64 ISA级别。`isa-level-report=all`将在输入文件中生成所需和使用的x86-64 ISA级别的链接器报告。`isa-level-report=needed`将使链接器报告输入文件中所需的x86-64 ISA级别。`isa-level-report=used`将使链接器报告输入文件中使用的x86-64 ISA级别。支持Linux/i386和Linux/x86_64。
 为了Solaris兼容性，忽略其他关键字。
+
+#### -(archives-)、--start-group archives --end-group
+
+档案应该是存档文件的列表。它们可以是显式文件名，也可以是‘-l’选项。
+
+重复搜索指定的归档，直到没有创建新的未定义引用。通常，归档文件只按照命令行中指定的顺序搜索一次。如果需要该存档中的符号来解析由稍后出现在命令行上的存档中的对象引用的未定义符号，则链接器将无法解析该引用。通过对档案进行分组，它们将被反复搜索，直到所有可能的参考文献都被解决。
+
+使用此选项会带来很大的性能成本。最好只在两个或多个档案之间存在不可避免的循环引用时使用它。
+
+#### --accept-unknown-input-arch、--no-accept-unknown-input-arch
+
+告诉链接器接受架构无法识别的输入文件。假设用户知道他们在做什么，并且故意想要链接这些未知的输入文件。在2.14版本之前，这是链接器的默认行为。从2.14版本开始的默认行为是拒绝这样的输入文件，因此添加了‘--accept-unknown-input-arch ’选项来恢复旧的行为。
+
+#### --as-needed、--no-as-needed
+
+这个选项影响命令行--as-needed选项之后提到的动态库的`ELF DT_NEEDED`标记。通常，链接器会为命令行中提到的每个动态库添加`DT_NEEDED`标记，而不管该库是否实际需要。`--as-needed`导致`DT_NEEDED`标记仅在链接中满足常规对象文件中非弱未定义符号引用的库时才被触发，或者，如果在其他所需库的`DT_NEEDED`列表中没有找到该库，则从其他所需动态库中找到非弱未定义符号引用。在相关库之后出现在命令行上的目标文件或库不会影响是否需要该库。这类似于从归档中提取目标文件的规则。`--no-as-needed`恢复默认行为。
+
+注意：在基于Linux的系统上，`--as-needed`选项也会影响`--rpath`和`--rpath-link`选项的行为。
+
+#### --add-needed、--no-add-needed
+
+这两个选项已被弃用，因为它们的名称与`--as-needed`和`--no-as-needed`选项相似。它们已被`--copy-dt-needed-entries`和`--no-copy-dt-needed-entries`所取代。
+
+#### -assert keyword
+
+对于SunOS兼容性，此选项将被忽略。
+
+#### -Bdynamic、-dy、-call_shared
+
+链接到动态库。这只有在支持共享库的平台上才有意义。此选项通常是此类平台上的默认选项。该选项的不同变体是为了与各种系统兼容。您可以在命令行中多次使用此选项：它会影响库搜索它后面的-l选项。
+
+#### -Bgroup
+
+在动态部分的`DT_FLAGS_1`表项中设置`DF_1_GROUP`标志。这将导致运行时链接器仅在组内执行此对象及其依赖项中的查找。`--unresolved-symbols=report-all`是隐含的。这个选项只有在支持共享库的ELF平台上才有意义。
+
+#### -Bstatic、-dn、-non_shared、-static
+
+不要链接到共享库。这只有在支持共享库的平台上才有意义。该选项的不同变体是为了与各种系统兼容。您可以在命令行中多次使用此选项：它会影响库搜索它后面的-l选项。该选项还意味着`--unresolved-symbols=report-all`。此选项可与`-shared`一起使用。这样做意味着正在创建共享库，但必须通过从静态库中拉入条目来解析库的所有外部引用。
+
+#### -Bsymbolic
+
+创建共享库时，将对全局符号的引用绑定到共享库中的定义（如果有的话）。通常，链接到共享库的程序有可能覆盖共享库中的定义。这个选项只有在支持共享库的ELF平台上才有意义。
+
+#### -Bsymbolic-functions
+
+创建共享库时，将对全局函数符号的引用绑定到共享库中的定义（如果有的话）。这个选项只有在支持共享库的ELF平台上才有意义。
+
+#### -Bno-symbolic
+
+此选项可以取消先前指定的‘-Bsymbolic’和‘-Bsymbolic-functions’。
+
+#### --dynamic-list=dynamic-list-file
+
+为链接器指定动态列表文件的名称。这通常用于创建共享库来指定一个全局符号列表，这些符号的引用不应该绑定到共享库中的定义，或者创建动态链接的可执行文件来指定一个应该添加到可执行文件中的符号表的符号列表。这个选项只有在支持共享库的ELF平台上才有意义。
+
+#### --dynamic-list-data
+
+将所有全局数据符号包含到动态列表中。
+
+#### --dynamic-list-cpp-new
+
+为c++操作符new和delete提供内置动态列表。它主要用于构建共享的libstdc++。
+
+#### --dynamic-list-cpp-typeinfo
+
+为c++运行时类型标识提供内置动态列表。
+
+#### --check-sections、--no-check-sections
+
+要求链接器在分配段地址后不要检查它们是否有任何重叠。通常，链接器将执行此检查，如果发现任何重叠，它将生成适当的错误消息。链接器不知道，也不考虑覆盖层中的部分。可以通过使用命令行开关`--check-sections`来恢复默认行为。对于可重定位的链接，通常不检查区段重叠。在这种情况下，你可以使用`--check-sections`选项强制检查。
+
+#### --copy-dt-needed-entries、--no-copy-dt-needed-entries
+
+这个选项影响命令行中提到的ELF动态库中`DT_NEEDED`标记所引用的动态库的处理。通常，链接器不会为输入动态库中的`DT_NEEDED`标记中提到的每个库的输出二进制文件添加`DT_NEEDED`标记。然而，在命令行上指定`--copy-dt-needed-entries`后，任何跟随它的动态库都将添加它们的`DT_NEEDED`项。可以使用`--no-copy-dt-needed-entries`恢复默认行为。
+
+此选项还对动态库中符号的分辨率有影响。使用`--copy-dt-needed-entries`命令行中提到的动态库将被递归搜索，在它们的`DT_NEEDED`标记之后搜索到其他库，以便解析输出二进制文件所需的符号。然而，在默认设置下，搜索紧随其后的动态库将停止搜索动态库本身。不会遍历`DT_NEEDED`链接来解析符号。
+
+#### --cref
+
+输出一个交叉引用表。如果正在生成链接器映射文件，则将交叉引用表打印到映射文件中。否则，它将被打印在标准输出上。
+
+表的格式故意很简单，以便在必要时可以很容易地被脚本处理。符号被打印出来，按名称排序。对于每个符号，给出一个文件名列表。如果定义了符号，列出的第一个文件是定义的位置。如果符号被定义为一个公共值，那么接下来出现这种情况的任何文件都会出现。最后列出引用该符号的所有文件。
+
+#### --ctf-variables、--no-ctf-variables
+
+CTF debuginfo格式支持一个部分，该部分对程序中发现的变量的名称和类型进行编码，这些变量不会出现在任何符号表中。这些变量显然不能被传统的调试器通过地址查找，因此用于它们的类型和名称的空间通常是浪费的：类型通常很小，但名称通常很小。`--ctf-variables`导致生成这样一个节。可以使用`--no-ctf-variables`恢复默认行为。
+
+#### --ctf-share-types=method
+
+调整CTF中翻译单元之间共享类型的方法。
+
+“share-unconflicted”：将所有没有模糊定义的类型放入共享字典中，以便调试器可以轻松访问它们，即使它们只出现在一个翻译单元中。这是默认值。
+
+“share-duplicated”：只将出现在多个翻译单元中的类型放入共享字典中：只有一个定义的类型放入每个翻译单元的字典中。在多个翻译单元中定义不明确的类型总是进入每个翻译单元的字典。这往往会使CTF变大，但可能会减少共享字典中的CTF数量。对于非常大的项目，这可能会加快打开CTF的速度，并在运行时节省CTF消费者的内存。
+
+#### --no-define-common
+
+此选项禁止将地址分配给通用符号。脚本命令`INHIBIT_COMMON_ALLOCATION`具有相同的效果。请参见其他链接器脚本命令。
+
+‘--no-define-common’选项允许将给Common符号分配地址的决定与输出文件类型的选择分离；否则，不可重定位的输出类型强制为通用符号分配地址。使用‘--no-define-common’允许从共享库引用的Common符号仅在主程序中被分配地址。这消除了共享库中未使用的重复空间，并且当有许多动态模块具有用于运行时符号解析的专用搜索路径时，还可以防止解析到错误的重复时出现任何可能的混乱。
+
+#### --force-group-allocation
+
+该选项使链接器像普通输入节一样放置节组成员，并删除节组。这是最终链接的默认行为，但此选项可用于更改可重定位链接（'-r'）的行为。脚本命令`FORCE_GROUP_ALLOCATION`具有相同的效果。请参见其他链接器脚本命令。
+
+#### --defsym=symbol=expression
+
+在输出文件中创建一个全局符号，包含表达式给出的绝对地址。您可以根据需要多次使用此选项，以便在命令行中定义多个符号。在这种情况下，表达式支持有限形式的算术：您可以给出十六进制常量或现有符号的名称，或者使用+和-来添加或减去十六进制常量或符号。如果需要更精细的表达式，请考虑在脚本中使用链接器命令语言。注意：符号、等号（"="）和表达式之间不应有空白。
+
+链接器按顺序处理‘--defsym’参数和‘-T’参数，在‘-T’之前放置‘--defsym’将在处理‘-T’中的链接器脚本之前定义符号，而在‘-T’之后放置‘--defsym’将在处理链接器脚本之后定义符号。这种差异对使用‘--defsym’符号的链接器脚本中的表达式有影响，正确的顺序取决于您想要实现的目标。
+
+#### --demangle[=style]、--no-demangle
+
+这些选项控制是否在错误消息和其他输出中更改符号名称。当链接器被告知进行转换时，它会尝试以一种可读的方式呈现符号名：如果它们被目标文件格式使用，它会去掉前导下划线，并将c++转换为用户可读的符号名。不同的编译器有不同的混杂风格。可选的demangling style参数可用于为编译器选择适当的demangling样式。除非设置了环境变量‘COLLECT_NO_DEMANGLE’，否则链接器将默认进行demangle。这些选项可用于覆盖默认值。
+
+#### -Ifile、--dynamic-linker=file
+
+设置动态链接器的名称。这只有在生成动态链接的ELF可执行文件时才有意义。默认的动态链接器通常是正确的；不要使用这个，除非你知道你在做什么。
+
+#### --no-dynamic-linker
+
+在生成可执行文件时，省略在加载时使用的动态链接器的请求。这只对包含动态重定位的ELF可执行文件有意义，并且通常需要能够处理这些重定位的入口点代码。
+
+#### --embedded-relocs
+
+这个选项类似于--emit-relocs选项，不同之处在于这些relocs存储在特定于目标的部分中。该选项仅由‘BFIN’， ‘CR16’和M68K目标支持。
+
+#### --disable-multiple-abs-defs
+
+不允许使用`-R`或`-just-symbols`调用包含在文件名中的符号的多个定义
+
+#### --fatal-warnings、--no-fatal-warnings
+
+将所有警告视为错误。可以使用选项--no-fatal-warnings恢复默认行为。
+
+#### -w、--no-warnings
+
+不要显示任何警告或错误消息。这将覆盖致命警告。当知道输出二进制文件不能工作，但仍然需要创建它时，可以使用此选项。
+
+#### --force-exe-suffix
+
+确保输出文件具有.exe后缀。
+
+如果成功构建的完全链接输出文件没有.exe或.dll后缀，则此选项强制链接器将输出文件复制到具有.exe后缀的相同名称之一。当在Microsoft Windows主机上使用未修改的Unix makefile时，此选项很有用，因为某些版本的Windows不会运行映像，除非它以.exe后缀结尾。
+
+#### --gc-sections、--no-gc-sections
+
+启用未使用输入段的垃圾收集。对于不支持此选项的目标，将忽略此选项。可以通过在命令行上指定‘--no-gc-sections’来恢复默认行为（不执行此垃圾收集）。请注意，支持COFF和PE格式目标的垃圾收集，但目前认为其实现是实验性的。
+
+“--gc-sections”通过检查符号和重定位来决定使用哪些输入段。包含条目符号的部分和所有包含命令行未定义符号的部分将被保留，包含动态对象引用的符号的部分也将被保留。请注意，在构建共享库时，链接器必须假定引用了任何可见符号。一旦确定了这组初始节，链接器就会递归地将重定位所引用的任何节标记为已使用。
+
+此选项可以在进行部分链接时设置（使用选项‘-r’启用）。在这种情况下，必须通过“--entry”、“--undefined”或“--gc-keep-exported”选项之一或通过链接器脚本中的entry命令显式指定保留的符号的根目录。
+
+作为一个GNU扩展，带有`SHF_GNU_RETAIN`标志的ELF输入段将不会被垃圾收集。
+
+#### --print-gc-sections、--no-print-gc-sections
+
+列出垃圾收集所删除的所有节。清单以stderr打印。此选项仅在通过‘--gc-sections’)选项启用垃圾收集时有效。可以通过在命令行上指定‘--no-print-gc-sections’来恢复默认行为（不列出被删除的部分）。
+
+#### --gc-keep-exported
+
+当启用“--gc-sections”时，此选项可防止对包含具有默认可见性或受保护可见性的全局符号的未使用输入段进行垃圾收集。此选项旨在用于可执行文件，否则无论所包含符号的外部可见性如何，未引用的部分都将被垃圾收集。注意，这个选项在链接共享对象时不起作用，因为它已经是默认行为。此选项仅支持ELF格式目标。
+
+#### --print-output-format
+
+输出默认输出格式的名称（可能受到其他命令行选项的影响）。这是将出现在`OUTPUT_FORMAT`链接器脚本命令中的字符串
+
+#### --print-memory-usage
+
+打印使用memory Command命令创建的内存区域的已用大小、总大小和已用大小。这对于嵌入式目标非常有用，可以快速查看空闲内存量。输出的格式有一个标题，每个区域有一行。它是人类可读的，也很容易被工具解析。下面是一个输出示例：
+
+```
+Memory region         Used Size  Region Size  %age Used
+             ROM:        256 KB         1 MB     25.00%
+             RAM:          32 B         2 GB      0.00%
+```
+
+#### --help
+
+#### --target-help
+
+#### -Map=mapfile
+
+将链接映射打印到文件mapfile。请参阅上面-M选项的说明。如果mapfile只是字符-那么映射将被写入标准输出。
+
+将目录指定为mapfile将导致将链接器映射作为目录内的文件写入。通常，目录中文件的名称是作为附加.map的输出文件的基本名称计算的。但是，如果使用了特殊字符%，那么它将被输出文件的完整路径所替换。此外，如果%符号后面有任何字符，则.map将不再追加。
+
+#### --no-keep-memory
+
+ld通常通过在内存中缓存输入文件的符号表来优化内存使用速度。这个选项告诉ld根据需要重新读取符号表来优化内存使用。如果ld在链接大型可执行文件时耗尽了内存空间，则可能需要这样做。
+
+#### --no-undefined、-z defs
+
+报告常规对象文件中未解析的符号引用。即使链接器正在创建非符号共享库，也会执行此操作。开关--[no-]allow-shlib-undefined控制报告在链接的共享库中发现的未解析引用的行为。
+
+这个选项的效果可以通过使用-z undefs来恢复。
+
+#### --allow-multiple-definition、-z muldefs
+
+通常，当一个符号被定义多次时，链接器将报告一个致命错误。这些选项允许多个定义，第一个定义将被使用。
+
+#### --allow-shlib-undefined、--no-allow-shlib-undefined
+
+允许或禁止共享库中未定义的符号。这个开关类似于——no-undefined，除了它决定未定义符号在共享库中而不是在常规对象文件中时的行为。它不影响如何处理常规目标文件中的未定义符号。
+
+默认行为是，如果使用链接器创建可执行文件，则报告共享库中引用的任何未定义符号的错误，但如果使用链接器创建共享库，则允许错误发生。
+
+允许在链接时指定的共享库中未定义的符号引用的原因是：
+- 在链接时指定的共享库可能与加载时可用的共享库不同，因此该符号实际上可能在加载时是可解析的。
+- 有一些操作系统，例如BeOS和HPPA，共享库中未定义的符号是正常的。
+例如，BeOS内核在加载时修补共享库，以选择最适合当前体系结构的函数。例如，它被用来动态地选择一个适当的memset函数。
+
+#### --error-handling-script=scriptname
+
+如果提供了这个选项，那么每当遇到错误时，链接器将调用scriptname。然而，目前只支持两种错误：缺失符号和缺失库。两个参数将被传递给script：关键字“ undefined-symbol ”或“ missing-lib ”和未定义符号或缺失库的名称。其目的是脚本将向用户提供关于在哪里可以找到符号或库的建议。脚本完成后，将显示正常的链接器错误信息。
+
+此选项的可用性由配置时间开关控制，因此在特定实现中可能不存在。
+
+#### --no-undefined-version
+
+通常，当符号的版本未定义时，链接器将忽略它。此选项禁止使用版本未定义的符号，并将发出致命错误。
+
+#### --default-symver
+
+为未版本化的导出符号创建并使用默认符号版本（soname）。
+
+#### --default-imported-symver
+
+为未版本化的导入符号创建并使用默认符号版本（soname）。
+
+#### --no-warn-mismatch
+
+通常，如果您试图将由于某种原因而不匹配的输入文件链接在一起，可能是因为它们是为不同的处理器或不同的字节序编译的，那么ld将给出一个错误。这个选项告诉ld它应该静默地允许这种可能的错误。只有在采取了某些特殊操作以确保链接器错误不适当的情况下，才应谨慎使用此选项。
+
+#### --no-warn-search-mismatch
+
+通常，如果在库搜索过程中发现不兼容的库，ld将给出警告。此选项使警告静音。
+
+#### --no-whole-archive
+
+关闭--whole-archive选项对后续归档文件的影响。
+
+#### --noinhibit-exec
+
+保留可执行输出文件，只要它仍然可用。通常，如果链接器在链接过程中遇到错误，它将不会产生输出文件；当它发出任何错误时，它退出而不写入输出文件。
+
+#### -nostdlib
+
+只搜索命令行上明确指定的库目录。在链接器脚本中指定的库目录（包括在命令行上指定的链接器脚本）将被忽略。
+
+#### --oformat=output-format
+
+ld可以配置为支持一种以上的目标文件。如果您的ld是以这种方式配置的，您可以使用‘——oformat ’选项来指定输出对象文件的二进制格式。即使将ld配置为支持其他对象格式，您通常也不需要指定它，因为应该将ld配置为在每台机器上生成最常用的格式作为默认输出格式。output-format是一个文本字符串，BFD库支持的特定格式的名称。（您可以使用‘ objdump -i ’列出可用的二进制格式。）脚本命令OUTPUT_FORMAT也可以指定输出格式，但是这个选项会覆盖它。
+
+#### --out-implib file
+
+在文件中创建一个与链接器生成的可执行文件相对应的导入库。DLL或ELF程序)。这个导入库（应该被称为`*.dll`）`.a`或`*.a`（对于dll）可以用来将客户端链接到生成的可执行文件；这种行为使得可以跳过单独的导入库创建步骤(例如。dll工具)。此选项仅适用于连接器的i386 PE和ELF目标端口。
+
+#### -pie、--pic-executable
+
+创建一个独立于位置的可执行文件。目前仅在ELF平台上支持此功能。位置无关的可执行文件由动态链接器重新定位到操作系统为它们选择的虚拟地址，该地址在不同的调用之间可能不同。它们在ELF文件头中被标记为ET_DYN，但在许多方面与共享库不同。特别是，PIE中定义的符号默认情况下不能被另一个对象覆盖，因为它们可以在共享库中覆盖。
+
+#### -no-pie
+
+创建一个与位置相关的可执行文件。这是默认值
+
+#### -qmagic
+
+为了Linux兼容性，忽略此选项。
+
+#### -Qy
+
+为了兼容性，SVR4忽略此选项
+
+#### --relax、--no-relax
+
+具有机器依赖效果的选项。此选项仅在少数目标上支持。参见ld和H8/300。参见ld和Xtensa处理器。参见ld和68HC11和68HC12。参见ld和PowerPC 32位ELF支持。
+
+在某些平台上，--relax选项执行特定于目标的全局优化，当链接器在程序中解析寻址时，这些优化成为可能，例如放松寻址模式、合成新指令、选择当前指令的较短版本以及组合常量值。
+
+在某些平台上，这些链接时全局优化可能会导致无法对结果可执行文件进行符号调试。这是已知的松下MN10200和MN10300系列处理器的情况。
+
+在支持该功能的平台上，选项--no-relax将禁用该功能。
+
+在不支持该功能的平台上，二者都可以设置，但会被忽略。
+
+#### --retain-symbols-file=filename
+
+仅保留文件文件名中列出的符号，丢弃所有其他符号。文件名只是一个平面文件，每行有一个符号名。此选项在逐渐累积大型全局符号表以节省运行时内存的环境（如VxWorks）中特别有用。
+
+‘--retain-symbols-file’不会丢弃未定义的符号或重定位所需的符号。
+
+你只能在命令行中指定一次‘--retain-symbols-file ’。它覆盖了‘-s’和‘-S’。
+
+#### -rpath=dir
+
+在运行时库搜索路径中添加一个目录。这在将ELF可执行文件与共享对象链接时使用。所有-rpath参数都被连接并传递给运行时链接器，运行时链接器使用它们在运行时定位共享对象。
+
+-rpath选项也用于定位链接中显式包含的共享对象所需的共享对象；请参见-path-link选项的说明。只有配置了--with-sysroot选项的本地链接器和交叉链接器才支持以这种方式搜索-rpath。
+
+如果在链接一个ELF可执行文件时没有使用-rpath，那么如果定义了环境变量LD_RUN_PATH，将使用它的内容。
+
+-rpath选项也可以在SunOS上使用。默认情况下，在SunOS上，链接器将从给出的所有-L选项中形成一个运行时搜索路径。如果使用-rpath选项，运行时搜索路径将只使用-rpath选项，忽略-L选项。这在使用gcc时非常有用，因为gcc会添加许多-L选项，这些选项可能位于NFS挂载的文件系统上。
+
+为了与其他ELF链接器兼容，如果-R选项后面跟着目录名，而不是文件名，则将其视为-rpath选项。
+
+#### -rpath-link=dir
+
+rpath-link选项指定要搜索的第一组目录。此选项可以通过提供以冒号分隔的名称列表或多次出现来指定目录名序列。
+
+#### --section-ordering-file=script
+
+此选项用于使用输入节到输出节的额外映射来扩展当前链接器脚本。该文件必须使用与普通链接器脚本相同的SECTIONS语法，但除了将输入节放入输出节之外，它不应该做任何事情。参见章节命令
+
+节排序脚本的第二个约束是，它只能引用当前使用的链接器脚本已经定义的输出节。（即默认的链接器脚本或命令行上指定的脚本）。然而，片段排序脚本的好处是，输入部分被映射到输出部分的开始部分，因此它们可以确保输出部分中各部分的顺序。例如，假设默认的链接器脚本是这样的：
+```
+SECTIONS {
+  .text : { *(.text.hot) ; *(.text .text.*) }
+  .data : { *(.data.big) ; *(.data .data.*) }
+}
+```
+然后如果使用像这样的节排序文件：
+```
+.text : { *(.text.first) ; *(.text.z*) }
+.data : { foo.o(.data.first) ; *(.data.small) }
+```
+这相当于这样的链接器脚本：
+```
+SECTIONS {
+  .text : { *(.text.first) ; *(.text.z*) ; *(.text.hot) ; *(.text .text.*) }
+  .data : { foo.o(.data.first) ; *(.data.small) ; *(.data.big) ; *(.data .data.*) }
+}
+```
+
+节排序文件的优点是，它可以用来对那些对用户重要的节进行排序，而不必担心任何其他节、内存区域或其他任何东西。
+
+#### -shared、-Bshareable
+
+创建共享库。目前只支持ELF、XCOFF和SunOS平台。在SunOS上，如果没有使用-e选项，并且链接中有未定义的符号，那么链接器将自动创建一个共享库。
+
+#### --sort-common、--sort-common=ascending、--sort-common=descending
+
+该选项告诉ld在将通用符号放入适当的输出部分时，按升序或降序排列对它们进行排序。所考虑的符号对齐是16字节或更大、8字节、4字节、2字节和1字节。这是为了防止由于对齐约束而导致符号之间的间隙。如果没有指定排序顺序，则假定降序。
+
+#### --sort-section=name
+
+该选项将对链接器脚本中的所有通配符部分模式应用`SORT_BY_NAME`。
+
+#### --sort-section=alignment
+
+该选项将对链接器脚本中的所有通配符部分模式应用SORT_BY_ALIGNMENT。
+
+#### --spare-dynamic-tags=count
+
+这个选项指定在ELF共享对象的.dynamic部分中留下的空槽的数量。后处理工具（如预链接器）可能需要空槽。默认值是5。
+
+#### --split-by-file[=size]
+
+类似于--split-by-reloc，但在达到大小时为每个输入文件创建一个新的输出部分。如果没有指定，Size默认为1。
+
+#### --split-by-reloc[=count]
+
+尝试在输出文件中创建额外的部分，以便文件中的单个输出部分不包含超过计数的重定位。这在使用COFF对象文件格式生成巨大的可重定位文件以下载到某些实时内核时非常有用；因为COFF不能在一个section中表示超过65535的重定位。注意，对于不支持任意节的对象文件格式，这将无法工作。链接器不会拆分单独的输入段进行重新分配，所以如果一个输入段包含超过计数的重定位，那么一个输出段将包含相同数量的重定位。Count默认值为32768。
+
+
+#### --stats
+
+计算并显示有关链接器操作的统计信息，例如执行时间和内存使用情况。
+
+#### --sysroot=directory
+
+使用directory作为sysroot的位置，覆盖配置时间的默认值。该选项仅被使用--with-sysroot配置的链接器支持。
+
+#### --task-link
+
+基于COFF/PE的目标使用它来创建一个任务链接的对象文件，其中所有全局符号都已转换为静态值。
+
+#### --traditional-format
+
+对于某些目标，ld的输出在某些方面与某些现有链接器的输出不同。此开关要求ld使用传统格式。
+
+例如，在SunOS上，ld组合符号字符串表中的重复条目。这可以将包含完整调试信息的输出文件的大小减少30%以上。不幸的是，SunOS dbx程序不能读取生成的程序（gdb没有问题）。‘--tradition-format’开关告诉ld不要合并重复的条目。
+
+#### --section-start=sectionname=org
+
+在输出文件中找到org给出的绝对地址处的一个节。您可以根据需要多次使用此选项来定位命令行中的多个部分。Org必须是一个十六进制整数；为了与其他链接器兼容，您可以省略通常与十六进制值相关联的前导‘ 0x ’。注意：sectionname、等号（"="）和org之间不应该有空格。
+
+#### --image-base=org
+
+当使用ELF时与-text-segment相同，两个选项都有效地设置ELF可执行文件的基址。
+
+当使用PE时，使用value作为程序或dll的基址。这是加载程序或dll时将使用的最低内存位置。为了减少重新定位的需要并提高dll的性能，每个dll都应该有一个唯一的基址，并且不与任何其他dll重叠。可执行文件的默认值是0x400000，而dll的默认值是0x10000000。
+
+#### -Tbss=org、-Tdata=org、-Ttext=org
+
+与`--section-start`相同，使用`.bss`、`.data`或`.text`作为节名。
+
+#### -Ttext-segment=org
+
+当创建一个ELF可执行文件时，它将设置第一个段的第一个字节的地址。请注意，当`-pie`与`-text-segment=org`一起使用时，输出的可执行文件被标记为`ET_EXEC`，以便在运行时保证文本段的第一个字节的地址为org。
+
+#### -Trodata-segment=org
+
+当为只读数据位于与可执行文本分开的自己的段中的目标创建ELF可执行对象或共享对象时，它将设置只读数据段的第一个字节的地址。
+
+#### -Tldata-segment=org
+
+在为x86-64介质内存模型创建ELF可执行对象或共享对象时，它将设置ldata段的第一个字节的地址。
+
+#### --unresolved-symbols=method
+
+确定如何处理未解析的符号。‘method’有四种可能的值：
+- 'ignore-all': 不要报告任何未解析的符号。
+- 'report-all': 报告所有未解析的符号。这是默认值。
+- 'ignore-in-object-files': 报告共享库中包含的未解析符号，但如果它们来自常规对象文件，则忽略它们。
+- 'ignore-in-shared-libs': 报告来自常规对象文件的未解析符号，但如果它们来自共享库则忽略它们。这在创建动态二进制文件时非常有用，并且已知它应该引用的所有共享库都包含在链接器的命令行中。
+
+共享库本身的行为也可以通过——[no-]allow-shlib-undefined选项来控制。
+
+通常，链接器将为每个报告的未解析符号生成一条错误消息，但选项--warn-unresolved-symbols可以将其更改为警告。
+
+#### --dll-verbose、--verbose[=NUMBER]
+
+显示ld的版本号并列出支持的链接器模拟。显示哪些输入文件可以打开，哪些不能打开。显示链接器正在使用的链接器脚本。如果可选的NUMBER参数> 1，插件符号状态也将显示。
+
+#### --version-script=version-scriptfile
+
+为链接器指定版本脚本的名称。这通常在创建共享库时使用，以指定正在创建的库的版本层次结构的附加信息。此选项仅在支持共享库的ELF平台上得到完全支持；请参见版本命令。它在PE平台上得到部分支持，PE平台可以使用版本脚本在自动导出模式下过滤符号可见性：版本脚本中标记为“local”的任何符号都不会被导出。参见ld和WIN32 （cygwin/mingw）。
+
+#### --warn-common
+
+当一个通用符号与另一个通用符号或符号定义组合时发出警告。Unix链接器允许这种有点草率的做法，但其他一些操作系统上的链接器不允许。此选项允许您从组合全局符号中查找潜在的问题。不幸的是，一些C库使用这种做法，因此您可能会在库中以及您的程序中得到一些关于符号的警告。
+
+#### --warn-constructors
+
+如果使用了任何全局构造函数，则发出警告。这只对少数目标文件格式有用。对于像COFF或ELF这样的格式，链接器无法检测到全局构造函数的使用。
+
+#### --warn-execstack、--warn-execstack-objects、--no-warn-execstack
+
+在ELF平台上，如果要求链接器创建包含可执行堆栈的输出文件，它可能会生成警告消息。有三种可能的状态：
+1. 不要产生任何警告。
+2. 始终生成警告，即使通过-z execstack命令行选项请求可执行堆栈。
+3. 仅当目标文件请求可执行堆栈时生成警告，但如果使用-z execstack选项则不会生成警告。
+
+默认状态取决于构建链接器时如何配置它。`--no-warn-execstack`选项总是将链接器置于无警告状态。`--warn-execstack`选项将链接器置于“始终警告”状态。`--warn-execstack-objects`选项将链接器置于仅对object-files发出警告的状态。
+
+注意：ELF格式的输入文件可以通过使用. Note来指定它们需要一个可执行堆栈。在其节标志中设置可执行位的GNU-stack节。它们可以通过具有相同的节来指定它们不需要可执行堆栈，但不设置可执行标志位。如果输入文件没有.note。则默认行为是特定于目标的。对于某些目标，缺少这样一个部分意味着需要一个可执行堆栈。对于手工制作的汇编文件来说，这通常是一个问题。
+
+#### --error-execstack、--no-error-execstack
+
+如果链接器要生成关于可执行堆栈的警告消息，那么--error-execstack选项将把该警告更改为错误。注意-此选项不会更改链接器的execstack警告生成状态。使用--warn-execstack或--warn-execstack-objects来设置特定的警告状态。
+--no-error-execstack选项将恢复生成警告消息的默认行为。
+
+#### --warn-multiple-gp
+
+如果输出文件中需要多个全局指针值，则发出警告。这只对某些处理器有意义，比如Alpha。具体来说，有些处理器将大值常量放在一个特殊的部分中。一个特殊的寄存器（全局指针）指向这一节的中间，因此可以通过基寄存器相对寻址模式有效地加载常量。由于基寄存器相对模式的偏移量是固定的并且相对较小（例如，16位），这限制了常量池的最大大小。因此，在大型程序中，为了能够寻址所有可能的常量，通常需要使用多个全局指针值。此选项会在发生这种情况时发出警告。
+
+#### --warn-once
+
+只对每个未定义的符号发出一次警告，而不是对每个引用它的模块发出一次警告。
+
+#### --warn-rwx-segments、--no-warn-rwx-segments
+
+如果链接器创建了一个可加载的，非零大小的段，并且设置了所有三个读，写和执行权限标志，则发出警告。这样的段表示潜在的安全漏洞。此外，如果线程本地存储段创建时设置了执行权限标志，无论它是否设置了读和/或写标志，都将生成警告。
+
+这些警告在默认情况下是启用的。可以通过--no-warn-rwx-segments选项禁用它们，并通过--warn-rwx-segments选项重新启用它们。
+
+#### --error-rwx-segments、--no-error-rwx-segments
+
+如果链接器要生成关于可执行、可写段或可执行TLS段的警告消息，那么--error-rwx-segments选项将把此警告转换为错误。--no-error-rwx-segments选项将恢复仅生成警告消息的默认行为。
+
+注意--error-rwx-segments选项本身不会打开关于这些段的警告。如果链接器是以这种方式配置的，这些警告要么默认启用，要么通过--warn-rwx-segments命令行选项启用。
+
+#### --warn-section-align
+
+如果输出部分的地址因对齐而更改，则发出警告。通常，对齐方式将由输入部分设置。地址只有在没有明确指定的情况下才会被更改；也就是说，如果SECTIONS命令没有指定节的起始地址
+
+#### --warn-textrel
+
+如果链接器将DT_TEXTREL添加到位置无关的可执行或共享对象中，则发出警告。
+
+#### --warn-alternate-em
+
+如果对象有备用ELF机器码，则发出警告。
+
+#### --warn-unresolved-symbols
+
+如果链接器要报告一个未解析的符号（参见选项--unresolved-symbols），它通常会生成一个错误。这个选项使它生成一个警告。
+
+#### --error-unresolved-symbols
+
+这将恢复链接器在报告无法解析的符号时生成错误的默认行为。
+
+#### --whole-archive
+
+对于命令行中`--whole-archive`选项之后提到的每个归档，在链接中包括归档中的每个对象文件，而不是在归档中搜索所需的对象文件。这通常用于将归档文件转换为共享库，迫使每个对象都包含在生成的共享库中。此选项可以多次使用。
+
+在gcc中使用这个选项时需要注意两点：首先，gcc不知道这个选项，所以你必须使用`-Wl,-whole-archive`。其次，不要忘记在存档列表后面使用`-Wl,-no-whole-archive`，因为gcc会将自己的存档列表添加到您的链接中，您可能不希望这个标志也影响到这些。
+
+#### --wrap=symbol
+
+对symbol使用包装器函数。任何对symbol的未定义引用将被解析为`__wrap_symbol`。任何对`__real_symbol`的未定义引用将被解析为symbol。
+
+这可用于为系统功能提供包装器。包装器函数应该命名为`__wrap_symbol`。如果它希望调用系统函数，它应该调用`__real_symbol`。
+
+这里有一个简单的例子：
+```C
+void *
+__wrap_malloc (size_t c)
+{
+  printf ("malloc called with %zu\n", c);
+  return __real_malloc (c);
+}
+```
+
+如果使用`--wrap malloc`将其他代码与该文件链接，那么所有对malloc的调用将调用函数`__wrap_malloc`。对`__wrap_malloc`中的`__real_malloc`的调用将调用真正的malloc函数。
+
+您可能还希望提供`__real_malloc`函数，以便没有`--wrap`选项的链接将成功。如果你这样做，你不应该把`__real_malloc`的定义和`__wrap_malloc`放在同一个文件中；如果这样做，汇编程序可能会在链接器有机会将调用包装为malloc之前解析调用。
+
+只有未定义的引用才会被链接器替换。因此，对symbol的翻译单元内部引用不会解析为`__wrap_symbol`。在下一个示例中，对f在g中的调用不会解析为`__wrap_f`。
+
+```
+int
+f (void)
+{
+  return 123;
+}
+
+int
+g (void)
+{
+  return f();
+}
+```
+
+#### --eh-frame-hdr、--no-eh-frame-hdr
+
+请求（--eh-frame-hdr）或抑制（--no-eh-frame-hdr）创建`.eh_frame_hdr`段和ELF `PT_GNU_EH_FRAME`段头。
+
+#### --no-ld-generated-unwind-info
+
+请求为链接器生成的代码段（如PLT）创建`.eh_frame` unwind信息。如果支持链接器生成的unwind信息，则默认开启此选项。此选项还控制链接器生成的代码段（如PLT）的.sframe堆栈跟踪信息的生成。
+
+#### --enable-new-dtags、--disable-new-dtags
+
+这个链接器可以在ELF中创建新的动态标签。但是旧的极低频系统可能无法理解它们。如果指定`--enable-new-dtags`，将根据需要创建新的动态标记，而旧的动态标记将被省略。如果指定`--disable-new-dtags`，则不会创建新的动态标签。缺省情况下，不创建新的动态标记。请注意，这些选项仅适用于ELF系统。
+
+#### --hash-size=number
+
+将链接器哈希表的默认大小设置为接近number的素数。增加此值可以减少链接器执行其任务所需的时间长度，但代价是增加链接器的内存需求。同样地，减少这个值可以以牺牲速度为代价来减少内存需求。
+
+#### --hash-style=style
+
+设置链接器哈希表的类型。style可以是sysv（代表经典ELF `.hash` section, gnu（代表新风格`.gnu.gnu`）。对于经典的ELF`.hash`和新风格的GNU `.GNU.hash`。默认值取决于链接器的配置方式，但对于大多数基于Linux的系统，它将两者都是。
+
+#### --compress-debug-sections=none、--compress-debug-sections=zlib、--compress-debug-sections=zlib-gnu、--compress-debug-sections=zlib-gabi、--compress-debug-sections=zstd
+
+在ELF平台上，这些选项控制如何使用zlib压缩DWARF调试段。
+
+`--compress-debug-sections=none`不压缩DWARF调试段。`--compress-debug-sections=zlib-gnu`压缩DWARF调试段，并将其重命名为'.Zdebug ‘而不是’.debug '。`--compress-debug-sections=zlib-gabi`也压缩DWARF调试段，但它不会重命名它们，而是在节的头中设置`SHF_COMPRESSED`标志。
+
+`--compress-debug-sections=zlib`选项是`--compress-debug-sections=zlib-gabi`的别名。
+
+`--compress-debug-sections=zstd`使用zstd压缩DWARF调试段。
+
+请注意，此选项将覆盖输入调试部分中的任何压缩，因此，如果使用`--compress-debug-sections=none`链接二进制文件，则在将输入文件中的任何压缩的调试部分复制到输出二进制文件之前，将对其进行解压缩。
+
+默认的压缩行为取决于所涉及的目标和用于构建工具链的配置选项。可以通过检查链接器的——help选项的输出来确定默认值。
+
+#### --reduce-memory-overheads
+
+此选项以牺牲链接速度为代价，减少了旧运行时的内存需求。这是为了选择旧的O（n^2）算法来生成链接映射文件，而不是新的O(n)算法，它使用大约40%的内存用于符号存储。
+
+切换的另一个效果是将默认哈希表大小设置为1021，这再次节省了内存，但代价是延长了链接器的运行时间。但是，如果使用了`--hash-size`开关，则不会这样做。
+
+在未来版本的链接器中，还可以使用`--reduce-memory-overheads`开关来实现其他折衷。
+
+#### --max-cache-size=size
+
+ld通常将输入文件的重定位信息和符号表缓存到内存中，大小不限。此选项将最大缓存大小设置为size。
+
+#### --build-id、--build-id=style
+
+请求创建一个`.note.gnu.build-id`ELF注释节或`.buildid` COFF节。内容是唯一的比特来标识这个链接的文件。样式可以使用128个随机位；sha1使用160位sha1哈希，md5使用128位md5哈希，或者xx对输出内容的规范部分使用128位XXHASH；或0xhexstring使用指定为偶数十六进制数字的选定位字符串（忽略数字对之间的-和：字符）。如果省略style，则使用sha1。
+
+md5、sha1和xx样式产生的标识符在相同的输出文件中总是相同的，但在所有不相同的输出文件中几乎肯定是唯一的。它不打算作为文件内容的校验和进行比较。链接的文件稍后可能会被其他工具更改，但标识原始链接文件的构建ID位字符串不会更改。
+
+为style传递none将禁用命令行上先前的任何`--build-id`选项的设置。
+
+#### --package-metadata=JSON
+
+请求创建一个`.note.package` ELF注释部分。根据包元数据规范，注释的内容采用JSON格式。[参看：https://systemd.io/ELF_PACKAGE_METADATA/](https://systemd.io/ELF_PACKAGE_METADATA/)
+
+### 其他平台命令行选项
+
+[Options Specific to i386 PE Targets](https://sourceware.org/binutils/docs/ld/Options.html#Options-Specific-to-i386-PE-Targets)
+[Options specific to C6X uClinux targets](https://sourceware.org/binutils/docs/ld/Options.html#Options-specific-to-C6X-uClinux-targets)
+[Options specific to C-SKY targets](https://sourceware.org/binutils/docs/ld/Options.html#Options-specific-to-C_002dSKY-targets)
+[Options specific to Motorola 68HC11 and 68HC12 targets](https://sourceware.org/binutils/docs/ld/Options.html#Options-specific-to-Motorola-68HC11-and-68HC12-targets)
+[Options specific to Motorola 68K target](https://sourceware.org/binutils/docs/ld/Options.html#Options-specific-to-Motorola-68K-target)
+[Options specific to MIPS targets](https://sourceware.org/binutils/docs/ld/Options.html#Options-specific-to-MIPS-targets)
+[Options specific to PDP11 targets](https://sourceware.org/binutils/docs/ld/Options.html#Options-specific-to-PDP11-targets)
+
+### i386 PE目标的特殊选项
+
+#### --add-stdcall-alias
+#### --base-file file
+#### --dll
+#### --enable-long-section-names
+#### --disable-long-section-names
+#### --enable-stdcall-fixup
+#### --disable-stdcall-fixup
+#### --leading-underscore、--no-leading-underscore
+#### --export-all-symbols
+#### --exclude-symbols symbol,symbol,...
+#### --exclude-all-symbols
+#### --file-alignment
+#### --heap reserve、--heap reserve,commit
+#### --kill-at
+#### --large-address-aware
+#### --disable-large-address-aware
+#### --major-image-version value
+#### --major-os-version value
+#### --major-subsystem-version value
+#### --minor-image-version value
+#### --minor-os-version value
+#### --minor-subsystem-version value
+#### --output-def file
+#### --enable-auto-image-base、--enable-auto-image-base=value
+#### --disable-auto-image-base
+#### --dll-search-prefix string
+#### --enable-auto-import
+#### --disable-auto-import
+#### --enable-runtime-pseudo-reloc
+#### --disable-runtime-pseudo-reloc
+#### --enable-extra-pe-debug
+#### --section-alignment
+#### --stack reserve、--stack reserve,commit
+#### --subsystem which、--subsystem which:major、--subsystem which:major.minor
+#### --high-entropy-va、--disable-high-entropy-va
+#### --dynamicbase、--disable-dynamicbase
+#### --forceinteg、--disable-forceinteg
+#### --nxcompat、--disable-nxcompat
+#### --no-isolation、--disable-no-isolation
+#### --no-seh、--disable-no-seh
+#### --no-bind、--disable-no-bind
+#### --wdmdriver、--disable-wdmdriver
+#### --tsaware、--disable-tsaware
+#### --insert-timestamp、--no-insert-timestamp
+#### --enable-reloc-section、--disable-reloc-section
+
+### 特定于C6X uClinux目标的选项
+
+#### --dsbt-size size
+#### --dsbt-index index
+
+### 特定于C-SKY目标的选项
+#### --branch-stub
+#### --stub-group-size=N
+
+### 特定于摩托罗拉68HC11和68HC12目标的选项
+
+#### --no-trampoline
+#### --bank-window name
+
+### 特定于摩托罗拉68K目标的选项
+
+#### --got=type
+
+### 特定于MIPS目标的选项
+
+#### --insn32、--no-insn32
+#### --ignore-branch-isa、--no-ignore-branch-isa
+#### --compact-branches、--no-compact-branches
+
+### 特定于PDP11目标的选项
+
+#### -N、--omagic
+#### -n、--nmagic
+#### -z、--imagic
+#### --no-omagic
