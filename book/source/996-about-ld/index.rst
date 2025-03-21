@@ -12,3 +12,4 @@
 
     ld.md
     invocation.md
+    linker-scripts.md
