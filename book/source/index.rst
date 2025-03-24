@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Linux Kernel(基于X86_64)
+Linux 开发教程
 ============================
 
 .. toctree::
@@ -21,3 +21,4 @@ Linux Kernel(基于X86_64)
     997-about-others/index.rst
     998-about-hw/index.rst
     999-linux-version/index.rst
+    1000-wayland/index.rst

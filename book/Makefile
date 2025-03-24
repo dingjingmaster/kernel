@@ -30,9 +30,9 @@ latex:
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).
 latexpdf:latex
-	@cd "$(BUILDDIR)/latex" && xelatex "linuxkernelx86_64.tex"
-	@cd "$(BUILDDIR)/latex" && xelatex "linuxkernelx86_64.tex"
-	@mv "$(BUILDDIR)/latex/linuxkernelx86_64.pdf" "$(PDFNAME)"
+	@cd "$(BUILDDIR)/latex" && xelatex "linux.tex"
+	@cd "$(BUILDDIR)/latex" && xelatex "linux.tex"
+	@mv "$(BUILDDIR)/latex/linux.pdf" "$(PDFNAME)"
 
 clean:
 	@rm -rf "$(BUILDDIR)"

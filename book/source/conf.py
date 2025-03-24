@@ -6,7 +6,7 @@
 # -- Project information -----------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
-project = 'Linux Kernel(基于X86_64)'
+project = 'Linux 开发教程'
 copyright = '2024, 丁敬'
 author = '丁敬'
 
