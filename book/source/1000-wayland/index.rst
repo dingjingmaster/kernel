@@ -6,6 +6,6 @@ Wayland
     :caption: 目录:
 
     000-wayland介绍.md
-    001-wayland架构.md
-    002-wayland渲染.md
-    003-wayland硬件支持.md
+    001-合成器类型.md
+    002-wayland架构.md
+    003-wayland协议和运行模式.md
