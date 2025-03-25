@@ -11,3 +11,4 @@ Wayland
     003-wayland协议和运行模式.md
     004-x11程序支持.md
     005-wayland协议规范.md
+    006-Wayland客户端api.md
