@@ -12,3 +12,4 @@ Wayland
     004-x11程序支持.md
     005-wayland协议规范.md
     006-Wayland客户端api.md
+    007-Wayland服务端api.md
