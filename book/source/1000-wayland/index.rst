@@ -18,3 +18,5 @@ Wayland freedesktop文档：https://wayland.freedesktop.org/docs/html/
     007-Wayland服务端api.md
     008-Wayland硬件部分.md
     009-Wayland软件包.md
+    010-Wayland调试.md
+    011-定义Wayland协议.md
