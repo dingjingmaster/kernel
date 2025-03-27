@@ -11,7 +11,8 @@ Linux 开发教程
     :caption: 目录
 
     000-concepts/index.rst
-    001-ling-sheng/index.rst
+    001-glibc/index.rst
+    002-ling-sheng/index.rst
     800-Filesystem/index.rst
     900-assembly/index.rst
     994-headers/index.rst

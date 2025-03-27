@@ -1,0 +1,63 @@
+# 项目结构
+
+- argp：高级命令行参数解析库
+- assert：断言宏的实现(如：`assert()`)，用于调试时候检查程序逻辑
+- benchtests：性能基准测试套件，用于评估函数(如：memcpy、malloc)在不同架构下的效率
+- bits
+- catgets
+- conform：标准符合性测试，验证glibc实现是否符合 POSIX、ISO C 等规范
+- csu：C startup 代码，定义程序入口(如：`_start`)、全局构造/析构函数(`__libc_csu_init`)和静态链接支持
+- ctype：提供字符分类和转换函数(如：`isalpha()`、`tolower()`)，遵循ANSI C标准字符属性的判断逻辑。部分函数通过汇编优化(如：SSE指令)提升性能
+- debug：调试版本函数实现(如：backtrace)，用于堆栈跟踪和内存泄漏检测
+- dirent：封装目录操作接口(如：`opendir()`、`readdir()`)，提供与文件系统无关的目录遍历
+- dlfcn：动态共享库加载接口(如：dlopen、dlsym)，支持运行时模块化扩展
+- elf：实现ELF动态链接器核心逻辑，包括符号解析、重定位和共享库加载。关键组件如动态加载器`ld.so`的初始化流程在此定义
+- gmon：支持gprof性能分析工具，生成程序运行时函数调用图和耗时统计。通过`_mcount`函数收集调用栈信息，并写入`gmon.out`文件供后续分析
+- gnulib：包含从gnulib项目移植的跨平台兼容代码，提供POSIX标准未覆盖的通用功能(如：strnlen()的安全字符串操作)
+- hesiod：Hesiod名称服务支持，提供基于DNS的配置信息查询
+- htl：Hurd线程库，为GNU Hurd系统提供线程支持。对比linux系统使用nptl(Native POSIX Threads Library)
+- hurd：为GNU Hurd微内核系统提供的专用接口，实现linux系统调用的差异化适配(如：进程管理、文件系统操作)。该目录仅在构建Hurd兼容版本时候启用。
+- iconv：字符编码转换模块
+- iconvdata：字符编码映射表
+- include：公开头文件，定义API接口和宏
+- inet：处理网络协议栈接口(如：`socket()`、`getaddrinfo()`)，支持IPv4/IPv6协议族。包含DNS解析、套接字选项设置等功能的实现。
+- intl：国际化支持(i18n)，提供gettext多语言翻译框架。关联目录：locale存放区域设置数据，po包含翻译模板文件
+- io：文件与I/O操作相关函数，如：open、read、write，以及与文件系统交互的底层封装
+- libio：实现旧版I/O流库(如：`FILE`结构体管理、缓存机制)，为stdio.h中的fopen()、fprintf()等函数提供底层支持。新版本逐步迁移到stdio目录
+- locale：国际化与本地化支持，包括字符集和语言环境数据
+- localedata
+- login
+- mach：Mach微内核相关接口，用于支持Hurd操作系统。包含进程间通信(IPC)和虚拟内存管理的底层代码
+- malloc：动态内存管理核心逻辑，包括malloc、calloc、realloc的实现，以及内存池优化策略(如：ptmalloc)
+- manual：文档与手册源码，生成info和man格式的用户手册
+- math：数学函数库，包括三角函数(sin、cos)、对数运算(log)、浮点数处理等，支持多种精度(如：float、double)
+- mathvec：向量化数学函数优化(如：SIMD加速的: sin、cos)，提升计算密集型任务性能
+- misc
+- nis：网络信息服务(NIS)客户端库，用于分布式系统配置管理
+- nptl：Native POSIX Threads Library(NPTL)的实现，提供多线程支持(如：pthread_create、线程同步机制)
+- nptl_db
+- nscd
+- nss
+- patches
+- po：国际化翻译
+- posix
+- resolv
+- resource
+- rt
+- scripts：构建和安装过程中的辅助脚本，如自动化测试脚本、符号链接生成工具
+- setjmp
+- signal
+- socket
+- soft-fp
+- stdio-common
+- stdlib：标准库函数实现，包括内存分配(malloc、free)、环境变量处理(getenv)、随机数生成(rand)等
+- string：字符串处理函数的实现，如：memcpy、strlen、strcmp等(包含汇编优化版本，如x86 sse指令加速和纯c实现)
+- sunrpc
+- support：测试框架的辅助工具，如：内存泄漏检测、临时文件管理，用于单元测试和集成测试
+- sysdeps：存放与操作系统架构和内核特性相关的代码，是glibc跨平台支持的核心目录
+- sysvipc：System V IPC(进程间通信)的实现，包括信号量、共享内存和消息队列
+- termios
+- time
+- timezone：时区数据库和时区转换函数
+- wcsmbs
+- wctype
