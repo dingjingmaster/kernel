@@ -34,7 +34,7 @@
 - mathvec：向量化数学函数优化(如：SIMD加速的: sin、cos)，提升计算密集型任务性能
 - misc
 - nis：网络信息服务(NIS)客户端库，用于分布式系统配置管理
-- nptl：Native POSIX Threads Library(NPTL)的实现，提供多线程支持(如：pthread_create、线程同步机制)
+- nptl：Native POSIX Threads Library(NPTL)的实现，提供多线程支持(如：pthread_create、线程同步机制)。在glibc 2.34及后续版本中，libpthread被合并到libc.so.6，但nptl的实现逻辑仍保留在nptl目录中
 - nptl_db
 - nscd
 - nss
