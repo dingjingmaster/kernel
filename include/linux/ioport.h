@@ -24,9 +24,12 @@
 struct resource
 {
     resource_size_t  start;   // u32, 记录设备在CPU总线上的线性物理地址区间(如: 内存地址或I/O端口范围)
-    resource_size_t  end;     // u32 ...
+    resource_size_t  end;     // u32 ... 在Linux内核中，iomem_resource.end变量的含义是
+                              //   表示内存映射I/O（I/O内存）资源的地址空间范围的结束地址。
     const char*      name;    // 设备的人类可读名称(便于调试)
-    unsigned long    flags;   // 资源类型表示：通过flags字段区分资源类型(如：内存、IORESOURCE_MEM、I/O端口、IORESOURCE_IO、寄存器、IORESOURCE_REG等)，并支持扩展标志(如：IORESOURCE_AUTO表示自动分配)
+    unsigned long    flags;   // 资源类型表示：通过flags字段区分资源类型(如：内存、IORESOURCE_MEM、I/O端口、
+                              //  IORESOURCE_IO、寄存器、IORESOURCE_REG等)，
+                              //  并支持扩展标志(如：IORESOURCE_AUTO表示自动分配)
     unsigned long    desc;
     struct resource *parent, *sibling, *child;
 };

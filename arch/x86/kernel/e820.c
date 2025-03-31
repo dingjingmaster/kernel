@@ -161,7 +161,10 @@ int e820__get_entry_type (u64 start, u64 end)
 /*
  * Add a memory region to the kernel E820 map.
  */
-static void __init __e820__range_add (struct e820_table* table, u64 start, u64 size, enum e820_type type)
+static void __init __e820__range_add (struct e820_table* table,
+                                      u64                start,
+                                      u64                size,
+                                      enum e820_type     type)
 {
     int x = table->nr_entries;
 
@@ -202,7 +205,8 @@ void __init e820__print_table (char* who)
     int i;
 
     for (i = 0; i < e820_table->nr_entries; i++) {
-        pr_info ("%s: [mem %#018Lx-%#018Lx] ", who, e820_table->entries[i].addr, e820_table->entries[i].addr + e820_table->entries[i].size - 1);
+        pr_info ("%s: [mem %#018Lx-%#018Lx] ", who, e820_table->entries[i].addr,
+                 e820_table->entries[i].addr + e820_table->entries[i].size - 1);
 
         e820_print_type (e820_table->entries[i].type);
         pr_cont ("\n");
@@ -288,29 +292,39 @@ static int __init            cpcompare (const void* a, const void* b)
     struct change_member *const *app = a, *const *bpp = b;
     const struct change_member * ap = *app, *bp = *bpp;
 
-    /*
+    /**
      * Inputs are pointers to two elements of change_point[].  If their
      * addresses are not equal, their difference dominates.  If the addresses
      * are equal, then consider one that represents the end of its region
      * to be greater than one that does not.
+     *
+     * 输入是指向 change_point[] 两个元素的指针。
+     * 如果它们的地址不相等，则以它们的差值为准。
+     * 如果地址相等，则认为代表其区域末端的元素大于不代表其区域末端的元素。
      */
-    if (ap->addr != bp->addr)
+    if (ap->addr != bp->addr) {
         return ap->addr > bp->addr ? 1 : -1;
+    }
 
     return (ap->addr != ap->entry->addr) - (bp->addr != bp->entry->addr);
 }
 
 static bool e820_nomerge (enum e820_type type)
 {
-    /*
+    /**
      * These types may indicate distinct platform ranges aligned to
      * numa node, protection domain, performance domain, or other
      * boundaries. Do not merge them.
+     *
+     * 这些类型可能表示不同的平台范围，这些范围与 节点、保护域、性能域或其他边界。请勿合并。
      */
-    if (type == E820_TYPE_PRAM)
+    if (type == E820_TYPE_PRAM) {
         return true;
-    if (type == E820_TYPE_SOFT_RESERVED)
+    }
+    if (type == E820_TYPE_SOFT_RESERVED) {
         return true;
+    }
+
     return false;
 }
 
@@ -324,24 +338,32 @@ int __init e820__update_table (struct e820_table* table)
     u32                i, chg_idx, chg_nr;
 
     /* If there's only one memory region, don't bother: */
-    if (table->nr_entries < 2)
+    if (table->nr_entries < 2) {
         return -1;
+    }
 
     BUG_ON (table->nr_entries > max_nr_entries);
 
     /* Bail out if we find any unreasonable addresses in the map: */
     for (i = 0; i < table->nr_entries; i++) {
-        if (entries[i].addr + entries[i].size < entries[i].addr)
+        if (entries[i].addr + entries[i].size < entries[i].addr) {
             return -1;
+        }
     }
 
-    /* Create pointers for initial change-point information (for sorting): */
-    for (i = 0; i < 2 * table->nr_entries; i++)
+    /**
+     * Create pointers for initial change-point information (for sorting):
+     * 为初始变化信息创建指针（用于排序）：
+     */
+    for (i = 0; i < 2 * table->nr_entries; i++) {
         change_point[i] = &change_point_list[i];
+    }
 
-    /*
+    /**
      * Record all known change-points (starting and ending addresses),
      * omitting empty memory regions:
+     *
+     * 记录所有已知变化点（起始地址和终止地址）、省略空内存区域：
      */
     chg_idx = 0;
     for (i = 0; i < table->nr_entries; i++) {
@@ -363,17 +385,23 @@ int __init e820__update_table (struct e820_table* table)
     last_type       = 0; /* Start with undefined memory type */
     last_addr       = 0; /* Start with 0 as last starting address */
 
-    /* Loop through change-points, determining effect on the new map: */
+    /**
+     * Loop through change-points, determining effect on the new map:
+     *
+     * 循环查看更改点，确定对新地图的影响：
+     */
     for (chg_idx = 0; chg_idx < chg_nr; chg_idx++) {
         /* Keep track of all overlapping entries */
         if (change_point[chg_idx]->addr == change_point[chg_idx]->entry->addr) {
             /* Add map entry to overlap list (> 1 entry implies an overlap) */
             overlap_list[overlap_entries++] = change_point[chg_idx]->entry;
-        } else {
+        }
+        else {
             /* Remove entry from list (order independent, so swap with last): */
             for (i = 0; i < overlap_entries; i++) {
-                if (overlap_list[i] == change_point[chg_idx]->entry)
+                if (overlap_list[i] == change_point[chg_idx]->entry) {
                     overlap_list[i] = overlap_list[overlap_entries - 1];
+                }
             }
             overlap_entries--;
         }
@@ -381,11 +409,14 @@ int __init e820__update_table (struct e820_table* table)
          * If there are overlapping entries, decide which
          * "type" to use (larger value takes precedence --
          * 1=usable, 2,3,4,4+=unusable)
+         *
+         * 如果有重叠的条目，则决定使用哪个 使用哪种 “类型”（较大的值优先  --  1=可用，2,3,4,4+=不可用）
          */
         current_type = 0;
         for (i = 0; i < overlap_entries; i++) {
-            if (overlap_list[i]->type > current_type)
+            if (overlap_list[i]->type > current_type) {
                 current_type = overlap_list[i]->type;
+            }
         }
 
         /* Continue building up new map based on this information: */
@@ -393,10 +424,12 @@ int __init e820__update_table (struct e820_table* table)
             if (last_type) {
                 new_entries[new_nr_entries].size = change_point[chg_idx]->addr - last_addr;
                 /* Move forward only if the new size was non-zero: */
-                if (new_entries[new_nr_entries].size != 0)
+                if (new_entries[new_nr_entries].size != 0) {
                     /* No more space left for new entries? */
-                    if (++new_nr_entries >= max_nr_entries)
+                    if (++new_nr_entries >= max_nr_entries) {
                         break;
+                    }
+                }
             }
             if (current_type) {
                 new_entries[new_nr_entries].addr = change_point[chg_idx]->addr;
@@ -454,7 +487,11 @@ static int __init append_e820_table (struct boot_e820_entry* entries, u32 nr_ent
     return __append_e820_table (entries, nr_entries);
 }
 
-static u64 __init __e820__range_update (struct e820_table* table, u64 start, u64 size, enum e820_type old_type, enum e820_type new_type)
+static u64 __init __e820__range_update (struct e820_table* table,
+                                        u64                start,
+                                        u64                size,
+                                        enum e820_type     old_type,
+                                        enum e820_type     new_type)
 {
     u64          end;
     unsigned int i;
@@ -526,7 +563,8 @@ u64 __init e820__range_update (u64 start, u64 size, enum e820_type old_type, enu
     return __e820__range_update (e820_table, start, size, old_type, new_type);
 }
 
-u64 __init e820__range_update_table (struct e820_table* t, u64 start, u64 size, enum e820_type old_type, enum e820_type new_type)
+u64 __init e820__range_update_table (
+        struct e820_table* t, u64 start, u64 size, enum e820_type old_type, enum e820_type new_type)
 {
     return __e820__range_update (t, start, size, old_type, new_type);
 }
@@ -692,18 +730,21 @@ __init void e820__reallocate_tables (void)
     struct e820_table* n;
     int                size;
 
-    size = offsetof (struct e820_table, entries) + sizeof (struct e820_entry) * e820_table->nr_entries;
-    n    = kmemdup (e820_table, size, GFP_KERNEL);
+    size = offsetof (struct e820_table, entries) +
+           sizeof (struct e820_entry) * e820_table->nr_entries;
+    n = kmemdup (e820_table, size, GFP_KERNEL);
     BUG_ON (!n);
     e820_table = n;
 
-    size       = offsetof (struct e820_table, entries) + sizeof (struct e820_entry) * e820_table_kexec->nr_entries;
-    n          = kmemdup (e820_table_kexec, size, GFP_KERNEL);
+    size       = offsetof (struct e820_table, entries) +
+           sizeof (struct e820_entry) * e820_table_kexec->nr_entries;
+    n = kmemdup (e820_table_kexec, size, GFP_KERNEL);
     BUG_ON (!n);
     e820_table_kexec = n;
 
-    size             = offsetof (struct e820_table, entries) + sizeof (struct e820_entry) * e820_table_firmware->nr_entries;
-    n                = kmemdup (e820_table_firmware, size, GFP_KERNEL);
+    size             = offsetof (struct e820_table, entries) +
+           sizeof (struct e820_entry) * e820_table_firmware->nr_entries;
+    n = kmemdup (e820_table_firmware, size, GFP_KERNEL);
     BUG_ON (!n);
     e820_table_firmware = n;
 }
@@ -856,8 +897,10 @@ static unsigned long __init e820__end_ram_pfn (unsigned long limit_pfn)
 
 /**
  * Linux 内核中用于确定系统可用物理内存最大页帧号（max_pfn）的核心函数
- * 1. 检测最大物理内存页帧号; 通过解析 BIOS 提供的 E820 内存映射表(e820.map)，遍历所有内存区域，找到类型为 E820_RAM 的可用内存块，并计算其最大页帧号
- * 2. 在 x86 32 位系统中，物理内存地址空间最大为 4GB（MAX_ARCH_PFN = 1ULL << (32-PAGE_SHIFT)），函数会截断超过该值的页帧号
+ * 1. 检测最大物理内存页帧号; 通过解析 BIOS 提供的 E820 内存映射表(e820.map)，
+ *    遍历所有内存区域，找到类型为 E820_RAM 的可用内存块，并计算其最大页帧号
+ * 2. 在 x86 32 位系统中，物理内存地址空间最大为 4GB（MAX_ARCH_PFN = 1ULL << (32-PAGE_SHIFT)），
+ *    函数会截断超过该值的页帧号
  * 3. 将计算得到的最大页帧号保存到内核全局变量 max_pfn，作为物理内存管理的基准值
  */
 unsigned long __init e820__end_of_ram_pfn (void)
@@ -992,8 +1035,11 @@ early_param ("memmap", parse_memmap_opt);
  * entries from it:
  *
  * Linux 内核中用于处理和保留 BIOS 提供的内存保留区域的核心组件，其作用可概括为以下方面：
- *   - 内存保留区域识别与标记: 解析 BIOS 通过 E820 接口提供的物理内存布局信息, 识别出系统保留的内存区域（如 BIOS 代码区、ACPI 数据区等），并将这些区域标记为不可分配类型（如 e820_type_reserved 或 e820_type_acpi）。
- *   - 内存布局兼容性处理: 在 BIOS 提供的内存信息不完整或不可靠时（如旧设备仅支持 E801 或 88 接口），通过回退机制生成默认内存布局，确保系统可用内存的探测完整性。
+ *   - 内存保留区域识别与标记: 解析 BIOS 通过 E820 接口提供的物理内存布局信息,
+ *     识别出系统保留的内存区域（如 BIOS 代码区、ACPI 数据区等），
+ *     并将这些区域标记为不可分配类型（如 e820_type_reserved 或 e820_type_acpi）。
+ *   - 内存布局兼容性处理: 在 BIOS 提供的内存信息不完整或不可靠时（如旧设备仅支持 E801 或 88 接口），
+ *     通过回退机制生成默认内存布局，确保系统可用内存的探测完整性。
  */
 void __init e820__reserve_setup_data (void)
 {
@@ -1016,8 +1062,8 @@ void __init e820__reserve_setup_data (void)
         len     = sizeof (*data);
         pa_next = data->next;
 
-        e820__range_update (pa_data, sizeof (*data) + data->len, E820_TYPE_RAM, E820_TYPE_RESERVED_KERN);
-
+        e820__range_update (pa_data, sizeof (*data) + data->len, E820_TYPE_RAM,
+                            E820_TYPE_RESERVED_KERN);
         if (data->type == SETUP_INDIRECT) {
             len += data->len;
             early_memunmap (data, sizeof (*data));
@@ -1030,7 +1076,8 @@ void __init e820__reserve_setup_data (void)
             indirect = (struct setup_indirect*)data->data;
 
             if (indirect->type != SETUP_INDIRECT) {
-                e820__range_update (indirect->addr, indirect->len, E820_TYPE_RAM, E820_TYPE_RESERVED_KERN);
+                e820__range_update (indirect->addr, indirect->len, E820_TYPE_RAM,
+                                    E820_TYPE_RESERVED_KERN);
             }
         }
 
@@ -1149,7 +1196,8 @@ void __init                        e820__reserve_resources (void)
 
     res = memblock_alloc (sizeof (*res) * e820_table->nr_entries, SMP_CACHE_BYTES);
     if (!res)
-        panic ("%s: Failed to allocate %zu bytes\n", __func__, sizeof (*res) * e820_table->nr_entries);
+        panic ("%s: Failed to allocate %zu bytes\n", __func__,
+               sizeof (*res) * e820_table->nr_entries);
     e820_res = res;
 
     for (i = 0; i < e820_table->nr_entries; i++) {
@@ -1182,7 +1230,8 @@ void __init                        e820__reserve_resources (void)
     for (i = 0; i < e820_table_firmware->nr_entries; i++) {
         struct e820_entry* entry = e820_table_firmware->entries + i;
 
-        firmware_map_add_early (entry->addr, entry->addr + entry->size, e820_type_to_string (entry));
+        firmware_map_add_early (entry->addr, entry->addr + entry->size,
+                                e820_type_to_string (entry));
     }
 }
 
@@ -1242,25 +1291,32 @@ void __init e820__reserve_resources_late (void)
     }
 }
 
-/*
- * Pass the firmware (bootloader) E820 map to the kernel and process it:
+/**
+ * @brief
+ *  Pass the firmware (bootloader) E820 map to the kernel and process it:
+ *
+ *  将固件（引导加载程序）E820 映射传递给内核并进行处理：
  */
 char* __init e820__memory_setup_default (void)
 {
     char* who = "BIOS-e820";
 
-    /*
+    /**
      * Try to copy the BIOS-supplied E820-map.
      *
      * Otherwise fake a memory map; one section from 0k->640k,
      * the next section from 1mb->appropriate_mem_k
+     *
+     * 尝试复制 BIOS 提供的 E820-map，失败则回退到 E-88、E-801
+     * 否则，伪造一个内存映射；一部分从 0k->640k 开始，下一部分从 1mb->appropriation_mem_k 开始
      */
     if (append_e820_table (boot_params.e820_table, boot_params.e820_entries) < 0) {
         u64 mem_size;
 
+        // 比较其他方法的结果，选择内存更大的方法：
         /* Compare results from other methods and take the one that gives more RAM: */
         if (boot_params.alt_mem_k < boot_params.screen_info.ext_mem_k) {
-            mem_size = boot_params.screen_info.ext_mem_k;
+            mem_size = boot_params.screen_info.ext_mem_k;   // E-88内存大小
             who      = "BIOS-88";
         } else {
             mem_size = boot_params.alt_mem_k;
@@ -1273,19 +1329,34 @@ char* __init e820__memory_setup_default (void)
     }
 
     /* We just appended a lot of ranges, sanitize the table: */
+    /**
+     * @brief 整合从 BIOS 获取到的物理内存信息：
+     *  1. 该函数会过滤掉重叠或矛盾的内存区域描述符，并移除无效的类型标识（如未定义的类型值）。
+     *      例如，若 BIOS 返回的某段内存同时被标记为 usable 和 reserved，该函数会将其修正为合法类型。
+     *  2. 通过检查内存区域的基地址和长度是否合法（如基地址是否对齐、长度是否超过物理内存总量），
+     *      避免内核因错误数据崩溃
+     *  3. 将相邻的同类内存区域（如多个 E820_RAM 区域）合并为连续可用内存块，简化后续内存分配逻辑
+     *  4. 若 BIOS-e820 失败，内核会回退使用 BIOS-88 或 BIOS-e801 的内存数据，
+     *      此时 e820__update_table 仍会对其结果进行标准化处理
+     *
+     * 对从BIOS获取到的所有内存相关数据进行排序、排序过程中进行了合并、处理标志
+     */
     e820__update_table (e820_table);
 
     return who;
 }
 
-/*
+/**
  * Calls e820__memory_setup_default() in essence to pick up the firmware/bootloader
  * E820 map - with an optional platform quirk available for virtual platforms
  * to override this method of boot environment processing:
  *
- * e820__memory_setup 函数是 Linux 内核启动过程中用于处理 BIOS 提供的 E820 内存映射信息的核心函数，其功能主要包括以下三部分
- * 1. 内存数据保存: 该函数将 BIOS 通过 E820 接口检测到的内存地址范围数据（存储在 boot_params.e820_table 中）拷贝到全局的 e820_table 数据结构中，以便后续内存管理模块使用。
- * 2. 内存布局处理: 函数会对原始的 E820 表进行筛选和合并操作(筛选重叠区域：排除逻辑上不可能存在的重叠内存段; 合并相邻同类型区域：将连续的可用（E820_RAM）或保留（E820_RESERVED）内存合并为连续区间)
+ * e820__memory_setup 函数是 Linux 内核启动过程中用于处理 BIOS 提供的 E820 内存映射信息的核心函数，
+ * 其功能主要包括以下三部分：
+ * 1. 内存数据保存: 该函数将 BIOS 通过 E820 接口检测到的内存地址范围数据（存储在 boot_params.e820_table 中）
+ *    拷贝到全局的 e820_table 数据结构中，以便后续内存管理模块使用。
+ * 2. 内存布局处理: 函数会对原始的 E820 表进行筛选和合并操作(筛选重叠区域：排除逻辑上不可能存在的重叠内存段;
+ *    合并相邻同类型区域：将连续的可用（E820_RAM）或保留（E820_RESERVED）内存合并为连续区间)
  * 3. 将整理后的内存信息以标准格式输出到内核日志
  */
 void __init e820__memory_setup (void)
@@ -1295,6 +1366,7 @@ void __init e820__memory_setup (void)
     /* This is a firmware interface ABI - make sure we don't break it: */
     BUILD_BUG_ON (sizeof (struct boot_e820_entry) != 20);
 
+    // e820.c e820__memory_setup_default()
     who = x86_init.resources.memory_setup ();
 
     memcpy (e820_table_kexec, e820_table, sizeof (*e820_table_kexec));

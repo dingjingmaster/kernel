@@ -50,6 +50,9 @@
 /* These are for everybody (although not all archs will actually
    discard it in modules) */
 #define __init __section (".init.text") __cold __latent_entropy __noinitretpoline
+/**
+ * @brief 将变量放置在内核的初始化数据区
+ */
 #define __initdata __section (".init.data")
 #define __initconst __section (".init.rodata")
 #define __exitdata __section (".exit.data")

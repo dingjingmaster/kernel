@@ -183,3 +183,319 @@ Linux内核中，物理内存管理通常遵循如下层级划分(由大到小)�
 整体物理内存记录 --> NUMA节点 --> 每个NUMA节点分为不同内存区(Zone) --> 页(Page)
 
 ## 物理内存管理相关代码
+
+1. `init/main.c` --> `start_kernel`函数中 --> `setup_arch`函数中 --> `early_reserve_memory`函数：
+
+```c
+/**
+ * 用于在内核启动的早期阶段预留（reserve）特定的内存区域。
+ * 这一过程确保了这些内存区域不会被内核或其他系统组件错误地使用，
+ * 从而保证关键硬件设备、固件或引导加载程序所需的内存区域得以保留和正常工作。
+ */
+static void __init early_reserve_memory (void)
+{
+    /**
+     * Reserve the memory occupied by the kernel between _text and
+     * __end_of_kernel_reserve symbols. Any kernel sections after the
+     * __end_of_kernel_reserve symbol must be explicitly reserved with a
+     * separate memblock_reserve() or they will be discarded.
+     *
+     * 保留 _text 和 __end_of_kernel_reserve 符号之间内核占用的内存。
+     * 在__end_of_kernel_reserve符号之后的内核部分必须通过单独的memblock_reserve()明确保留，否则将被丢弃。
+     *
+     * _text:内核代码段的起始地址，包含：
+     *  1. 内核的入口点，是CPU复位后执行的第一条指令
+     *  2. 整个内核的代码段(.text)。编译后的内核函数和指令
+     * _text：之后的区域主要包含：
+     *  1. .text：内核代码本体，包含所有内核函数
+     *  2. .rodata：只读数据，比如：常量、内核符号表、syscall表等
+     *  3. .init.text/.init.data：初始化期间使用的数据和代码，
+     *      例如：start_kernel()及其调用的初始化函数(这些段在内核启动完成后会被释放)
+     * __end_of_kernel_reserve：
+     *  1. 该符号通常表示内核保留区域的结束，其具体位置依赖于内核的链接脚本和体系架构
+     *  2. 在vmlinux.lds.S中，它一般用于标记内核静态影响的结尾，后续的物理内存可用于动态分配(如：memblock管理的区域)
+     */
+    memblock_reserve (__pa_symbol (_text),
+                      (unsigned long)__end_of_kernel_reserve - (unsigned long)_text);
+
+    /*
+     * The first 4Kb of memory is a BIOS owned area, but generally it is
+     * not listed as such in the E820 table.
+     *
+     * Reserve the first 64K of memory since some BIOSes are known to
+     * corrupt low memory. After the real mode trampoline is allocated the
+     * rest of the memory below 640k is reserved.
+     *
+     * In addition, make sure page 0 is always reserved because on
+     * systems with L1TF its contents can be leaked to user processes.
+     *
+     * 内存的前 4KB 是 BIOS 拥有的区域，但通常不会在 E820 表中列出。
+     *
+     * 保留前 64K 内存，因为某些 BIOS 会损坏低内存。实际模式分配后，
+     *  640K 以下的其余内存将被保留。
+     *
+     * 此外，确保第 0 页始终被保留，因为在使用 L1TF 的系统中，其内容可能会泄露给用户进程。
+     */
+    memblock_reserve (0, SZ_64K);
+
+    // 保留 ramdisk 展开内存
+    early_reserve_initrd ();
+
+    // 内核启动早期阶段与系统初始化相关的特定内存区域标记为保留区域，
+    //  确保这些区域内存中保存的setup数据不会被后续内存分配所覆盖或使用。
+    // - 保留关键的启动数据区域：BIOS或引导加载器将一些重要配置信息、参数
+    //      以及其他setup数据存放在特定内存区域，
+    //      被memblock设置位保留，避免被通用内存分配器误用
+    // - 适配x86架构的特殊需求：x86平台某些特殊内存布局要求，
+    //      比如低内存(0 ~ 1MB)中某些区域必须保持原样。
+    //      该函数会根据平台要求，保留相应内存范围，
+    //      以保证与旧有BIOS数据区、EBDA(扩展BIOS数据区)等相关数据不会被破坏
+    // - 为后续内核初始化提供保障：在内核进一步建立完善内存管理机制
+    //      （比如：页描述符数组和buddy分配器）之前，确保这些setup数据保持不变。
+    memblock_x86_reserve_range_setup_data ();
+
+    // 保留BIOS和固件使用的内存
+    reserve_bios_regions ();
+
+    /**
+     * 在Intel Sandy Bridge(SNB)平台上调整和保留特定的物理内存区域，
+     * 以防止内核错误使用某些可能导致系统不稳定的内存范围。
+     * 其主要功能包括：
+     *  1. 检测并保留问题内存区域
+     *  2. 防止GPU或硬件冲突
+     *  3. 调用 memblock_remove进行调整
+     *
+     * SNB 是Intel 2011年推出的第二代Core处理器微架构，属于x86-64指令集架构的CPU平台。
+     *  它是Nehaiem(第一代 Core i系列)的继任者，主要用于桌面、笔记本和服务器市场。
+     *  1. 32nm制程工艺
+     *  2. 集成GPU(核显)
+     *  3. 改进微架构
+     *  4. 新增内存控制器
+     *  5. 引入PCIe 2.0控制器：处理器内部集成了 PCIe 2.0控制器，
+     *      减少了对外部芯片组的依赖，提高了I/O速度
+     */
+    trim_snb_memory ();
+}
+```
+
+2. 根据CPU、是否启用五级页表，设置IOMEM结束地址：
+```c
+// boot_cpu_data.x86_phys_bits = arch/x86/kernel/setup.c
+// boot_cpu_data.x86_phys_bits = MAX_PHYSMEM_BITS;
+// MAX_PHYSMEM_BITS		2^n: max size of physical address space
+// arch/x86/include/asm/sparsemem.h => #define MAX_PHYSMEM_BITS (pgtable_l5_enabled() ? 52 : 46)
+// 传统4级页表：PGD、PUD、PMD、PTE
+iomem_resource.end = (1ULL << boot_cpu_data.x86_phys_bits) - 1;
+```
+
+3. 通过E820向BIOS获取物理内存信息、并进行整合(`e820__memory_setup()`)：
+
+```c
+// e820__memory_setup ();
+/*
+ * Calls e820__memory_setup_default() in essence to pick up the firmware/bootloader
+ * E820 map - with an optional platform quirk available for virtual platforms
+ * to override this method of boot environment processing:
+ *
+ * e820__memory_setup 函数是 Linux 内核启动过程中用于处理 BIOS 提供的 E820 内存映射信息的核心函数，
+ * 其功能主要包括以下三部分：
+ * 1. 内存数据保存: 该函数将 BIOS 通过 E820 接口检测到的内存地址范围数据（存储在 boot_params.e820_table 中）
+ *    拷贝到全局的 e820_table 数据结构中，以便后续内存管理模块使用。
+ * 2. 内存布局处理: 函数会对原始的 E820 表进行筛选和合并操作(筛选重叠区域：排除逻辑上不可能存在的重叠内存段;
+ *    合并相邻同类型区域：将连续的可用（E820_RAM）或保留（E820_RESERVED）内存合并为连续区间)
+ * 3. 将整理后的内存信息以标准格式输出到内核日志
+ */
+void __init e820__memory_setup (void)
+{
+    char* who;
+
+    /* This is a firmware interface ABI - make sure we don't break it: */
+    BUILD_BUG_ON (sizeof (struct boot_e820_entry) != 20);
+
+    // e820.c e820__memory_setup_default()
+    // 关键步骤
+    who = x86_init.resources.memory_setup ();
+
+    memcpy (e820_table_kexec, e820_table, sizeof (*e820_table_kexec));
+    memcpy (e820_table_firmware, e820_table, sizeof (*e820_table_firmware));
+
+    pr_info ("BIOS-provided physical RAM map:\n");
+    e820__print_table (who);
+}
+
+/**
+ * @brief
+ *  Pass the firmware (bootloader) E820 map to the kernel and process it:
+ *
+ *  将固件（引导加载程序）E820 映射传递给内核并进行处理：
+ */
+char* __init e820__memory_setup_default (void)
+{
+    char* who = "BIOS-e820";
+
+    /**
+     * Try to copy the BIOS-supplied E820-map.
+     *
+     * Otherwise fake a memory map; one section from 0k->640k,
+     * the next section from 1mb->appropriate_mem_k
+     *
+     * 尝试复制 BIOS 提供的 E820-map，失败则回退到 E-88、E-801
+     * 否则，伪造一个内存映射；一部分从 0k->640k 开始，下一部分从 1mb->appropriation_mem_k 开始
+     */
+    if (append_e820_table (boot_params.e820_table, boot_params.e820_entries) < 0) {
+        u64 mem_size;
+
+        // 比较其他方法的结果，选择内存更大的方法：
+        /* Compare results from other methods and take the one that gives more RAM: */
+        if (boot_params.alt_mem_k < boot_params.screen_info.ext_mem_k) {
+            mem_size = boot_params.screen_info.ext_mem_k;   // E-88内存大小
+            who      = "BIOS-88";
+        } else {
+            mem_size = boot_params.alt_mem_k;
+            who      = "BIOS-e801";
+        }
+
+        e820_table->nr_entries = 0;
+        e820__range_add (0, LOWMEMSIZE (), E820_TYPE_RAM);
+        e820__range_add (HIGH_MEMORY, mem_size << 10, E820_TYPE_RAM);
+    }
+
+    /* We just appended a lot of ranges, sanitize the table: */
+    /**
+     * @brief 整合从 BIOS 获取到的物理内存信息：
+     *  1. 该函数会过滤掉重叠或矛盾的内存区域描述符，并移除无效的类型标识（如未定义的类型值）。
+     *      例如，若 BIOS 返回的某段内存同时被标记为 usable 和 reserved，该函数会将其修正为合法类型。
+     *  2. 通过检查内存区域的基地址和长度是否合法（如基地址是否对齐、长度是否超过物理内存总量），
+     *      避免内核因错误数据崩溃
+     *  3. 将相邻的同类内存区域（如多个 E820_RAM 区域）合并为连续可用内存块，简化后续内存分配逻辑
+     *  4. 若 BIOS-e820 失败，内核会回退使用 BIOS-88 或 BIOS-e801 的内存数据，
+     *      此时 e820__update_table 仍会对其结果进行标准化处理
+     *
+     * 对从BIOS获取到的所有内存相关数据进行排序、排序过程中进行了合并、处理标志
+     */
+    e820__update_table (e820_table);
+
+    return who;
+}
+
+int __init e820__update_table (struct e820_table* table)
+{
+    struct e820_entry* entries        = table->entries;
+    u32                max_nr_entries = ARRAY_SIZE (table->entries);
+    enum e820_type     current_type, last_type;
+    unsigned long long last_addr;
+    u32                new_nr_entries, overlap_entries;
+    u32                i, chg_idx, chg_nr;
+
+    /* If there's only one memory region, don't bother: */
+    if (table->nr_entries < 2) {
+        return -1;
+    }
+
+    BUG_ON (table->nr_entries > max_nr_entries);
+
+    /* Bail out if we find any unreasonable addresses in the map: */
+    for (i = 0; i < table->nr_entries; i++) {
+        if (entries[i].addr + entries[i].size < entries[i].addr) {
+            return -1;
+        }
+    }
+
+    /**
+     * Create pointers for initial change-point information (for sorting):
+     * 为初始变化信息创建指针（用于排序）：
+     */
+    for (i = 0; i < 2 * table->nr_entries; i++) {
+        change_point[i] = &change_point_list[i];
+    }
+
+    /**
+     * Record all known change-points (starting and ending addresses),
+     * omitting empty memory regions:
+     *
+     * 记录所有已知变化点（起始地址和终止地址）、省略空内存区域：
+     */
+    chg_idx = 0;
+    for (i = 0; i < table->nr_entries; i++) {
+        if (entries[i].size != 0) {
+            change_point[chg_idx]->addr    = entries[i].addr;
+            change_point[chg_idx++]->entry = &entries[i];
+            change_point[chg_idx]->addr    = entries[i].addr + entries[i].size;
+            change_point[chg_idx++]->entry = &entries[i];
+        }
+    }
+    chg_nr = chg_idx;
+
+    /* Sort change-point list by memory addresses (low -> high): */
+    sort (change_point, chg_nr, sizeof (*change_point), cpcompare, NULL);
+
+    /* Create a new memory map, removing overlaps: */
+    overlap_entries = 0; /* Number of entries in the overlap table */
+    new_nr_entries  = 0; /* Index for creating new map entries */
+    last_type       = 0; /* Start with undefined memory type */
+    last_addr       = 0; /* Start with 0 as last starting address */
+
+    /**
+     * Loop through change-points, determining effect on the new map:
+     *
+     * 循环查看更改点，确定对新地图的影响：
+     */
+    for (chg_idx = 0; chg_idx < chg_nr; chg_idx++) {
+        /* Keep track of all overlapping entries */
+        if (change_point[chg_idx]->addr == change_point[chg_idx]->entry->addr) {
+            /* Add map entry to overlap list (> 1 entry implies an overlap) */
+            overlap_list[overlap_entries++] = change_point[chg_idx]->entry;
+        }
+        else {
+            /* Remove entry from list (order independent, so swap with last): */
+            for (i = 0; i < overlap_entries; i++) {
+                if (overlap_list[i] == change_point[chg_idx]->entry) {
+                    overlap_list[i] = overlap_list[overlap_entries - 1];
+                }
+            }
+            overlap_entries--;
+        }
+        /*
+         * If there are overlapping entries, decide which
+         * "type" to use (larger value takes precedence --
+         * 1=usable, 2,3,4,4+=unusable)
+         *
+         * 如果有重叠的条目，则决定使用哪个 使用哪种 “类型”（较大的值优先  --  1=可用，2,3,4,4+=不可用）
+         */
+        current_type = 0;
+        for (i = 0; i < overlap_entries; i++) {
+            if (overlap_list[i]->type > current_type) {
+                current_type = overlap_list[i]->type;
+            }
+        }
+
+        /* Continue building up new map based on this information: */
+        if (current_type != last_type || e820_nomerge (current_type)) {
+            if (last_type) {
+                new_entries[new_nr_entries].size = change_point[chg_idx]->addr - last_addr;
+                /* Move forward only if the new size was non-zero: */
+                if (new_entries[new_nr_entries].size != 0) {
+                    /* No more space left for new entries? */
+                    if (++new_nr_entries >= max_nr_entries) {
+                        break;
+                    }
+                }
+            }
+            if (current_type) {
+                new_entries[new_nr_entries].addr = change_point[chg_idx]->addr;
+                new_entries[new_nr_entries].type = current_type;
+                last_addr                        = change_point[chg_idx]->addr;
+            }
+            last_type = current_type;
+        }
+    }
+
+    /* Copy the new entries into the original location: */
+    memcpy (entries, new_entries, new_nr_entries * sizeof (*entries));
+    table->nr_entries = new_nr_entries;
+
+    return 0;
+}
+```
+
+

@@ -48,51 +48,55 @@
  * obviously.
  */
 
-#define BIOS_RAM_SIZE_KB_PTR	0x413
+#define BIOS_RAM_SIZE_KB_PTR 0x413
 
-#define BIOS_START_MIN		0x20000U	/* 128K, less than this is insane */
-#define BIOS_START_MAX		0x9f000U	/* 640K, absolute maximum */
+#define BIOS_START_MIN 0x20000U /* 128K, less than this is insane */
+#define BIOS_START_MAX 0x9f000U /* 640K, absolute maximum */
 
-void __init reserve_bios_regions(void)
+void __init reserve_bios_regions (void)
 {
-	unsigned int bios_start, ebda_start;
+    unsigned int bios_start, ebda_start;
 
-	/*
-	 * NOTE: In a paravirtual environment the BIOS reserved
-	 * area is absent. We'll just have to assume that the
-	 * paravirt case can handle memory setup correctly,
-	 * without our help.
-	 */
-	if (!x86_platform.legacy.reserve_bios_regions)
-		return;
+    /*
+     * NOTE: In a paravirtual environment the BIOS reserved
+     * area is absent. We'll just have to assume that the
+     * paravirt case can handle memory setup correctly,
+     * without our help.
+     */
+    if (!x86_platform.legacy.reserve_bios_regions)
+        return;
 
-	/*
-	 * BIOS RAM size is encoded in kilobytes, convert it
-	 * to bytes to get a first guess at where the BIOS
-	 * firmware area starts:
-	 */
-	bios_start = *(unsigned short *)__va(BIOS_RAM_SIZE_KB_PTR);
-	bios_start <<= 10;
+    /*
+     * BIOS RAM size is encoded in kilobytes, convert it
+     * to bytes to get a first guess at where the BIOS
+     * firmware area starts:
+     */
+    bios_start = *(unsigned short*)__va (BIOS_RAM_SIZE_KB_PTR);
+    bios_start <<= 10;
 
-	/*
-	 * If bios_start is less than 128K, assume it is bogus
-	 * and bump it up to 640K.  Similarly, if bios_start is above 640K,
-	 * don't trust it.
-	 */
-	if (bios_start < BIOS_START_MIN || bios_start > BIOS_START_MAX)
-		bios_start = BIOS_START_MAX;
+    /*
+     * If bios_start is less than 128K, assume it is bogus
+     * and bump it up to 640K.  Similarly, if bios_start is above 640K,
+     * don't trust it.
+     */
+    if (bios_start < BIOS_START_MIN || bios_start > BIOS_START_MAX)
+        bios_start = BIOS_START_MAX;
 
-	/* Get the start address of the EBDA page: */
-	ebda_start = get_bios_ebda();
+    /* Get the start address of the EBDA page: */
+    // EBDA 是Extended BIOS Data Area(扩展BIOS数据区)的缩写。
+    // 传统x86机器中，BIOS启动时候会在低内存区域(通常在1MB之下)分配一块区域作为EBDA，用于存储与系统硬件配置、
+    // 启动参数以及其他BIOS相关的数据。由于这些数据对系统引导过程和某些设备初始化至关重要，内核在启动早期会将这部分区域保留，
+    // 防止后续内存分配操作覆盖或破坏其中的信息
+    ebda_start = get_bios_ebda ();
 
-	/*
-	 * If the EBDA start address is sane and is below the BIOS region,
-	 * then also reserve everything from the EBDA start address up to
-	 * the BIOS region.
-	 */
-	if (ebda_start >= BIOS_START_MIN && ebda_start < bios_start)
-		bios_start = ebda_start;
+    /*
+     * If the EBDA start address is sane and is below the BIOS region,
+     * then also reserve everything from the EBDA start address up to
+     * the BIOS region.
+     */
+    if (ebda_start >= BIOS_START_MIN && ebda_start < bios_start)
+        bios_start = ebda_start;
 
-	/* Reserve all memory between bios_start and the 1MB mark: */
-	memblock_reserve(bios_start, 0x100000 - bios_start);
+    /* Reserve all memory between bios_start and the 1MB mark: */
+    memblock_reserve (bios_start, 0x100000 - bios_start);
 }

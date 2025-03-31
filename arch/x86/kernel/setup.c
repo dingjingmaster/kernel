@@ -56,6 +56,7 @@
 #include <asm/unwind.h>
 #include <asm/vsyscall.h>
 #include <linux/vmalloc.h>
+#include <asm/sparsemem.h>
 
 /*
  * max_low_pfn_mapped: highest directly mapped pfn < 4 GB
@@ -91,20 +92,28 @@ struct boot_params     boot_params;
  */
 
 // 内核只读数据段(常量、字符串、配置)
-static struct resource rodata_resource = {
-        .name = "Kernel rodata", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
+static struct resource rodata_resource = {.name  = "Kernel rodata",
+                                          .start = 0,
+                                          .end   = 0,
+                                          .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
 
 // 数据区
-static struct resource data_resource = {
-        .name = "Kernel data", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
+static struct resource data_resource   = {.name  = "Kernel data",
+                                          .start = 0,
+                                          .end   = 0,
+                                          .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
 
 // 代码区
-static struct resource code_resource = {
-        .name = "Kernel code", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
+static struct resource code_resource   = {.name  = "Kernel code",
+                                          .start = 0,
+                                          .end   = 0,
+                                          .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
 
 // 未初始化数据区
-static struct resource bss_resource = {
-        .name = "Kernel bss", .start = 0, .end = 0, .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
+static struct resource bss_resource    = {.name  = "Kernel bss",
+                                          .start = 0,
+                                          .end   = 0,
+                                          .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
 
 #ifdef CONFIG_X86_32
 /* CPU data as detected by the assembly code in head_32.S */
@@ -252,12 +261,13 @@ static u64 __init get_ramdisk_size (void)
 static void __init relocate_initrd (void)
 {
     /* Assume only end is not page aligned */
-    u64 ramdisk_image     = get_ramdisk_image ();
-    u64 ramdisk_size      = get_ramdisk_size ();
-    u64 area_size         = PAGE_ALIGN (ramdisk_size);
+    u64 ramdisk_image = get_ramdisk_image ();
+    u64 ramdisk_size  = get_ramdisk_size ();
+    u64 area_size     = PAGE_ALIGN (ramdisk_size);
 
     /* We need to move the initrd down into directly mapped mem */
-    u64 relocated_ramdisk = memblock_phys_alloc_range (area_size, PAGE_SIZE, 0, PFN_PHYS (max_pfn_mapped));
+    u64 relocated_ramdisk =
+            memblock_phys_alloc_range (area_size, PAGE_SIZE, 0, PFN_PHYS (max_pfn_mapped));
     if (!relocated_ramdisk)
         panic ("Cannot find place for new RAMDISK of size %lld\n", ramdisk_size);
 
@@ -270,7 +280,8 @@ static void __init relocate_initrd (void)
 
     printk (KERN_INFO "Move RAMDISK from [mem %#010llx-%#010llx] to"
                       " [mem %#010llx-%#010llx]\n",
-            ramdisk_image, ramdisk_image + ramdisk_size - 1, relocated_ramdisk, relocated_ramdisk + ramdisk_size - 1);
+            ramdisk_image, ramdisk_image + ramdisk_size - 1, relocated_ramdisk,
+            relocated_ramdisk + ramdisk_size - 1);
 }
 
 static void __init early_reserve_initrd (void)
@@ -372,9 +383,11 @@ int __init ima_get_kexec_buffer (void** addr, size_t* size)
 
 /**
  * 负责解析和初始化 BIOS 传递的启动参数（Setup Data），为内核后续的硬件探测和资源分配提供基础信息。
- * 1. 桥梁功能：作为内核与 BIOS 之间的中间层，将 BIOS 存储在特定内存区域（如 0x9FC00 或 0xFFFF0000）的启动参数结构（setup_header）
+ * 1. 桥梁功能：作为内核与 BIOS 之间的中间层，
+ *    将 BIOS 存储在特定内存区域（如 0x9FC00 或 0xFFFF0000）的启动参数结构（setup_header）
  *    解析到内核可用的数据结构（boot_params）中
- * 2. 关键初始化：完成内核启动参数的早期解析，为后续的硬件探测（如 CPU、内存、PCI 设备）、命令行参数处理等步骤提供必要信息。
+ * 2. 关键初始化：完成内核启动参数的早期解析，
+ *    为后续的硬件探测（如 CPU、内存、PCI 设备）、命令行参数处理等步骤提供必要信息。
  */
 static void __init parse_setup_data (void)
 {
@@ -461,7 +474,8 @@ static void __init arch_reserve_crashkernel (void)
     if (!IS_ENABLED (CONFIG_CRASH_RESERVE))
         return;
 
-    ret = parse_crashkernel (cmdline, memblock_phys_mem_size (), &crash_size, &crash_base, &low_size, &high);
+    ret = parse_crashkernel (cmdline, memblock_phys_mem_size (), &crash_size, &crash_base,
+                             &low_size, &high);
     if (ret)
         return;
 
@@ -480,7 +494,10 @@ static struct resource standard_io_resources[] = {
         {.name = "timer1", .start = 0x50, .end = 0x53, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
         {.name = "keyboard", .start = 0x60, .end = 0x60, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
         {.name = "keyboard", .start = 0x64, .end = 0x64, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-        {.name = "dma page reg", .start = 0x80, .end = 0x8f, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name  = "dma page reg",
+         .start = 0x80,
+         .end   = 0x8f,
+         .flags = IORESOURCE_BUSY | IORESOURCE_IO},
         {.name = "pic2", .start = 0xa0, .end = 0xa1, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
         {.name = "dma2", .start = 0xc0, .end = 0xdf, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
         {.name = "fpu", .start = 0xf0, .end = 0xff, .flags = IORESOURCE_BUSY | IORESOURCE_IO}};
@@ -615,8 +632,23 @@ static void __init early_reserve_memory (void)
      * __end_of_kernel_reserve symbols. Any kernel sections after the
      * __end_of_kernel_reserve symbol must be explicitly reserved with a
      * separate memblock_reserve() or they will be discarded.
+     *
+     * 保留 _text 和 __end_of_kernel_reserve 符号之间内核占用的内存。
+     * 在__end_of_kernel_reserve符号之后的内核部分必须通过单独的memblock_reserve()明确保留，否则将被丢弃。
+     *
+     * _text:内核代码段的起始地址，包含：
+     *  1. 内核的入口点，是CPU复位后执行的第一条指令
+     *  2. 整个内核的代码段(.text)。编译后的内核函数和指令
+     * _text：之后的区域主要包含：
+     *  1. .text：内核代码本体，包含所有内核函数
+     *  2. .rodata：只读数据，比如：常量、内核符号表、syscall表等
+     *  3. .init.text/.init.data：初始化期间使用的数据和代码，例如：start_kernel()及其调用的初始化函数(这些段在内核启动完成后会被释放)
+     * __end_of_kernel_reserve：
+     *  1. 该符号通常表示内核保留区域的结束，其具体位置依赖于内核的链接脚本和体系架构
+     *  2. 在vmlinux.lds.S中，它一般用于标记内核静态影响的结尾，后续的物理内存可用于动态分配(如：memblock管理的区域)
      */
-    memblock_reserve (__pa_symbol (_text), (unsigned long)__end_of_kernel_reserve - (unsigned long)_text);
+    memblock_reserve (__pa_symbol (_text),
+                      (unsigned long)__end_of_kernel_reserve - (unsigned long)_text);
 
     /*
      * The first 4Kb of memory is a BIOS owned area, but generally it is
@@ -628,14 +660,41 @@ static void __init early_reserve_memory (void)
      *
      * In addition, make sure page 0 is always reserved because on
      * systems with L1TF its contents can be leaked to user processes.
+     *
+     * 内存的前 4KB 是 BIOS 拥有的区域，但通常不会在 E820 表中列出。
+     *
+     * 保留前 64K 内存，因为某些 BIOS 会损坏低内存。实际模式分配后，640K 以下的其余内存将被保留。
+     *
+     * 此外，确保第 0 页始终被保留，因为在使用 L1TF 的系统中，其内容可能会泄露给用户进程。
      */
     memblock_reserve (0, SZ_64K);
 
+    // 保留 ramdisk 展开内存
     early_reserve_initrd ();
 
+    // 内核启动早期阶段与系统初始化相关的特定内存区域标记为保留区域，确保这些区域内存中保存的setup数据不会被后续内存分配所覆盖或使用。
+    // - 保留关键的启动数据区域：BIOS或引导加载器将一些重要配置信息、参数以及其他setup数据存放在特定内存区域，被memblock设置位保留，避免被通用内存分配器误用
+    // - 适配x86架构的特殊需求：x86平台某些特殊内存布局要求，比如低内存(0 ~ 1MB)中某些区域必须保持原样。该函数会根据平台要求，保留相应内存范围，以保证与旧有BIOS数据区、EBDA(扩展BIOS数据区)等相关数据不会被破坏
+    // - 为后续内核初始化提供保障：在内核进一步建立完善内存管理机制（比如：页描述符数组和buddy分配器）之前，确保这些setup数据保持不变。
     memblock_x86_reserve_range_setup_data ();
 
+    // 保留BIOS和固件使用的内存
     reserve_bios_regions ();
+
+    /**
+     * 在Intel Sandy Bridge(SNB)平台上调整和保留特定的物理内存区域，以防止内核错误使用某些可能导致系统不稳定的内存范围。
+     * 其主要功能包括：
+     *  1. 检测并保留问题内存区域
+     *  2. 防止GPU或硬件冲突
+     *  3. 调用 memblock_remove进行调整
+     *
+     * SNB 是Intel 2011年推出的第二代Core处理器微架构，属于x86-64指令集架构的CPU平台。它是Nehaiem(第一代 Core i系列)的继任者，主要用于桌面、笔记本和服务器市场。
+     *  1. 32nm制程工艺
+     *  2. 集成GPU(核显)
+     *  3. 改进微架构
+     *  4. 新增内存控制器
+     *  5. 引入PCIe 2.0控制器：处理器内部集成了 PCIe 2.0控制器，减少了对外部芯片组的依赖，提高了I/O速度
+     */
     trim_snb_memory ();
 }
 
@@ -645,8 +704,8 @@ static void __init early_reserve_memory (void)
 static int dump_kernel_offset (struct notifier_block* self, unsigned long v, void* p)
 {
     if (kaslr_enabled ()) {
-        pr_emerg ("Kernel Offset: 0x%lx from 0x%lx (relocation range: 0x%lx-0x%lx)\n", kaslr_offset (), __START_KERNEL,
-                  __START_KERNEL_map, MODULES_VADDR - 1);
+        pr_emerg ("Kernel Offset: 0x%lx from 0x%lx (relocation range: 0x%lx-0x%lx)\n",
+                  kaslr_offset (), __START_KERNEL, __START_KERNEL_map, MODULES_VADDR - 1);
     } else {
         pr_emerg ("Kernel Offset: disabled\n");
     }
@@ -700,7 +759,8 @@ void __init setup_arch (char** cmdline_p)
      * copy kernel address range established so far and switch
      * to the proper swapper page table
      */
-    clone_pgd_range (swapper_pg_dir + KERNEL_PGD_BOUNDARY, initial_page_table + KERNEL_PGD_BOUNDARY, KERNEL_PGD_PTRS);
+    clone_pgd_range (swapper_pg_dir + KERNEL_PGD_BOUNDARY, initial_page_table + KERNEL_PGD_BOUNDARY,
+                     KERNEL_PGD_PTRS);
 
     load_cr3 (swapper_pg_dir);
     /*
@@ -773,13 +833,14 @@ void __init setup_arch (char** cmdline_p)
 #ifdef CONFIG_EFI
     if (!strncmp ((char*)&boot_params.efi_info.efi_loader_signature, EFI32_LOADER_SIGNATURE, 4)) {
         set_bit (EFI_BOOT, &efi.flags);
-    } else if (!strncmp ((char*)&boot_params.efi_info.efi_loader_signature, EFI64_LOADER_SIGNATURE, 4)) {
+    } else if (!strncmp ((char*)&boot_params.efi_info.efi_loader_signature, EFI64_LOADER_SIGNATURE,
+                         4)) {
         set_bit (EFI_BOOT, &efi.flags);
         set_bit (EFI_64BIT, &efi.flags);
     }
 #endif
 
-    x86_init.oem.arch_setup ();
+    x86_init.oem.arch_setup (); // x86_64 空实现
 
     /**
      * Do some memory reservations *before* memory is added to memblock, so
@@ -794,35 +855,48 @@ void __init setup_arch (char** cmdline_p)
      * early reservations have happened already.
      *
      * 在内存被添加到memblock之前做一些内存预留，这样memblock分配就不会覆盖它。
-     * 在此之后，引导加载程序或固件或内核文本中仍然需要的所有内容都应该在e820中提前保留或标记为非RAM。所有其他内存都是释放的。
-     * 这个调用需要发生在e820__memory_setup（）之前，e820__memory_setup（）调用Xen dom0上的xen_memory_setup()，这依赖于这些早期的保留已经发生的事实。
+     * 在此之后，引导加载程序或固件或内核文本中仍然需要的所有内容都应该在e820中提前保留或标记为非RAM。
+     * 所有其他内存都是空闲的。
+     * 这个调用需要发生在e820__memory_setup()之前，
+     * e820__memory_setup()调用Xen dom0上的xen_memory_setup()，这依赖于这些早期的保留已经发生的事实。
      */
     early_reserve_memory ();
 
+    // boot_cpu_data.x86_phys_bits = arch/x86/kernel/setup.c
+    // boot_cpu_data.x86_phys_bits = MAX_PHYSMEM_BITS;
+    // MAX_PHYSMEM_BITS		2^n: max size of physical address space
+    // arch/x86/include/asm/sparsemem.h => #define MAX_PHYSMEM_BITS (pgtable_l5_enabled() ? 52 : 46)
+    // 传统4级页表：PGD、PUD、PMD、PTE
     iomem_resource.end = (1ULL << boot_cpu_data.x86_phys_bits) - 1;
+
     e820__memory_setup ();
     parse_setup_data ();
 
-    // 桥梁功能：作为内核与 BIOS 之间的接口，将 BIOS 存储的 EDD 数据（包含硬盘、光驱等存储设备的详细信息）解析到内核可用的数据结构中。
-    copy_edd ();        // 空实现
+    // 桥梁功能：作为内核与 BIOS 之间的接口，将 BIOS 存储的 EDD 数据（包含硬盘、光驱等存储设备的详细信息）
+    // 解析到内核可用的数据结构中。
+    copy_edd (); // 空实现
 
     if (!boot_params.hdr.root_flags) {
         root_mountflags &= ~MS_RDONLY;
     }
 
     /**
-     * Linux 内核初始化过程中用于设置初始内存管理结构（Initial Memory Management, init_mm）的核心函数，其作用主要包括以下方面:
+     * Linux 内核初始化过程中用于设置初始内存管理结构（Initial Memory Management, init_mm）的核心函数，
+     * 其作用主要包括以下方面:
      *  1. 初始化初始内存描述符
-     *      创建内存描述符：该函数负责创建并初始化全局内存描述符 init_mm，该结构体记录了内核早期阶段使用的内存布局信息，包括:
+     *      创建内存描述符：该函数负责创建并初始化全局内存描述符 init_mm，
+     *      该结构体记录了内核早期阶段使用的内存布局信息，包括:
      *        - 虚拟地址空间：定义内核初始的虚拟地址范围（如 0xFFFF800000000000 到 0xFFFFFFFFFFFFFFFF）
      *        - 页表配置：设置初始页表（如临时页表），确保内核能够访问物理内存和设备I/O空间
-     *        - 内存区域注册：将 BIOS/E820 探测到的可用内存区域（如 E820_RAM）注册到 init_mm 中，为后续内存管理模块提供基础数据
+     *        - 内存区域注册：将 BIOS/E820 探测到的可用内存区域（如 E820_RAM）注册到 init_mm 中，
+     *          为后续内存管理模块提供基础数据
      *  2. 页表初始化
-     *      - 临时页表构建：在 MMU 启用前，setup_initial_init_mm 会构建一个临时的页表，将物理内存映射到内核的虚拟地址空间，
-     *        确保内核代码和数据可访问。地址空间隔离：通过页表设置，区分内核空间和用户空间的地址范围，防止早期阶段的内存越界访问
+     *      - 临时页表构建：在 MMU 启用前，setup_initial_init_mm 会构建一个临时的页表，
+     *        将物理内存映射到内核的虚拟地址空间，确保内核代码和数据可访问。
      *      - 地址空间隔离：通过页表设置，区分内核空间和用户空间的地址范围，防止早期阶段的内存越界访问
      *   3. 内存管理子系统准备
-     *      - 初始化内存管理数据结构：如页缓存（page cache）、内存分配器（如 vmalloc）等，为后续内存分配和页面管理奠定基础
+     *      - 初始化内存管理数据结构：如页缓存（page cache）、内存分配器（如 vmalloc）等，
+     *        为后续内存分配和页面管理奠定基础
      *      - 中断处理支持：配置内存管理相关的中断处理程序，确保在内存访问异常时能够正确响应
      *   4. 在内核启动流程中的位置
      */
@@ -838,7 +912,7 @@ void __init setup_arch (char** cmdline_p)
     bss_resource.start    = __pa_symbol (__bss_start);
     bss_resource.end      = __pa_symbol (__bss_stop) - 1;
 
-    x86_configure_nx ();    // CPU 是否包含NX功能(禁止数据段执行)
+    x86_configure_nx (); // CPU 是否包含NX功能(禁止数据段执行)
     parse_early_param ();
 
     if (efi_enabled (EFI_BOOT)) {
@@ -869,8 +943,8 @@ void __init setup_arch (char** cmdline_p)
         memblock_set_bottom_up (true);
 #endif
 
-    x86_report_nx ();           // 打印输出 nx 支持情况
-    apic_setup_apic_calls ();   // APIC
+    x86_report_nx ();         // 打印输出 nx 支持情况
+    apic_setup_apic_calls (); // APIC
 
     if (acpi_mps_check ()) {
 #ifdef CONFIG_X86_LOCAL_APIC
@@ -952,8 +1026,7 @@ void __init setup_arch (char** cmdline_p)
     /* need this before calling reserve_initrd */
     if (max_pfn > (1UL << (32 - PAGE_SHIFT))) {
         max_low_pfn = e820__end_of_low_ram_pfn ();
-    }
-    else {
+    } else {
         max_low_pfn = max_pfn;
     }
 
@@ -1002,7 +1075,8 @@ void __init setup_arch (char** cmdline_p)
 #endif
 
 #ifdef CONFIG_X86_32
-    printk (KERN_DEBUG "initial memory mapped: [mem 0x00000000-%#010lx]\n", (max_pfn_mapped << PAGE_SHIFT) - 1);
+    printk (KERN_DEBUG "initial memory mapped: [mem 0x00000000-%#010lx]\n",
+            (max_pfn_mapped << PAGE_SHIFT) - 1);
 #endif
 
     /*
@@ -1177,10 +1251,12 @@ void __init setup_arch (char** cmdline_p)
 
 #ifdef CONFIG_X86_32
 
-static struct resource video_ram_resource = {
-        .name = "Video RAM area", .start = 0xa0000, .end = 0xbffff, .flags = IORESOURCE_BUSY | IORESOURCE_MEM};
+static struct resource video_ram_resource = {.name  = "Video RAM area",
+                                             .start = 0xa0000,
+                                             .end   = 0xbffff,
+                                             .flags = IORESOURCE_BUSY | IORESOURCE_MEM};
 
-void __init i386_reserve_resources (void)
+void __init            i386_reserve_resources (void)
 {
     request_resource (&iomem_resource, &video_ram_resource);
     reserve_standard_io_resources ();
