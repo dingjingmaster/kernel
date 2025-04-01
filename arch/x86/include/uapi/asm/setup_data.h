@@ -25,10 +25,17 @@
 /* extensible setup data list node */
 struct setup_data
 {
-    __u64 next;
-    __u32 type;
-    __u32 len;
-    __u8  data[];
+    __u64 next;   // 下一个 setup_data 结构, 形成链表
+    __u32 type;   /**
+                   * 数据类型
+                   *  0x1: EFI内存映射;
+                   *  0x2: EFI系统表;
+                   *  0x3: ACPI RSDP 表;
+                   *  0x4: SMBIOS表
+                   *  0x5: TSM 相关数据
+                   */
+    __u32 len;    // 数据长度
+    __u8  data[]; // 实际数据
 };
 
 /* extensible setup indirect data node */

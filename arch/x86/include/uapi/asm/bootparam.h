@@ -35,43 +35,47 @@
 #    include <asm/ist.h>
 #    include <video/edid.h>
 
+/**
+ * @brief 由引导程序填充，用于向内核提供必要启动信息。
+ * 它主要描述内核的加载方式，包括内存布局、命令行参数位置、启动协议版本等。
+ */
 struct setup_header
 {
-    __u8  setup_sects;
-    __u16 root_flags;
-    __u32 syssize;
-    __u16 ram_size;
-    __u16 vid_mode;
-    __u16 root_dev;
-    __u16 boot_flag;
-    __u16 jump;
-    __u32 header;
-    __u16 version;
-    __u32 realmode_swtch;
-    __u16 start_sys_seg;
-    __u16 kernel_version;
-    __u8  type_of_loader;
-    __u8  loadflags;
-    __u16 setup_move_size;
-    __u32 code32_start;
-    __u32 ramdisk_image;
-    __u32 ramdisk_size;
-    __u32 bootsect_kludge;
-    __u16 heap_end_ptr;
-    __u8  ext_loader_ver;
-    __u8  ext_loader_type;
-    __u32 cmd_line_ptr;
-    __u32 initrd_addr_max;
-    __u32 kernel_alignment;
-    __u8  relocatable_kernel;
-    __u8  min_alignment;
-    __u16 xloadflags;
-    __u32 cmdline_size;
-    __u32 hardware_subarch;
-    __u64 hardware_subarch_data;
-    __u32 payload_offset;
-    __u32 payload_length;
-    __u64 setup_data;
+    __u8  setup_sects;           // 0x1F1 内核 setup 代码的扇区数
+    __u16 root_flags;            // 0x1F2 根设备标志
+    __u32 syssize;               // 0x1F4 内核镜像大小(以 16 字节为单位)
+    __u16 ram_size;              // 0x1F8 过时字段，已不使用
+    __u16 vid_mode;              // 0x1FA 设定的显示模式
+    __u16 root_dev;              // 0x1FC 根文件系统设备号
+    __u16 boot_flag;             // 0x1FE 必须为 0xAA55，表示有效的引导块
+    __u16 jump;                  // 0x200 跳转指令(引导加载程序检查)
+    __u32 header;                // 0x202 魔数，必须是：0x53726448("HdrS")
+    __u16 version;               // 0x206 启动协议版本
+    __u32 realmode_swtch;        // 0x208 过时字段，已不使用
+    __u16 start_sys_seg;         // 0x20C 过时字段
+    __u16 kernel_version;        // 0x20E 指向内核版本字符串的偏移地址
+    __u8  type_of_loader;        // 0x210 加载器类型(GRUB、SYSLINUX 等)
+    __u8  loadflags;             // 0x211 启动标志，如是否为高内存加载
+    __u16 setup_move_size;       // 0x212 setup 代码可以移动的字节数
+    __u32 code32_start;          // 0x214 保护模式 (32-bit) 内核的入口点
+    __u32 ramdisk_image;         // 0x218 initrd 的物理地址
+    __u32 ramdisk_size;          // 0x21C initrd 的大小
+    __u32 bootsect_kludge;       // 0x220 过时字段
+    __u16 heap_end_ptr;          // 0x224 内存堆结束指针
+    __u8  ext_loader_ver;        // 0x226 额外的加载器版本
+    __u8  ext_loader_type;       // 0x227 额外的加载器类型
+    __u32 cmd_line_ptr;          // 0x228 内核命令行字符串的地址
+    __u32 initrd_addr_max;       // 0x22C initrd 允许的最大加载地址
+    __u32 kernel_alignment;      // 0x230 内核对齐要求
+    __u8  relocatable_kernel;    // 0x234 内核是否可重定位
+    __u8  min_alignment;         // 0x235 内核最小的对齐单位
+    __u16 xloadflags;            // 0x236 额外的加载标志
+    __u32 cmdline_size;          // 0x238 内核命令行最大长度
+    __u32 hardware_subarch;      // 0x23C 硬件子架构
+    __u64 hardware_subarch_data; // 0x240 额外的硬件子架构数据
+    __u32 payload_offset;        // 0x248 PE 格式内核的偏移
+    __u32 payload_length;        // 0x24C PE 格式内核的大小
+    __u64 setup_data;            // 0x250 指向 `struct setup_data` 指针
     __u64 pref_address;
     __u32 init_size;
     __u32 handover_offset;
@@ -117,6 +121,21 @@ struct efi_info
 #    define JAILHOUSE_SETUP_REQUIRED_VERSION 1
 
 /* The so-called "zeropage" */
+/**
+ * @brief boot_params 结构是内核引导过程中用于存储和传递系统启动信息的重要数据结构。它主要由引导加载程序
+ * (Bootloader，如：GRUB、syslinux、EFI stub)填充，并传递给内核，以便内核在启动时候能够正确配置系统。
+ * 主要作用：
+ *  - 内存布局
+ *  - 硬盘信息
+ *  - 显示模式(如：VESA/VGA)
+ *  - 其他BIOS/UEFI相关信息
+ * 提供引导参数：
+ *  - 内核命令行参数
+ *  - 传递 setup_data 结构，用于扩展额外的引导数据
+ * 兼容性支持：
+ *  - 该结构的设计兼容早期的x86保护模式启动方式
+ *  - 适用于BIOS和UEFI启动方式
+ */
 struct boot_params
 {
     struct screen_info     screen_info;                    /* 0x000 */
@@ -136,15 +155,21 @@ struct boot_params
     __u8                   _pad4[112];                     /* 0x0cc */
     __u32                  cc_blob_address;                /* 0x13c */
     struct edid_info       edid_info;                      /* 0x140 */
-    struct efi_info        efi_info;                       /* 0x1c0 */
-    __u32                  alt_mem_k;                      /* 0x1e0 */
-    __u32                  scratch; /* Scratch field! */   /* 0x1e4 */
-    __u8                   e820_entries;                   /* 0x1e8 */
-    __u8                   eddbuf_entries;                 /* 0x1e9 */
-    __u8                   edd_mbr_sig_buf_entries;        /* 0x1ea */
-    __u8                   kbd_status;                     /* 0x1eb */
-    __u8                   secure_boot;                    /* 0x1ec */
-    __u8                   _pad5[2];                       /* 0x1ed */
+    /**
+     * @brief 存储EFI相关信息
+     */
+    struct efi_info        efi_info;                     /* 0x1c0 */
+    __u32                  alt_mem_k;                    /* 0x1e0 */
+    __u32                  scratch; /* Scratch field! */ /* 0x1e4 */
+    /**
+     * @brief 存储系统内存映射信息
+     */
+    __u8                   e820_entries;            /* 0x1e8 */
+    __u8                   eddbuf_entries;          /* 0x1e9 */
+    __u8                   edd_mbr_sig_buf_entries; /* 0x1ea */
+    __u8                   kbd_status;              /* 0x1eb */
+    __u8                   secure_boot;             /* 0x1ec */
+    __u8                   _pad5[2];                /* 0x1ed */
     /*
      * The sentinel is set to a nonzero value (0xff) in header.S.
      *
@@ -156,11 +181,17 @@ struct boot_params
      * know that some variables in boot_params are invalid and
      * kernel should zero out certain portions of boot_params.
      */
-    __u8                   sentinel;                              /* 0x1ef */
-    __u8                   _pad6[1];                              /* 0x1f0 */
-    struct setup_header    hdr; /* setup header */                /* 0x1f1 */
+    __u8                   sentinel; /* 0x1ef */
+    __u8                   _pad6[1]; /* 0x1f0 */
+    /**
+     * @brief struct setup_header：包含与引导相关的关键信息，如：setup_data的指针等。
+     */
+    struct setup_header    hdr; /* setup header */              /* 0x1f1 */
     __u8                   _pad7[0x290 - 0x1f1 - sizeof (struct setup_header)];
-    __u32                  edd_mbr_sig_buffer[EDD_MBR_SIG_MAX];   /* 0x290 */
+    __u32                  edd_mbr_sig_buffer[EDD_MBR_SIG_MAX]; /* 0x290 */
+    /**
+     * @brief 存储系统内存映射信息
+     */
     struct boot_e820_entry e820_table[E820_MAX_ENTRIES_ZEROPAGE]; /* 0x2d0 */
     __u8                   _pad8[48];                             /* 0xcd0 */
     struct edd_info        eddbuf[EDDMAXNR];                      /* 0xd00 */

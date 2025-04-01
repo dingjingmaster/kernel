@@ -8,7 +8,12 @@
 
 /* PAGE_SHIFT determines the page size */
 #define PAGE_SHIFT CONFIG_PAGE_SHIFT
-#define PAGE_SIZE (_AC (1, UL) << PAGE_SHIFT)
+#define PAGE_SIZE (_AC (1, UL) << PAGE_SHIFT) // 4KB
+
+/**
+ * @brief
+ * 屏蔽页内偏移，保留页目录、页表索引
+ */
 #define PAGE_MASK (~(PAGE_SIZE - 1))
 
 #define __VIRTUAL_MASK ((1UL << __VIRTUAL_MASK_SHIFT) - 1)

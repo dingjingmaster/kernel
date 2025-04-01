@@ -394,10 +394,20 @@ static void __init parse_setup_data (void)
     struct setup_data* data;
     u64                pa_data, pa_next;
 
+    /**
+     * setup_data 字段属于 boot_params.hdr 结构体的一部分，用于存储引导程序传递给内核的关键参数，例如：
+     *  - 内存布局信息（如物理内存大小、可用内存区域）
+     *  - 显示模式设置（如分辨率、颜色深度）
+     *  - 命令行参数（如 root=/dev/sda1）
+     *  - 其他与硬件初始化相关的配置
+     * 数据来源与格式
+     *  - 在UEFI启动场景中，setup_data 从引导程序加载的 bzImage 的 setup_header 拷贝而来，
+     *    包含与引导程序交互的协议数据
+     *  - 在传统BIOS启动中，该字段由引导程序（如GRUB）填充，内核通过解析 setup_header 获取参数
+     */
     pa_data = boot_params.hdr.setup_data;
     while (pa_data) {
         u32 data_len, data_type;
-
         data      = early_memremap (pa_data, sizeof (*data));
         data_len  = data->len + sizeof (struct setup_data);
         data_type = data->type;
@@ -864,7 +874,7 @@ void __init setup_arch (char** cmdline_p)
 
     // boot_cpu_data.x86_phys_bits = arch/x86/kernel/setup.c
     // boot_cpu_data.x86_phys_bits = MAX_PHYSMEM_BITS;
-    // MAX_PHYSMEM_BITS		2^n: max size of physical address space
+    // MAX_PHYSMEM_BITS 2^n: max size of physical address space
     // arch/x86/include/asm/sparsemem.h => #define MAX_PHYSMEM_BITS (pgtable_l5_enabled() ? 52 : 46)
     // 传统4级页表：PGD、PUD、PMD、PTE
     iomem_resource.end = (1ULL << boot_cpu_data.x86_phys_bits) - 1;

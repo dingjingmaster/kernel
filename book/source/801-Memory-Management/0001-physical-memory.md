@@ -498,4 +498,58 @@ int __init e820__update_table (struct e820_table* table)
 }
 ```
 
+固定内存区映射`parse_setup_data ();`，添加固定位置虚拟地址到物理地址的映射：
+```c
+/**
+ * 负责解析和初始化 BIOS 传递的启动参数（Setup Data），为内核后续的硬件探测和资源分配提供基础信息。
+ * 1. 桥梁功能：作为内核与 BIOS 之间的中间层，
+ *    将 BIOS 存储在特定内存区域（如 0x9FC00 或 0xFFFF0000）的启动参数结构（setup_header）
+ *    解析到内核可用的数据结构（boot_params）中
+ * 2. 关键初始化：完成内核启动参数的早期解析，
+ *    为后续的硬件探测（如 CPU、内存、PCI 设备）、命令行参数处理等步骤提供必要信息。
+ */
+static void __init parse_setup_data (void)
+{
+    struct setup_data* data;
+    u64                pa_data, pa_next;
 
+    /**
+     * setup_data 字段属于 boot_params.hdr 结构体的一部分，用于存储引导程序传递给内核的关键参数，例如：
+     *  - 内存布局信息（如物理内存大小、可用内存区域）
+     *  - 显示模式设置（如分辨率、颜色深度）
+     *  - 命令行参数（如 root=/dev/sda1）
+     *  - 其他与硬件初始化相关的配置
+     * 数据来源与格式
+     *  - 在UEFI启动场景中，setup_data 从引导程序加载的 bzImage 的 setup_header 拷贝而来，
+     *    包含与引导程序交互的协议数据
+     *  - 在传统BIOS启动中，该字段由引导程序（如GRUB）填充，内核通过解析 setup_header 获取参数
+     */
+    pa_data = boot_params.hdr.setup_data;
+    while (pa_data) {
+        u32 data_len, data_type;
+        data      = early_memremap (pa_data, sizeof (*data));
+        data_len  = data->len + sizeof (struct setup_data);
+        data_type = data->type;
+        pa_next   = data->next;
+        early_memunmap (data, sizeof (*data));
+
+        switch (data_type) {
+        case SETUP_E820_EXT: e820__memory_setup_extended (pa_data, data_len); break;
+        case SETUP_DTB: add_dtb (pa_data); break;
+        case SETUP_EFI: parse_efi_setup (pa_data, data_len); break;
+        case SETUP_IMA: add_early_ima_buffer (pa_data); break;
+        case SETUP_RNG_SEED:
+            data = early_memremap (pa_data, data_len);
+            add_bootloader_randomness (data->data, data->len);
+            /* Zero seed for forward secrecy. */
+            memzero_explicit (data->data, data->len);
+            /* Zero length in case we find ourselves back here by accident. */
+            memzero_explicit (&data->len, sizeof (data->len));
+            early_memunmap (data, data_len);
+            break;
+        default: break;
+        }
+        pa_data = pa_next;
+    }
+}
+```

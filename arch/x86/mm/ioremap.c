@@ -781,6 +781,10 @@ void __init* early_memremap_decrypted_wp (resource_size_t phys_addr, unsigned lo
 }
 #endif /* CONFIG_AMD_MEM_ENCRYPT */
 
+/**
+ * @brief pte_t 内核中用于表示页表项的数据结构。
+ * 在 x86_64 体系结构中，主要用于管理虚拟地址到物理地址的映射
+ */
 static pte_t                bm_pte[PAGE_SIZE / sizeof (pte_t)] __page_aligned_bss;
 
 static inline pmd_t* __init early_ioremap_pmd (unsigned long addr)
@@ -872,9 +876,12 @@ void __init __early_set_fixmap (enum fixed_addresses idx, phys_addr_t phys, pgpr
     /* Sanitize 'prot' against any unsupported bits: */
     pgprot_val (flags) &= __supported_pte_mask;
 
-    if (pgprot_val (flags))
+    if (pgprot_val (flags)) {
         set_pte (pte, pfn_pte (phys >> PAGE_SHIFT, flags));
-    else
+    }
+    else {
         pte_clear (&init_mm, addr, pte);
+    }
+
     flush_tlb_one_kernel (addr);
 }

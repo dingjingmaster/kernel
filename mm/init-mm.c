@@ -19,7 +19,8 @@
 
 const struct vm_operations_struct vma_dummy_vm_ops;
 
-/*
+/**
+ * @brief
  * For dynamically allocated mm_structs, there is a dynamically sized cpumask
  * at the end of the structure, the size of which depends on the maximum CPU
  * number the system can see. That way we allocate only as much memory for
@@ -28,6 +29,8 @@ const struct vm_operations_struct vma_dummy_vm_ops;
  *
  * Since there is only one init_mm in the entire system, keep it simple
  * and size this cpu_bitmask to NR_CPUS.
+ *
+ * Linux内核中用于管理进程地址空间的数据结构，它描述了一个进程的虚拟内存管理(VMM)状态
  */
 struct mm_struct init_mm = {
     .mm_mt    = MTREE_INIT_EXT (mm_mt, MM_MT_FLAGS, init_mm.mmap_lock),
@@ -35,7 +38,8 @@ struct mm_struct init_mm = {
     .mm_users = ATOMIC_INIT (2),
     .mm_count = ATOMIC_INIT (1),
     .write_protect_seq = SEQCNT_ZERO (init_mm.write_protect_seq),
-    MMAP_LOCK_INITIALIZER (init_mm).page_table_lock = __SPIN_LOCK_UNLOCKED (init_mm.page_table_lock),
+    MMAP_LOCK_INITIALIZER (init_mm).page_table_lock =
+                __SPIN_LOCK_UNLOCKED (init_mm.page_table_lock),
     .arg_lock = __SPIN_LOCK_UNLOCKED (init_mm.arg_lock),
     .mmlist   = LIST_HEAD_INIT (init_mm.mmlist),
 #ifdef CONFIG_PER_VMA_LOCK
