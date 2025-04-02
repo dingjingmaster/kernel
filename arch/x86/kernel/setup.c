@@ -72,6 +72,22 @@ unsigned long max_pfn_mapped;
 RESERVE_BRK (dmi_alloc, 65536);
 #endif
 
+/**
+ * @brief 用于管理进程的 brk(heap)段，即动态分配堆内存的范围，其功能作用如下：
+ * 1. 变量作用：
+ *    _brk_start: 进程的堆起始地址，即 brk 段的初始位置。通常在进程加载时候设定为程序的数据段之后的位置
+ *    _brk_end：进程的堆当前结束地址，表示当前可以使用的堆地址空间的上界
+ * 2. 它们的作用：
+ *    在 sys_brk() 系统调用中，_brk_end会被调整，以扩展或收缩堆内存区域
+ *    brk机制提供的是连续的堆内存分配，通常用于 malloc() 之类的分配器，而不是 mmap()-based方式
+ *    这些变量帮助Linux管理进程的brk区域，保证进程有适当的动态内存空间
+ * 3. 例子
+ *    - void* curBrk = sbrk(0); // 获取当前 _brk_end
+ *    - sbrk(4096); // 申请 4KB 空间
+ * 4. 与mmap的关系
+ *    现代程序大多使用 mmap() 而非 brk() 进行动态内存管理，因为 mmap() 支持更灵活的地址空间分配(非连续)。
+ *    但 brk() 仍然用于一些小规模的堆分配，如：glibc的malloc()实现。
+ */
 unsigned long          _brk_start = (unsigned long)__brk_base;
 unsigned long          _brk_end   = (unsigned long)__brk_base;
 
@@ -923,7 +939,7 @@ void __init setup_arch (char** cmdline_p)
     bss_resource.end      = __pa_symbol (__bss_stop) - 1;
 
     x86_configure_nx (); // CPU 是否包含NX功能(禁止数据段执行)
-    parse_early_param ();
+    parse_early_param (); // 解析 __setup 命令行参数 console 和 earlycon
 
     if (efi_enabled (EFI_BOOT)) {
         efi_memblock_x86_reserve_range ();

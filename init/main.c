@@ -755,8 +755,9 @@ static int __init do_early_param (char* param, char* val, const char* unused, vo
 
     for (p = __setup_start; p < __setup_end; p++) {
         if ((p->early && parameq (param, p->str)) || (strcmp (param, "console") == 0 && strcmp (p->str, "earlycon") == 0)) {
-            if (p->setup_func (val) != 0)
+            if (p->setup_func (val) != 0) {
                 pr_warn ("Malformed early option '%s'\n", param);
+            }
         }
     }
     /* We accept everything at this stage. */

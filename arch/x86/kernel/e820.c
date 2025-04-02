@@ -550,8 +550,9 @@ static u64 __init __e820__range_update (struct e820_table* table,
          * its size first:
          */
         entry->size -= final_end - final_start;
-        if (entry->addr < final_start)
+        if (entry->addr < final_start) {
             continue;
+        }
 
         entry->addr = final_end;
     }
@@ -1029,7 +1030,7 @@ static int __init parse_memmap_opt (char* str)
 }
 early_param ("memmap", parse_memmap_opt);
 
-/*
+/**
  * Reserve all entries from the bootloader's extensible data nodes list,
  * because if present we are going to use it later on to fetch e820
  * entries from it:
@@ -1072,9 +1073,7 @@ void __init e820__reserve_setup_data (void)
                 pr_warn ("e820: failed to memremap indirect setup_data\n");
                 return;
             }
-
             indirect = (struct setup_indirect*)data->data;
-
             if (indirect->type != SETUP_INDIRECT) {
                 e820__range_update (indirect->addr, indirect->len, E820_TYPE_RAM,
                                     E820_TYPE_RESERVED_KERN);
@@ -1091,20 +1090,23 @@ void __init e820__reserve_setup_data (void)
     e820__print_table ("reserve setup_data");
 }
 
-/*
+/**
+ * @brief
  * Called after parse_early_param(), after early parameters (such as mem=)
  * have been processed, in which case we already have an E820 table filled in
  * via the parameter callback function(s), but it's not sorted and printed yet:
  *
  * Linux 内核在早期初始化阶段处理 E820 内存映射数据 的最后一步，
  * 其核心作用是 整合、验证并优化 BIOS 提供的内存布局信息，确保内核能够基于可靠的内存模型继续初始化。
+ *  - 处理用户定义的内存映射
+ *  - 整合内核自身内存范围
  */
 void __init e820__finish_early_params (void)
 {
     if (userdef) {
-        if (e820__update_table (e820_table) < 0)
+        if (e820__update_table (e820_table) < 0) {
             early_panic ("Invalid user supplied memory map");
-
+        }
         pr_info ("user-defined physical RAM map:\n");
         e820__print_table ("user");
     }

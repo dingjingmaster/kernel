@@ -199,12 +199,14 @@ int __init efi_memblock_x86_reserve_range (void)
 
     if (!efi_enabled (EFI_PARAVIRT)) {
         rv = efi_memmap_init_early (&data);
-        if (rv)
+        if (rv) {
             return rv;
+        }
     }
 
-    if (add_efi_memmap || do_efi_soft_reserve ())
+    if (add_efi_memmap || do_efi_soft_reserve ()) {
         do_add_efi_memmap ();
+    }
 
     WARN (efi.memmap.desc_version != 1, "Unexpected EFI_MEMORY_DESCRIPTOR version %ld",
           efi.memmap.desc_version);

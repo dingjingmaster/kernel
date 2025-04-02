@@ -26,19 +26,19 @@
  */
 #if defined(CONFIG_64BIT) || defined(BUILD_VDSO32_64)
 /* 64bit sizes */
-#define MAPLE_NODE_SLOTS	31	/* 256 bytes including ->parent */
-#define MAPLE_RANGE64_SLOTS	16	/* 256 bytes */
-#define MAPLE_ARANGE64_SLOTS	10	/* 240 bytes */
-#define MAPLE_ALLOC_SLOTS	(MAPLE_NODE_SLOTS - 1)
+#    define MAPLE_NODE_SLOTS 31     /* 256 bytes including ->parent */
+#    define MAPLE_RANGE64_SLOTS 16  /* 256 bytes */
+#    define MAPLE_ARANGE64_SLOTS 10 /* 240 bytes */
+#    define MAPLE_ALLOC_SLOTS (MAPLE_NODE_SLOTS - 1)
 #else
 /* 32bit sizes */
-#define MAPLE_NODE_SLOTS	63	/* 256 bytes including ->parent */
-#define MAPLE_RANGE64_SLOTS	32	/* 256 bytes */
-#define MAPLE_ARANGE64_SLOTS	21	/* 240 bytes */
-#define MAPLE_ALLOC_SLOTS	(MAPLE_NODE_SLOTS - 2)
-#endif /* defined(CONFIG_64BIT) || defined(BUILD_VDSO32_64) */
+#    define MAPLE_NODE_SLOTS 63     /* 256 bytes including ->parent */
+#    define MAPLE_RANGE64_SLOTS 32  /* 256 bytes */
+#    define MAPLE_ARANGE64_SLOTS 21 /* 240 bytes */
+#    define MAPLE_ALLOC_SLOTS (MAPLE_NODE_SLOTS - 2)
+#endif                              /* defined(CONFIG_64BIT) || defined(BUILD_VDSO32_64) */
 
-#define MAPLE_NODE_MASK		255UL
+#define MAPLE_NODE_MASK 255UL
 
 /*
  * The node->parent of the root node has bit 0 set and the rest of the pointer
@@ -74,9 +74,10 @@
  * This metadata is used to optimize the gap updating code and in reverse
  * searching for gaps or any other code that needs to find the end of the data.
  */
-struct maple_metadata {
-	unsigned char end;
-	unsigned char gap;
+struct maple_metadata
+{
+    unsigned char end;
+    unsigned char gap;
 };
 
 /*
@@ -100,16 +101,19 @@ struct maple_metadata {
  * the same index.
  */
 
-struct maple_range_64 {
-	struct maple_pnode *parent;
-	unsigned long pivot[MAPLE_RANGE64_SLOTS - 1];
-	union {
-		void __rcu *slot[MAPLE_RANGE64_SLOTS];
-		struct {
-			void __rcu *pad[MAPLE_RANGE64_SLOTS - 1];
-			struct maple_metadata meta;
-		};
-	};
+struct maple_range_64
+{
+    struct maple_pnode* parent;
+    unsigned long       pivot[MAPLE_RANGE64_SLOTS - 1];
+    union
+    {
+        void __rcu* slot[MAPLE_RANGE64_SLOTS];
+        struct
+        {
+            void __rcu*           pad[MAPLE_RANGE64_SLOTS - 1];
+            struct maple_metadata meta;
+        };
+    };
 };
 
 /*
@@ -121,100 +125,108 @@ struct maple_range_64 {
  * in this node, also called gaps.  This optimises the tree for allocating a
  * range.
  */
-struct maple_arange_64 {
-	struct maple_pnode *parent;
-	unsigned long pivot[MAPLE_ARANGE64_SLOTS - 1];
-	void __rcu *slot[MAPLE_ARANGE64_SLOTS];
-	unsigned long gap[MAPLE_ARANGE64_SLOTS];
-	struct maple_metadata meta;
+struct maple_arange_64
+{
+    struct maple_pnode*   parent;
+    unsigned long         pivot[MAPLE_ARANGE64_SLOTS - 1];
+    void __rcu*           slot[MAPLE_ARANGE64_SLOTS];
+    unsigned long         gap[MAPLE_ARANGE64_SLOTS];
+    struct maple_metadata meta;
 };
 
-struct maple_alloc {
-	unsigned long total;
-	unsigned char node_count;
-	unsigned int request_count;
-	struct maple_alloc *slot[MAPLE_ALLOC_SLOTS];
+struct maple_alloc
+{
+    unsigned long       total;
+    unsigned char       node_count;
+    unsigned int        request_count;
+    struct maple_alloc* slot[MAPLE_ALLOC_SLOTS];
 };
 
-struct maple_topiary {
-	struct maple_pnode *parent;
-	struct maple_enode *next; /* Overlaps the pivot */
+struct maple_topiary
+{
+    struct maple_pnode* parent;
+    struct maple_enode* next; /* Overlaps the pivot */
 };
 
-enum maple_type {
-	maple_dense,
-	maple_leaf_64,
-	maple_range_64,
-	maple_arange_64,
+enum maple_type
+{
+    maple_dense,
+    maple_leaf_64,
+    maple_range_64,
+    maple_arange_64,
 };
 
-enum store_type {
-	wr_invalid,
-	wr_new_root,
-	wr_store_root,
-	wr_exact_fit,
-	wr_spanning_store,
-	wr_split_store,
-	wr_rebalance,
-	wr_append,
-	wr_node_store,
-	wr_slot_store,
+enum store_type
+{
+    wr_invalid,
+    wr_new_root,
+    wr_store_root,
+    wr_exact_fit,
+    wr_spanning_store,
+    wr_split_store,
+    wr_rebalance,
+    wr_append,
+    wr_node_store,
+    wr_slot_store,
 };
 
 /**
  * DOC: Maple tree flags
  *
- * * MT_FLAGS_ALLOC_RANGE	- Track gaps in this tree
- * * MT_FLAGS_USE_RCU		- Operate in RCU mode
- * * MT_FLAGS_HEIGHT_OFFSET	- The position of the tree height in the flags
- * * MT_FLAGS_HEIGHT_MASK	- The mask for the maple tree height value
- * * MT_FLAGS_LOCK_MASK		- How the mt_lock is used
- * * MT_FLAGS_LOCK_IRQ		- Acquired irq-safe
- * * MT_FLAGS_LOCK_BH		- Acquired bh-safe
- * * MT_FLAGS_LOCK_EXTERN	- mt_lock is not used
+ * * MT_FLAGS_ALLOC_RANGE    - Track gaps in this tree
+ * * MT_FLAGS_USE_RCU        - Operate in RCU mode
+ * * MT_FLAGS_HEIGHT_OFFSET    - The position of the tree height in the flags
+ * * MT_FLAGS_HEIGHT_MASK    - The mask for the maple tree height value
+ * * MT_FLAGS_LOCK_MASK        - How the mt_lock is used
+ * * MT_FLAGS_LOCK_IRQ        - Acquired irq-safe
+ * * MT_FLAGS_LOCK_BH        - Acquired bh-safe
+ * * MT_FLAGS_LOCK_EXTERN    - mt_lock is not used
  *
- * MAPLE_HEIGHT_MAX	The largest height that can be stored
+ * MAPLE_HEIGHT_MAX    The largest height that can be stored
  */
-#define MT_FLAGS_ALLOC_RANGE	0x01
-#define MT_FLAGS_USE_RCU	0x02
-#define MT_FLAGS_HEIGHT_OFFSET	0x02
-#define MT_FLAGS_HEIGHT_MASK	0x7C
-#define MT_FLAGS_LOCK_MASK	0x300
-#define MT_FLAGS_LOCK_IRQ	0x100
-#define MT_FLAGS_LOCK_BH	0x200
-#define MT_FLAGS_LOCK_EXTERN	0x300
-#define MT_FLAGS_ALLOC_WRAPPED	0x0800
+#define MT_FLAGS_ALLOC_RANGE 0x01
+#define MT_FLAGS_USE_RCU 0x02
+#define MT_FLAGS_HEIGHT_OFFSET 0x02
+#define MT_FLAGS_HEIGHT_MASK 0x7C
+#define MT_FLAGS_LOCK_MASK 0x300
+#define MT_FLAGS_LOCK_IRQ 0x100
+#define MT_FLAGS_LOCK_BH 0x200
+#define MT_FLAGS_LOCK_EXTERN 0x300
+#define MT_FLAGS_ALLOC_WRAPPED 0x0800
 
-#define MAPLE_HEIGHT_MAX	31
+#define MAPLE_HEIGHT_MAX 31
 
+#define MAPLE_NODE_TYPE_MASK 0x0F
+#define MAPLE_NODE_TYPE_SHIFT 0x03
 
-#define MAPLE_NODE_TYPE_MASK	0x0F
-#define MAPLE_NODE_TYPE_SHIFT	0x03
-
-#define MAPLE_RESERVED_RANGE	4096
+#define MAPLE_RESERVED_RANGE 4096
 
 #ifdef CONFIG_LOCKDEP
-typedef struct lockdep_map *lockdep_map_p;
-#define mt_lock_is_held(mt)                                             \
-	(!(mt)->ma_external_lock || lock_is_held((mt)->ma_external_lock))
+typedef struct lockdep_map* lockdep_map_p;
+#    define mt_lock_is_held(mt) (!(mt)->ma_external_lock || lock_is_held ((mt)->ma_external_lock))
 
-#define mt_write_lock_is_held(mt)					\
-	(!(mt)->ma_external_lock ||					\
-	 lock_is_held_type((mt)->ma_external_lock, 0))
+#    define mt_write_lock_is_held(mt) \
+        (!(mt)->ma_external_lock || lock_is_held_type ((mt)->ma_external_lock, 0))
 
-#define mt_set_external_lock(mt, lock)					\
-	(mt)->ma_external_lock = &(lock)->dep_map
+#    define mt_set_external_lock(mt, lock) (mt)->ma_external_lock = &(lock)->dep_map
 
-#define mt_on_stack(mt)			(mt).ma_external_lock = NULL
+#    define mt_on_stack(mt) (mt).ma_external_lock = NULL
 #else
-typedef struct { /* nothing */ } lockdep_map_p;
-#define mt_lock_is_held(mt)		1
-#define mt_write_lock_is_held(mt)	1
-#define mt_set_external_lock(mt, lock)	do { } while (0)
-#define mt_on_stack(mt)			do { } while (0)
+typedef struct
+{ /* nothing */
+} lockdep_map_p;
+#    define mt_lock_is_held(mt) 1
+#    define mt_write_lock_is_held(mt) 1
+#    define mt_set_external_lock(mt, lock) \
+        do {                               \
+        } while (0)
+#    define mt_on_stack(mt) \
+        do {                \
+        } while (0)
 #endif
 
-/*
+/**
+ * @brief
  * If the tree contains a single entry at index 0, it is usually stored in
  * tree->ma_root.  To optimise for the page cache, an entry which ends in '00',
  * '01' or '11' is stored in the root, but an entry which ends in '10' will be
@@ -227,14 +239,28 @@ typedef struct { /* nothing */ } lockdep_map_p;
  * case with the MAPLE_USE_RCU flag, which indicates the tree is currently in
  * RCU mode.  This mode was added to allow the tree to reuse nodes instead of
  * re-allocating and RCU freeing nodes when there is a single user.
+ *
+ * 如果树中只有一个索引为 0 的条目，通常会将其存储在 tree->ma_root 中。
+ * 为了优化页面缓存，以 "00"、"01 "或 "11 "结尾的条目会被存储在根目录中，
+ * 但以 "10 "结尾的条目会被存储在节点中。
+ * 第 3-6 位用于存储枚举 maple_type。
+ *
+ * 标记既用于存储关于这棵树的一些不可变信息（在创建树时设置），也用于存储在自旋锁下设置的动态信息。
+ *
+ * 标志的另一个用途是指示树的全局状态。
+ * MAPLE_USE_RCU 标志就是这种情况，它表示树当前处于 RCU 模式。
+ * 添加这种模式是为了让树能够重复使用节点，而不是在只有一个用户的情况下重新分配和 RCU 释放节点。
  */
-struct maple_tree {
-	union {
-		spinlock_t	ma_lock;
-		lockdep_map_p	ma_external_lock;
-	};
-	unsigned int	ma_flags;
-	void __rcu      *ma_root;
+struct maple_tree
+{
+    union
+    {
+        spinlock_t    ma_lock;          // 自旋锁，用于保护树结构的并发访问
+        lockdep_map_p ma_external_lock; // 空的，无元素
+    };
+    unsigned int ma_flags;              // 标志位，配置是否启用RCU机制或范围分配
+    void __rcu*  ma_root;               // 指向树的根节点，采用 B-tree 结构实现，
+                                        // 每个节点可容纳多个元素以减少缓存未命中
 };
 
 /**
@@ -243,11 +269,12 @@ struct maple_tree {
  * @__flags: The maple tree flags
  *
  */
-#define MTREE_INIT(name, __flags) {					\
-	.ma_lock = __SPIN_LOCK_UNLOCKED((name).ma_lock),		\
-	.ma_flags = __flags,						\
-	.ma_root = NULL,						\
-}
+#define MTREE_INIT(name, __flags)                              \
+    {                                                          \
+            .ma_lock  = __SPIN_LOCK_UNLOCKED ((name).ma_lock), \
+            .ma_flags = __flags,                               \
+            .ma_root  = NULL,                                  \
+    }
 
 /**
  * MTREE_INIT_EXT() - Initialize a maple tree with an external lock.
@@ -256,22 +283,21 @@ struct maple_tree {
  * @__lock: The external lock
  */
 #ifdef CONFIG_LOCKDEP
-#define MTREE_INIT_EXT(name, __flags, __lock) {				\
-	.ma_external_lock = &(__lock).dep_map,				\
-	.ma_flags = (__flags),						\
-	.ma_root = NULL,						\
-}
+#    define MTREE_INIT_EXT(name, __flags, __lock)      \
+        {                                              \
+                .ma_external_lock = &(__lock).dep_map, \
+                .ma_flags         = (__flags),         \
+                .ma_root          = NULL,              \
+        }
 #else
-#define MTREE_INIT_EXT(name, __flags, __lock)	MTREE_INIT(name, __flags)
+#    define MTREE_INIT_EXT(name, __flags, __lock) MTREE_INIT (name, __flags)
 #endif
 
-#define DEFINE_MTREE(name)						\
-	struct maple_tree name = MTREE_INIT(name, 0)
+#define DEFINE_MTREE(name) struct maple_tree name = MTREE_INIT (name, 0)
 
-#define mtree_lock(mt)		spin_lock((&(mt)->ma_lock))
-#define mtree_lock_nested(mas, subclass) \
-		spin_lock_nested((&(mt)->ma_lock), subclass)
-#define mtree_unlock(mt)	spin_unlock((&(mt)->ma_lock))
+#define mtree_lock(mt) spin_lock ((&(mt)->ma_lock))
+#define mtree_lock_nested(mas, subclass) spin_lock_nested ((&(mt)->ma_lock), subclass)
+#define mtree_unlock(mt) spin_unlock ((&(mt)->ma_lock))
 
 /*
  * The Maple Tree squeezes various bits in at various points which aren't
@@ -289,25 +315,29 @@ struct maple_tree {
  *    pivots, and a parent pointer.
  */
 
-struct maple_node {
-	union {
-		struct {
-			struct maple_pnode *parent;
-			void __rcu *slot[MAPLE_NODE_SLOTS];
-		};
-		struct {
-			void *pad;
-			struct rcu_head rcu;
-			struct maple_enode *piv_parent;
-			unsigned char parent_slot;
-			enum maple_type type;
-			unsigned char slot_len;
-			unsigned int ma_flags;
-		};
-		struct maple_range_64 mr64;
-		struct maple_arange_64 ma64;
-		struct maple_alloc alloc;
-	};
+struct maple_node
+{
+    union
+    {
+        struct
+        {
+            struct maple_pnode* parent;
+            void __rcu*         slot[MAPLE_NODE_SLOTS];
+        };
+        struct
+        {
+            void*               pad;
+            struct rcu_head     rcu;
+            struct maple_enode* piv_parent;
+            unsigned char       parent_slot;
+            enum maple_type     type;
+            unsigned char       slot_len;
+            unsigned int        ma_flags;
+        };
+        struct maple_range_64  mr64;
+        struct maple_arange_64 ma64;
+        struct maple_alloc     alloc;
+    };
 };
 
 /*
@@ -317,39 +347,50 @@ struct maple_node {
  * which nodes have been 'cut' from the tree so that the change can be done
  * safely at a later date.  This is done to support RCU.
  */
-struct ma_topiary {
-	struct maple_enode *head;
-	struct maple_enode *tail;
-	struct maple_tree *mtree;
+struct ma_topiary
+{
+    struct maple_enode* head;
+    struct maple_enode* tail;
+    struct maple_tree*  mtree;
 };
 
-void *mtree_load(struct maple_tree *mt, unsigned long index);
+void* mtree_load (struct maple_tree* mt, unsigned long index);
 
-int mtree_insert(struct maple_tree *mt, unsigned long index,
-		void *entry, gfp_t gfp);
-int mtree_insert_range(struct maple_tree *mt, unsigned long first,
-		unsigned long last, void *entry, gfp_t gfp);
-int mtree_alloc_range(struct maple_tree *mt, unsigned long *startp,
-		void *entry, unsigned long size, unsigned long min,
-		unsigned long max, gfp_t gfp);
-int mtree_alloc_cyclic(struct maple_tree *mt, unsigned long *startp,
-		void *entry, unsigned long range_lo, unsigned long range_hi,
-		unsigned long *next, gfp_t gfp);
-int mtree_alloc_rrange(struct maple_tree *mt, unsigned long *startp,
-		void *entry, unsigned long size, unsigned long min,
-		unsigned long max, gfp_t gfp);
+int   mtree_insert (struct maple_tree* mt, unsigned long index, void* entry, gfp_t gfp);
+int   mtree_insert_range (
+          struct maple_tree* mt, unsigned long first, unsigned long last, void* entry, gfp_t gfp);
+int mtree_alloc_range (struct maple_tree* mt,
+                       unsigned long*     startp,
+                       void*              entry,
+                       unsigned long      size,
+                       unsigned long      min,
+                       unsigned long      max,
+                       gfp_t              gfp);
+int mtree_alloc_cyclic (struct maple_tree* mt,
+                        unsigned long*     startp,
+                        void*              entry,
+                        unsigned long      range_lo,
+                        unsigned long      range_hi,
+                        unsigned long*     next,
+                        gfp_t              gfp);
+int mtree_alloc_rrange (struct maple_tree* mt,
+                        unsigned long*     startp,
+                        void*              entry,
+                        unsigned long      size,
+                        unsigned long      min,
+                        unsigned long      max,
+                        gfp_t              gfp);
 
-int mtree_store_range(struct maple_tree *mt, unsigned long first,
-		      unsigned long last, void *entry, gfp_t gfp);
-int mtree_store(struct maple_tree *mt, unsigned long index,
-		void *entry, gfp_t gfp);
-void *mtree_erase(struct maple_tree *mt, unsigned long index);
+int mtree_store_range (
+        struct maple_tree* mt, unsigned long first, unsigned long last, void* entry, gfp_t gfp);
+int                mtree_store (struct maple_tree* mt, unsigned long index, void* entry, gfp_t gfp);
+void*              mtree_erase (struct maple_tree* mt, unsigned long index);
 
-int mtree_dup(struct maple_tree *mt, struct maple_tree *new, gfp_t gfp);
-int __mt_dup(struct maple_tree *mt, struct maple_tree *new, gfp_t gfp);
+int                mtree_dup (struct maple_tree* mt, struct maple_tree* new, gfp_t gfp);
+int                __mt_dup (struct maple_tree* mt, struct maple_tree* new, gfp_t gfp);
 
-void mtree_destroy(struct maple_tree *mt);
-void __mt_destroy(struct maple_tree *mt);
+void               mtree_destroy (struct maple_tree* mt);
+void               __mt_destroy (struct maple_tree* mt);
 
 /**
  * mtree_empty() - Determine if a tree has any present entries.
@@ -358,9 +399,9 @@ void __mt_destroy(struct maple_tree *mt);
  * Context: Any context.
  * Return: %true if the tree contains only NULL pointers.
  */
-static inline bool mtree_empty(const struct maple_tree *mt)
+static inline bool mtree_empty (const struct maple_tree* mt)
 {
-	return mt->ma_root == NULL;
+    return mt->ma_root == NULL;
 }
 
 /* Advanced API */
@@ -384,15 +425,16 @@ static inline bool mtree_empty(const struct maple_tree *mt)
  * ma_underflow means the search has reached the lower limit of the search
  * ma_error means there was an error, check the node for the error number.
  */
-enum maple_status {
-	ma_active,
-	ma_start,
-	ma_root,
-	ma_none,
-	ma_pause,
-	ma_overflow,
-	ma_underflow,
-	ma_error,
+enum maple_status
+{
+    ma_active,
+    ma_start,
+    ma_root,
+    ma_none,
+    ma_pause,
+    ma_overflow,
+    ma_underflow,
+    ma_error,
 };
 
 /*
@@ -435,40 +477,41 @@ enum maple_status {
  * status is ma_overflow, then the last action hit the upper limit.
  *
  */
-struct ma_state {
-	struct maple_tree *tree;	/* The tree we're operating in */
-	unsigned long index;		/* The index we're operating on - range start */
-	unsigned long last;		/* The last index we're operating on - range end */
-	struct maple_enode *node;	/* The node containing this entry */
-	unsigned long min;		/* The minimum index of this node - implied pivot min */
-	unsigned long max;		/* The maximum index of this node - implied pivot max */
-	struct maple_alloc *alloc;	/* Allocated nodes for this operation */
-	enum maple_status status;	/* The status of the state (active, start, none, etc) */
-	unsigned char depth;		/* depth of tree descent during write */
-	unsigned char offset;
-	unsigned char mas_flags;
-	unsigned char end;		/* The end of the node */
-	enum store_type store_type;	/* The type of store needed for this operation */
+struct ma_state
+{
+    struct maple_tree*  tree;       /* The tree we're operating in */
+    unsigned long       index;      /* The index we're operating on - range start */
+    unsigned long       last;       /* The last index we're operating on - range end */
+    struct maple_enode* node;       /* The node containing this entry */
+    unsigned long       min;        /* The minimum index of this node - implied pivot min */
+    unsigned long       max;        /* The maximum index of this node - implied pivot max */
+    struct maple_alloc* alloc;      /* Allocated nodes for this operation */
+    enum maple_status   status;     /* The status of the state (active, start, none, etc) */
+    unsigned char       depth;      /* depth of tree descent during write */
+    unsigned char       offset;
+    unsigned char       mas_flags;
+    unsigned char       end;        /* The end of the node */
+    enum store_type     store_type; /* The type of store needed for this operation */
 };
 
-struct ma_wr_state {
-	struct ma_state *mas;
-	struct maple_node *node;	/* Decoded mas->node */
-	unsigned long r_min;		/* range min */
-	unsigned long r_max;		/* range max */
-	enum maple_type type;		/* mas->node type */
-	unsigned char offset_end;	/* The offset where the write ends */
-	unsigned long *pivots;		/* mas->node->pivots pointer */
-	unsigned long end_piv;		/* The pivot at the offset end */
-	void __rcu **slots;		/* mas->node->slots pointer */
-	void *entry;			/* The entry to write */
-	void *content;			/* The existing entry that is being overwritten */
+struct ma_wr_state
+{
+    struct ma_state*   mas;
+    struct maple_node* node;       /* Decoded mas->node */
+    unsigned long      r_min;      /* range min */
+    unsigned long      r_max;      /* range max */
+    enum maple_type    type;       /* mas->node type */
+    unsigned char      offset_end; /* The offset where the write ends */
+    unsigned long*     pivots;     /* mas->node->pivots pointer */
+    unsigned long      end_piv;    /* The pivot at the offset end */
+    void __rcu**       slots;      /* mas->node->slots pointer */
+    void*              entry;      /* The entry to write */
+    void*              content;    /* The existing entry that is being overwritten */
 };
 
-#define mas_lock(mas)           spin_lock(&((mas)->tree->ma_lock))
-#define mas_lock_nested(mas, subclass) \
-		spin_lock_nested(&((mas)->tree->ma_lock), subclass)
-#define mas_unlock(mas)         spin_unlock(&((mas)->tree->ma_lock))
+#define mas_lock(mas) spin_lock (&((mas)->tree->ma_lock))
+#define mas_lock_nested(mas, subclass) spin_lock_nested (&((mas)->tree->ma_lock), subclass)
+#define mas_unlock(mas) spin_unlock (&((mas)->tree->ma_lock))
 
 /*
  * Special values for ma_state.node.
@@ -476,90 +519,93 @@ struct ma_wr_state {
  * to resolve the error, the walk would have to be restarted from the
  * top of the tree as the tree may have been modified.
  */
-#define MA_ERROR(err) \
-		((struct maple_enode *)(((unsigned long)err << 2) | 2UL))
+#define MA_ERROR(err) ((struct maple_enode*)(((unsigned long)err << 2) | 2UL))
 
-#define MA_STATE(name, mt, first, end)					\
-	struct ma_state name = {					\
-		.tree = mt,						\
-		.index = first,						\
-		.last = end,						\
-		.node = NULL,						\
-		.status = ma_start,					\
-		.min = 0,						\
-		.max = ULONG_MAX,					\
-		.alloc = NULL,						\
-		.mas_flags = 0,						\
-		.store_type = wr_invalid,				\
-	}
+#define MA_STATE(name, mt, first, end) \
+    struct ma_state name = {           \
+            .tree       = mt,          \
+            .index      = first,       \
+            .last       = end,         \
+            .node       = NULL,        \
+            .status     = ma_start,    \
+            .min        = 0,           \
+            .max        = ULONG_MAX,   \
+            .alloc      = NULL,        \
+            .mas_flags  = 0,           \
+            .store_type = wr_invalid,  \
+    }
 
-#define MA_WR_STATE(name, ma_state, wr_entry)				\
-	struct ma_wr_state name = {					\
-		.mas = ma_state,					\
-		.content = NULL,					\
-		.entry = wr_entry,					\
-	}
+#define MA_WR_STATE(name, ma_state, wr_entry) \
+    struct ma_wr_state name = {               \
+            .mas     = ma_state,              \
+            .content = NULL,                  \
+            .entry   = wr_entry,              \
+    }
 
-#define MA_TOPIARY(name, tree)						\
-	struct ma_topiary name = {					\
-		.head = NULL,						\
-		.tail = NULL,						\
-		.mtree = tree,						\
-	}
+#define MA_TOPIARY(name, tree) \
+    struct ma_topiary name = { \
+            .head  = NULL,     \
+            .tail  = NULL,     \
+            .mtree = tree,     \
+    }
 
-void *mas_walk(struct ma_state *mas);
-void *mas_store(struct ma_state *mas, void *entry);
-void *mas_erase(struct ma_state *mas);
-int mas_store_gfp(struct ma_state *mas, void *entry, gfp_t gfp);
-void mas_store_prealloc(struct ma_state *mas, void *entry);
-void *mas_find(struct ma_state *mas, unsigned long max);
-void *mas_find_range(struct ma_state *mas, unsigned long max);
-void *mas_find_rev(struct ma_state *mas, unsigned long min);
-void *mas_find_range_rev(struct ma_state *mas, unsigned long max);
-int mas_preallocate(struct ma_state *mas, void *entry, gfp_t gfp);
-int mas_alloc_cyclic(struct ma_state *mas, unsigned long *startp,
-		void *entry, unsigned long range_lo, unsigned long range_hi,
-		unsigned long *next, gfp_t gfp);
+void* mas_walk (struct ma_state* mas);
+void* mas_store (struct ma_state* mas, void* entry);
+void* mas_erase (struct ma_state* mas);
+int   mas_store_gfp (struct ma_state* mas, void* entry, gfp_t gfp);
+void  mas_store_prealloc (struct ma_state* mas, void* entry);
+void* mas_find (struct ma_state* mas, unsigned long max);
+void* mas_find_range (struct ma_state* mas, unsigned long max);
+void* mas_find_rev (struct ma_state* mas, unsigned long min);
+void* mas_find_range_rev (struct ma_state* mas, unsigned long max);
+int   mas_preallocate (struct ma_state* mas, void* entry, gfp_t gfp);
+int   mas_alloc_cyclic (struct ma_state* mas,
+                        unsigned long*   startp,
+                        void*            entry,
+                        unsigned long    range_lo,
+                        unsigned long    range_hi,
+                        unsigned long*   next,
+                        gfp_t            gfp);
 
-bool mas_nomem(struct ma_state *mas, gfp_t gfp);
-void mas_pause(struct ma_state *mas);
-void maple_tree_init(void);
-void mas_destroy(struct ma_state *mas);
-int mas_expected_entries(struct ma_state *mas, unsigned long nr_entries);
+bool  mas_nomem (struct ma_state* mas, gfp_t gfp);
+void  mas_pause (struct ma_state* mas);
+void  maple_tree_init (void);
+void  mas_destroy (struct ma_state* mas);
+int   mas_expected_entries (struct ma_state* mas, unsigned long nr_entries);
 
-void *mas_prev(struct ma_state *mas, unsigned long min);
-void *mas_prev_range(struct ma_state *mas, unsigned long max);
-void *mas_next(struct ma_state *mas, unsigned long max);
-void *mas_next_range(struct ma_state *mas, unsigned long max);
+void* mas_prev (struct ma_state* mas, unsigned long min);
+void* mas_prev_range (struct ma_state* mas, unsigned long max);
+void* mas_next (struct ma_state* mas, unsigned long max);
+void* mas_next_range (struct ma_state* mas, unsigned long max);
 
-int mas_empty_area(struct ma_state *mas, unsigned long min, unsigned long max,
-		   unsigned long size);
+int mas_empty_area (struct ma_state* mas, unsigned long min, unsigned long max, unsigned long size);
 /*
  * This finds an empty area from the highest address to the lowest.
  * AKA "Topdown" version,
  */
-int mas_empty_area_rev(struct ma_state *mas, unsigned long min,
-		       unsigned long max, unsigned long size);
+int mas_empty_area_rev (struct ma_state* mas,
+                        unsigned long    min,
+                        unsigned long    max,
+                        unsigned long    size);
 
-static inline void mas_init(struct ma_state *mas, struct maple_tree *tree,
-			    unsigned long addr)
+static inline void mas_init (struct ma_state* mas, struct maple_tree* tree, unsigned long addr)
 {
-	memset(mas, 0, sizeof(struct ma_state));
-	mas->tree = tree;
-	mas->index = mas->last = addr;
-	mas->max = ULONG_MAX;
-	mas->status = ma_start;
-	mas->node = NULL;
+    memset (mas, 0, sizeof (struct ma_state));
+    mas->tree  = tree;
+    mas->index = mas->last = addr;
+    mas->max               = ULONG_MAX;
+    mas->status            = ma_start;
+    mas->node              = NULL;
 }
 
-static inline bool mas_is_active(struct ma_state *mas)
+static inline bool mas_is_active (struct ma_state* mas)
 {
-	return mas->status == ma_active;
+    return mas->status == ma_active;
 }
 
-static inline bool mas_is_err(struct ma_state *mas)
+static inline bool mas_is_err (struct ma_state* mas)
 {
-	return mas->status == ma_error;
+    return mas->status == ma_error;
 }
 
 /**
@@ -572,10 +618,10 @@ static inline bool mas_is_err(struct ma_state *mas)
  *
  * Context: Any context.
  */
-static __always_inline void mas_reset(struct ma_state *mas)
+static __always_inline void mas_reset (struct ma_state* mas)
 {
-	mas->status = ma_start;
-	mas->node = NULL;
+    mas->status = ma_start;
+    mas->node   = NULL;
 }
 
 /**
@@ -590,130 +636,125 @@ static __always_inline void mas_reset(struct ma_state *mas)
  * Note: may return the zero entry.
  */
 #define mas_for_each(__mas, __entry, __max) \
-	while (((__entry) = mas_find((__mas), (__max))) != NULL)
+    while (((__entry) = mas_find ((__mas), (__max))) != NULL)
 
 #ifdef CONFIG_DEBUG_MAPLE_TREE
-enum mt_dump_format {
-	mt_dump_dec,
-	mt_dump_hex,
+enum mt_dump_format
+{
+    mt_dump_dec,
+    mt_dump_hex,
 };
 
 extern atomic_t maple_tree_tests_run;
 extern atomic_t maple_tree_tests_passed;
 
-void mt_dump(const struct maple_tree *mt, enum mt_dump_format format);
-void mas_dump(const struct ma_state *mas);
-void mas_wr_dump(const struct ma_wr_state *wr_mas);
-void mt_validate(struct maple_tree *mt);
-void mt_cache_shrink(void);
-#define MT_BUG_ON(__tree, __x) do {					\
-	atomic_inc(&maple_tree_tests_run);				\
-	if (__x) {							\
-		pr_info("BUG at %s:%d (%u)\n",				\
-		__func__, __LINE__, __x);				\
-		mt_dump(__tree, mt_dump_hex);				\
-		pr_info("Pass: %u Run:%u\n",				\
-			atomic_read(&maple_tree_tests_passed),		\
-			atomic_read(&maple_tree_tests_run));		\
-		dump_stack();						\
-	} else {							\
-		atomic_inc(&maple_tree_tests_passed);			\
-	}								\
-} while (0)
+void            mt_dump (const struct maple_tree* mt, enum mt_dump_format format);
+void            mas_dump (const struct ma_state* mas);
+void            mas_wr_dump (const struct ma_wr_state* wr_mas);
+void            mt_validate (struct maple_tree* mt);
+void            mt_cache_shrink (void);
+#    define MT_BUG_ON(__tree, __x)                                                    \
+        do {                                                                          \
+            atomic_inc (&maple_tree_tests_run);                                       \
+            if (__x) {                                                                \
+                pr_info ("BUG at %s:%d (%u)\n", __func__, __LINE__, __x);             \
+                mt_dump (__tree, mt_dump_hex);                                        \
+                pr_info ("Pass: %u Run:%u\n", atomic_read (&maple_tree_tests_passed), \
+                                    atomic_read (&maple_tree_tests_run));                        \
+                dump_stack ();                                                        \
+            } else {                                                                  \
+                atomic_inc (&maple_tree_tests_passed);                                \
+            }                                                                         \
+        } while (0)
 
-#define MAS_BUG_ON(__mas, __x) do {					\
-	atomic_inc(&maple_tree_tests_run);				\
-	if (__x) {							\
-		pr_info("BUG at %s:%d (%u)\n",				\
-		__func__, __LINE__, __x);				\
-		mas_dump(__mas);					\
-		mt_dump((__mas)->tree, mt_dump_hex);			\
-		pr_info("Pass: %u Run:%u\n",				\
-			atomic_read(&maple_tree_tests_passed),		\
-			atomic_read(&maple_tree_tests_run));		\
-		dump_stack();						\
-	} else {							\
-		atomic_inc(&maple_tree_tests_passed);			\
-	}								\
-} while (0)
+#    define MAS_BUG_ON(__mas, __x)                                                    \
+        do {                                                                          \
+            atomic_inc (&maple_tree_tests_run);                                       \
+            if (__x) {                                                                \
+                pr_info ("BUG at %s:%d (%u)\n", __func__, __LINE__, __x);             \
+                mas_dump (__mas);                                                     \
+                mt_dump ((__mas)->tree, mt_dump_hex);                                 \
+                pr_info ("Pass: %u Run:%u\n", atomic_read (&maple_tree_tests_passed), \
+                                    atomic_read (&maple_tree_tests_run));                        \
+                dump_stack ();                                                        \
+            } else {                                                                  \
+                atomic_inc (&maple_tree_tests_passed);                                \
+            }                                                                         \
+        } while (0)
 
-#define MAS_WR_BUG_ON(__wrmas, __x) do {				\
-	atomic_inc(&maple_tree_tests_run);				\
-	if (__x) {							\
-		pr_info("BUG at %s:%d (%u)\n",				\
-		__func__, __LINE__, __x);				\
-		mas_wr_dump(__wrmas);					\
-		mas_dump((__wrmas)->mas);				\
-		mt_dump((__wrmas)->mas->tree, mt_dump_hex);		\
-		pr_info("Pass: %u Run:%u\n",				\
-			atomic_read(&maple_tree_tests_passed),		\
-			atomic_read(&maple_tree_tests_run));		\
-		dump_stack();						\
-	} else {							\
-		atomic_inc(&maple_tree_tests_passed);			\
-	}								\
-} while (0)
+#    define MAS_WR_BUG_ON(__wrmas, __x)                                               \
+        do {                                                                          \
+            atomic_inc (&maple_tree_tests_run);                                       \
+            if (__x) {                                                                \
+                pr_info ("BUG at %s:%d (%u)\n", __func__, __LINE__, __x);             \
+                mas_wr_dump (__wrmas);                                                \
+                mas_dump ((__wrmas)->mas);                                            \
+                mt_dump ((__wrmas)->mas->tree, mt_dump_hex);                          \
+                pr_info ("Pass: %u Run:%u\n", atomic_read (&maple_tree_tests_passed), \
+                                    atomic_read (&maple_tree_tests_run));                        \
+                dump_stack ();                                                        \
+            } else {                                                                  \
+                atomic_inc (&maple_tree_tests_passed);                                \
+            }                                                                         \
+        } while (0)
 
-#define MT_WARN_ON(__tree, __x)  ({					\
-	int ret = !!(__x);						\
-	atomic_inc(&maple_tree_tests_run);				\
-	if (ret) {							\
-		pr_info("WARN at %s:%d (%u)\n",				\
-		__func__, __LINE__, __x);				\
-		mt_dump(__tree, mt_dump_hex);				\
-		pr_info("Pass: %u Run:%u\n",				\
-			atomic_read(&maple_tree_tests_passed),		\
-			atomic_read(&maple_tree_tests_run));		\
-		dump_stack();						\
-	} else {							\
-		atomic_inc(&maple_tree_tests_passed);			\
-	}								\
-	unlikely(ret);							\
-})
+#    define MT_WARN_ON(__tree, __x)                                                   \
+        ({                                                                            \
+            int ret = !!(__x);                                                        \
+            atomic_inc (&maple_tree_tests_run);                                       \
+            if (ret) {                                                                \
+                pr_info ("WARN at %s:%d (%u)\n", __func__, __LINE__, __x);            \
+                mt_dump (__tree, mt_dump_hex);                                        \
+                pr_info ("Pass: %u Run:%u\n", atomic_read (&maple_tree_tests_passed), \
+                                    atomic_read (&maple_tree_tests_run));                        \
+                dump_stack ();                                                        \
+            } else {                                                                  \
+                atomic_inc (&maple_tree_tests_passed);                                \
+            }                                                                         \
+            unlikely (ret);                                                           \
+        })
 
-#define MAS_WARN_ON(__mas, __x) ({					\
-	int ret = !!(__x);						\
-	atomic_inc(&maple_tree_tests_run);				\
-	if (ret) {							\
-		pr_info("WARN at %s:%d (%u)\n",				\
-		__func__, __LINE__, __x);				\
-		mas_dump(__mas);					\
-		mt_dump((__mas)->tree, mt_dump_hex);			\
-		pr_info("Pass: %u Run:%u\n",				\
-			atomic_read(&maple_tree_tests_passed),		\
-			atomic_read(&maple_tree_tests_run));		\
-		dump_stack();						\
-	} else {							\
-		atomic_inc(&maple_tree_tests_passed);			\
-	}								\
-	unlikely(ret);							\
-})
+#    define MAS_WARN_ON(__mas, __x)                                                   \
+        ({                                                                            \
+            int ret = !!(__x);                                                        \
+            atomic_inc (&maple_tree_tests_run);                                       \
+            if (ret) {                                                                \
+                pr_info ("WARN at %s:%d (%u)\n", __func__, __LINE__, __x);            \
+                mas_dump (__mas);                                                     \
+                mt_dump ((__mas)->tree, mt_dump_hex);                                 \
+                pr_info ("Pass: %u Run:%u\n", atomic_read (&maple_tree_tests_passed), \
+                                    atomic_read (&maple_tree_tests_run));                        \
+                dump_stack ();                                                        \
+            } else {                                                                  \
+                atomic_inc (&maple_tree_tests_passed);                                \
+            }                                                                         \
+            unlikely (ret);                                                           \
+        })
 
-#define MAS_WR_WARN_ON(__wrmas, __x) ({					\
-	int ret = !!(__x);						\
-	atomic_inc(&maple_tree_tests_run);				\
-	if (ret) {							\
-		pr_info("WARN at %s:%d (%u)\n",				\
-		__func__, __LINE__, __x);				\
-		mas_wr_dump(__wrmas);					\
-		mas_dump((__wrmas)->mas);				\
-		mt_dump((__wrmas)->mas->tree, mt_dump_hex);		\
-		pr_info("Pass: %u Run:%u\n",				\
-			atomic_read(&maple_tree_tests_passed),		\
-			atomic_read(&maple_tree_tests_run));		\
-		dump_stack();						\
-	} else {							\
-		atomic_inc(&maple_tree_tests_passed);			\
-	}								\
-	unlikely(ret);							\
-})
+#    define MAS_WR_WARN_ON(__wrmas, __x)                                              \
+        ({                                                                            \
+            int ret = !!(__x);                                                        \
+            atomic_inc (&maple_tree_tests_run);                                       \
+            if (ret) {                                                                \
+                pr_info ("WARN at %s:%d (%u)\n", __func__, __LINE__, __x);            \
+                mas_wr_dump (__wrmas);                                                \
+                mas_dump ((__wrmas)->mas);                                            \
+                mt_dump ((__wrmas)->mas->tree, mt_dump_hex);                          \
+                pr_info ("Pass: %u Run:%u\n", atomic_read (&maple_tree_tests_passed), \
+                                    atomic_read (&maple_tree_tests_run));                        \
+                dump_stack ();                                                        \
+            } else {                                                                  \
+                atomic_inc (&maple_tree_tests_passed);                                \
+            }                                                                         \
+            unlikely (ret);                                                           \
+        })
 #else
-#define MT_BUG_ON(__tree, __x)		BUG_ON(__x)
-#define MAS_BUG_ON(__mas, __x)		BUG_ON(__x)
-#define MAS_WR_BUG_ON(__mas, __x)	BUG_ON(__x)
-#define MT_WARN_ON(__tree, __x)		WARN_ON(__x)
-#define MAS_WARN_ON(__mas, __x)		WARN_ON(__x)
-#define MAS_WR_WARN_ON(__mas, __x)	WARN_ON(__x)
+#    define MT_BUG_ON(__tree, __x) BUG_ON (__x)
+#    define MAS_BUG_ON(__mas, __x) BUG_ON (__x)
+#    define MAS_WR_BUG_ON(__mas, __x) BUG_ON (__x)
+#    define MT_WARN_ON(__tree, __x) WARN_ON (__x)
+#    define MAS_WARN_ON(__mas, __x) WARN_ON (__x)
+#    define MAS_WR_WARN_ON(__mas, __x) WARN_ON (__x)
 #endif /* CONFIG_DEBUG_MAPLE_TREE */
 
 /**
@@ -726,14 +767,12 @@ void mt_cache_shrink(void);
  * set the internal maple state values to a sub-range.
  * Please use mas_set_range() if you do not know where you are in the tree.
  */
-static inline void __mas_set_range(struct ma_state *mas, unsigned long start,
-		unsigned long last)
+static inline void __mas_set_range (struct ma_state* mas, unsigned long start, unsigned long last)
 {
-	/* Ensure the range starts within the current slot */
-	MAS_WARN_ON(mas, mas_is_active(mas) &&
-		   (mas->index > start || mas->last < start));
-	mas->index = start;
-	mas->last = last;
+    /* Ensure the range starts within the current slot */
+    MAS_WARN_ON (mas, mas_is_active (mas) && (mas->index > start || mas->last < start));
+    mas->index = start;
+    mas->last  = last;
 }
 
 /**
@@ -746,11 +785,10 @@ static inline void __mas_set_range(struct ma_state *mas, unsigned long start,
  * have the effect of starting a walk from the top; see mas_next()
  * to move to an adjacent index.
  */
-static inline
-void mas_set_range(struct ma_state *mas, unsigned long start, unsigned long last)
+static inline void mas_set_range (struct ma_state* mas, unsigned long start, unsigned long last)
 {
-	mas_reset(mas);
-	__mas_set_range(mas, start, last);
+    mas_reset (mas);
+    __mas_set_range (mas, start, last);
 }
 
 /**
@@ -762,15 +800,15 @@ void mas_set_range(struct ma_state *mas, unsigned long start, unsigned long last
  * have the effect of starting a walk from the top; see mas_next()
  * to move to an adjacent index.
  */
-static inline void mas_set(struct ma_state *mas, unsigned long index)
+static inline void mas_set (struct ma_state* mas, unsigned long index)
 {
 
-	mas_set_range(mas, index, index);
+    mas_set_range (mas, index, index);
 }
 
-static inline bool mt_external_lock(const struct maple_tree *mt)
+static inline bool mt_external_lock (const struct maple_tree* mt)
 {
-	return (mt->ma_flags & MT_FLAGS_LOCK_MASK) == MT_FLAGS_LOCK_EXTERN;
+    return (mt->ma_flags & MT_FLAGS_LOCK_MASK) == MT_FLAGS_LOCK_EXTERN;
 }
 
 /**
@@ -783,12 +821,12 @@ static inline bool mt_external_lock(const struct maple_tree *mt)
  *
  * Context: Any context.
  */
-static inline void mt_init_flags(struct maple_tree *mt, unsigned int flags)
+static inline void mt_init_flags (struct maple_tree* mt, unsigned int flags)
 {
-	mt->ma_flags = flags;
-	if (!mt_external_lock(mt))
-		spin_lock_init(&mt->ma_lock);
-	rcu_assign_pointer(mt->ma_root, NULL);
+    mt->ma_flags = flags;
+    if (!mt_external_lock (mt))
+        spin_lock_init (&mt->ma_lock);
+    rcu_assign_pointer (mt->ma_root, NULL);
 }
 
 /**
@@ -799,67 +837,66 @@ static inline void mt_init_flags(struct maple_tree *mt, unsigned int flags)
  *
  * Context: Any context.
  */
-static inline void mt_init(struct maple_tree *mt)
+static inline void mt_init (struct maple_tree* mt)
 {
-	mt_init_flags(mt, 0);
+    mt_init_flags (mt, 0);
 }
 
-static inline bool mt_in_rcu(struct maple_tree *mt)
+static inline bool mt_in_rcu (struct maple_tree* mt)
 {
 #ifdef CONFIG_MAPLE_RCU_DISABLED
-	return false;
+    return false;
 #endif
-	return mt->ma_flags & MT_FLAGS_USE_RCU;
+    return mt->ma_flags & MT_FLAGS_USE_RCU;
 }
 
 /**
  * mt_clear_in_rcu() - Switch the tree to non-RCU mode.
  * @mt: The Maple Tree
  */
-static inline void mt_clear_in_rcu(struct maple_tree *mt)
+static inline void mt_clear_in_rcu (struct maple_tree* mt)
 {
-	if (!mt_in_rcu(mt))
-		return;
+    if (!mt_in_rcu (mt))
+        return;
 
-	if (mt_external_lock(mt)) {
-		WARN_ON(!mt_lock_is_held(mt));
-		mt->ma_flags &= ~MT_FLAGS_USE_RCU;
-	} else {
-		mtree_lock(mt);
-		mt->ma_flags &= ~MT_FLAGS_USE_RCU;
-		mtree_unlock(mt);
-	}
+    if (mt_external_lock (mt)) {
+        WARN_ON (!mt_lock_is_held (mt));
+        mt->ma_flags &= ~MT_FLAGS_USE_RCU;
+    } else {
+        mtree_lock (mt);
+        mt->ma_flags &= ~MT_FLAGS_USE_RCU;
+        mtree_unlock (mt);
+    }
 }
 
 /**
  * mt_set_in_rcu() - Switch the tree to RCU safe mode.
  * @mt: The Maple Tree
  */
-static inline void mt_set_in_rcu(struct maple_tree *mt)
+static inline void mt_set_in_rcu (struct maple_tree* mt)
 {
-	if (mt_in_rcu(mt))
-		return;
+    if (mt_in_rcu (mt))
+        return;
 
-	if (mt_external_lock(mt)) {
-		WARN_ON(!mt_lock_is_held(mt));
-		mt->ma_flags |= MT_FLAGS_USE_RCU;
-	} else {
-		mtree_lock(mt);
-		mt->ma_flags |= MT_FLAGS_USE_RCU;
-		mtree_unlock(mt);
-	}
+    if (mt_external_lock (mt)) {
+        WARN_ON (!mt_lock_is_held (mt));
+        mt->ma_flags |= MT_FLAGS_USE_RCU;
+    } else {
+        mtree_lock (mt);
+        mt->ma_flags |= MT_FLAGS_USE_RCU;
+        mtree_unlock (mt);
+    }
 }
 
-static inline unsigned int mt_height(const struct maple_tree *mt)
+static inline unsigned int mt_height (const struct maple_tree* mt)
 {
-	return (mt->ma_flags & MT_FLAGS_HEIGHT_MASK) >> MT_FLAGS_HEIGHT_OFFSET;
+    return (mt->ma_flags & MT_FLAGS_HEIGHT_MASK) >> MT_FLAGS_HEIGHT_OFFSET;
 }
 
-void *mt_find(struct maple_tree *mt, unsigned long *index, unsigned long max);
-void *mt_find_after(struct maple_tree *mt, unsigned long *index,
-		    unsigned long max);
-void *mt_prev(struct maple_tree *mt, unsigned long index,  unsigned long min);
-void *mt_next(struct maple_tree *mt, unsigned long index, unsigned long max);
+void* mt_find (struct maple_tree* mt, unsigned long* index, unsigned long max);
+void* mt_find_after (struct maple_tree* mt, unsigned long* index, unsigned long max);
+void* mt_prev (struct maple_tree* mt, unsigned long index, unsigned long min);
+void* mt_next (struct maple_tree* mt, unsigned long index, unsigned long max);
 
 /**
  * mt_for_each - Iterate over each entry starting at index until max.
@@ -871,8 +908,8 @@ void *mt_next(struct maple_tree *mt, unsigned long index, unsigned long max);
  * This iterator skips all entries, which resolve to a NULL pointer,
  * e.g. entries which has been reserved with XA_ZERO_ENTRY.
  */
-#define mt_for_each(__tree, __entry, __index, __max) \
-	for (__entry = mt_find(__tree, &(__index), __max); \
-		__entry; __entry = mt_find_after(__tree, &(__index), __max))
+#define mt_for_each(__tree, __entry, __index, __max)             \
+    for (__entry = mt_find (__tree, &(__index), __max); __entry; \
+         __entry = mt_find_after (__tree, &(__index), __max))
 
 #endif /*_LINUX_MAPLE_TREE_H */

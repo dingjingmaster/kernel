@@ -99,14 +99,14 @@ struct olpc_ofw_header
 
 struct efi_info
 {
-    __u32 efi_loader_signature;
-    __u32 efi_systab;
-    __u32 efi_memdesc_size;
-    __u32 efi_memdesc_version;
-    __u32 efi_memmap;
-    __u32 efi_memmap_size;
-    __u32 efi_systab_hi;
-    __u32 efi_memmap_hi;
+    __u32 efi_loader_signature; // "EL64" 表示是EFI启动
+    __u32 efi_systab;           // EFI system table 物理地址
+    __u32 efi_memdesc_size;     // EFI memory descriptor 大小
+    __u32 efi_memdesc_version;  // EFI memory descriptor 版本
+    __u32 efi_memmap;           // EFI memory map 物理地址
+    __u32 efi_memmap_size;      // EFI memory map 大小
+    __u32 efi_systab_hi;        // EFI system table 高 32 位(64位系统使用)
+    __u32 efi_memmap_hi;        // EFI memory map 高 32 位
 };
 
 /*

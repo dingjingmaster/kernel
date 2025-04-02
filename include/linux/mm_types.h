@@ -876,6 +876,11 @@ struct mm_struct
             atomic_t mm_count;
         } ____cacheline_aligned_in_smp;
 
+        /**
+         * @brief
+         * 管理虚拟内存区域（VMA）的新数据结构，用于替代传统的红黑树（rbtree）和双向链表组合。
+         * 其主要设计目标包括提升并发性能、简化操作逻辑，并支持无锁（lockless）访问模式。
+         */
         struct maple_tree mm_mt;
 
         unsigned long     mmap_base;        /* 内存映射区域的起始地址，base of mmap area */

@@ -79,8 +79,10 @@ static void maybe_kfree_parameter (void* param)
 
 static char dash2underscore (char c)
 {
-    if (c == '-')
+    if (c == '-') {
         return '_';
+    }
+
     return c;
 }
 
@@ -89,8 +91,9 @@ bool parameqn (const char* a, const char* b, size_t n)
     size_t i;
 
     for (i = 0; i < n; i++) {
-        if (dash2underscore (a[i]) != dash2underscore (b[i]))
+        if (dash2underscore (a[i]) != dash2underscore (b[i])) {
             return false;
+        }
     }
     return true;
 }
