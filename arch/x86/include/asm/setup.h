@@ -12,80 +12,75 @@
 
 #ifdef __i386__
 
-#    include <linux/pfn.h>
+#include <linux/pfn.h>
 /*
  * Reserved space for vmalloc and iomap - defined in asm/page.h
  */
-#    define MAXMEM_PFN PFN_DOWN (MAXMEM)
-#    define MAX_NONPAE_PFN (1 << 20)
+#define MAXMEM_PFN	PFN_DOWN(MAXMEM)
+#define MAX_NONPAE_PFN	(1 << 20)
 
-#endif                       /* __i386__ */
+#endif /* __i386__ */
 
-#define PARAM_SIZE 4096      /* sizeof(struct boot_params) */
+#define PARAM_SIZE 4096		/* sizeof(struct boot_params) */
 
-#define OLD_CL_MAGIC 0xA33F
-#define OLD_CL_ADDRESS 0x020 /* Relative to real mode data */
-#define NEW_CL_POINTER 0x228 /* Relative to real mode data */
+#define OLD_CL_MAGIC		0xA33F
+#define OLD_CL_ADDRESS		0x020	/* Relative to real mode data */
+#define NEW_CL_POINTER		0x228	/* Relative to real mode data */
 
 #ifndef __ASSEMBLY__
-#    include <linux/cache.h>
+#include <linux/cache.h>
 
-#    include <asm/bootparam.h>
-#    include <asm/x86_init.h>
+#include <asm/bootparam.h>
+#include <asm/x86_init.h>
 
 /* Interrupt control for vSMPowered x86_64 systems */
-#    ifdef CONFIG_X86_64
-void vsmp_init (void);
-#    else
-static inline void vsmp_init (void)
-{
-}
-#    endif
+#ifdef CONFIG_X86_64
+void vsmp_init(void);
+#else
+static inline void vsmp_init(void) { }
+#endif
 
 struct pt_regs;
 
-void                 setup_bios_corruption_check (void);
-void                 early_platform_quirks (void);
+void setup_bios_corruption_check(void);
+void early_platform_quirks(void);
 
 extern unsigned long saved_video_mode;
 
-extern void          reserve_standard_io_resources (void);
-extern void          i386_reserve_resources (void);
-extern unsigned long __startup_64 (unsigned long physaddr, struct boot_params* bp);
-extern void          startup_64_setup_gdt_idt (void);
-extern void          early_setup_idt (void);
-extern void __init   do_early_exception (struct pt_regs* regs, int trapnr);
+extern void reserve_standard_io_resources(void);
+extern void i386_reserve_resources(void);
+extern unsigned long __startup_64(unsigned long physaddr, struct boot_params *bp);
+extern void startup_64_setup_gdt_idt(void);
+extern void early_setup_idt(void);
+extern void __init do_early_exception(struct pt_regs *regs, int trapnr);
 
-#    ifdef CONFIG_X86_INTEL_MID
-extern void x86_intel_mid_early_setup (void);
-#    else
-static inline void x86_intel_mid_early_setup (void)
-{
-}
-#    endif
+#ifdef CONFIG_X86_INTEL_MID
+extern void x86_intel_mid_early_setup(void);
+#else
+static inline void x86_intel_mid_early_setup(void) { }
+#endif
 
-#    ifdef CONFIG_X86_INTEL_CE
-extern void x86_ce4100_early_setup (void);
-#    else
-static inline void x86_ce4100_early_setup (void)
-{
-}
-#    endif
+#ifdef CONFIG_X86_INTEL_CE
+extern void x86_ce4100_early_setup(void);
+#else
+static inline void x86_ce4100_early_setup(void) { }
+#endif
 
-#    ifndef _SETUP
+#ifndef _SETUP
 
-#        include <asm/espfix.h>
-#        include <linux/kernel.h>
+#include <asm/espfix.h>
+#include <linux/kernel.h>
 
 /*
  * This is set up by the setup-routine at boot-time
  */
 extern struct boot_params boot_params;
-extern char               _text[];
+extern char _text[];
 
-static inline bool        kaslr_enabled (void)
+static inline bool kaslr_enabled(void)
 {
-    return IS_ENABLED (CONFIG_RANDOMIZE_MEMORY) && !!(boot_params.hdr.loadflags & KASLR_FLAG);
+	return IS_ENABLED(CONFIG_RANDOMIZE_MEMORY) &&
+		!!(boot_params.hdr.loadflags & KASLR_FLAG);
 }
 
 /*
@@ -106,11 +101,11 @@ static inline unsigned long kaslr_offset (void)
  * Do NOT EVER look at the BIOS memory size location.
  * It does not work on many machines.
  */
-#        define LOWMEMSIZE() (0x9f000)
+#define LOWMEMSIZE()	(0x9f000)
 
 /* exceedingly early brk-like allocator */
 extern unsigned long _brk_end;
-void*                extend_brk (size_t size, size_t align);
+void *extend_brk(size_t size, size_t align);
 
 /*
  * Reserve space in the .brk section, which is a block of memory from which the
@@ -120,35 +115,43 @@ void*                extend_brk (size_t size, size_t align);
  *
  * The size is in bytes.
  */
-#        define RESERVE_BRK(name, size) __section (".bss..brk") __aligned (1) __used static char __brk_##name[size]
+#define RESERVE_BRK(name, size)					\
+	__section(".bss..brk") __aligned(1) __used	\
+	static char __brk_##name[size]
 
-extern void probe_roms (void);
+extern void probe_roms(void);
 
-void        clear_bss (void);
+void clear_bss(void);
 
-#        ifdef __i386__
+#ifdef __i386__
 
-asmlinkage void __init __noreturn i386_start_kernel (void);
-void __init                       mk_early_pgtbl_32 (void);
+asmlinkage void __init __noreturn i386_start_kernel(void);
+void __init mk_early_pgtbl_32(void);
 
-#        else
-asmlinkage void __init __noreturn x86_64_start_kernel (char* real_mode);
-asmlinkage void __init __noreturn x86_64_start_reservations (char* real_mode_data);
+#else
+asmlinkage void __init __noreturn x86_64_start_kernel(char *real_mode);
+asmlinkage void __init __noreturn x86_64_start_reservations(char *real_mode_data);
 
-#        endif /* __i386__ */
-#    endif                           /* _SETUP */
+#endif /* __i386__ */
+#endif /* _SETUP */
 
-#    ifdef CONFIG_CMDLINE_BOOL
+#ifdef CONFIG_CMDLINE_BOOL
 extern bool builtin_cmdline_added __ro_after_init;
-#    else
-#        define builtin_cmdline_added 0
-#    endif
+#else
+#define builtin_cmdline_added 0
+#endif
 
 #else  /* __ASSEMBLY */
 
-.macro __RESERVE_BRK name, size.pushsection.bss..brk, "aw" SYM_DATA_START (__brk_\name).skip \size SYM_DATA_END (__brk_\name).popsection.endm
+.macro __RESERVE_BRK name, size
+	.pushsection .bss..brk, "aw"
+SYM_DATA_START(__brk_\name)
+	.skip \size
+SYM_DATA_END(__brk_\name)
+	.popsection
+.endm
 
-#    define RESERVE_BRK(name, size) __RESERVE_BRK name, size
+#define RESERVE_BRK(name, size) __RESERVE_BRK name, size
 
 #endif /* __ASSEMBLY__ */
 

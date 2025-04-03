@@ -27,8 +27,8 @@
 #include "voffset.h"
 #include "zoffset.h"
 
-BOOTSEG        = 0x07C0       /* original address of boot-sector */
-SYSSEG        = 0x1000        /* historical load address >> 4 */
+BOOTSEG		= 0x07C0		/* original address of boot-sector */
+SYSSEG		= 0x1000		/* historical load address >> 4 */
 
 #ifndef SVGA_MODE
 #define SVGA_MODE ASK_VGA
@@ -38,303 +38,299 @@ SYSSEG        = 0x1000        /* historical load address >> 4 */
 #define ROOT_RDONLY 1
 #endif
 
-    .set    salign, 0x1000
-    .set    falign, 0x200
+	.set	salign, 0x1000
+	.set	falign, 0x200
 
-    .code16
-    .section ".bstext", "ax"
+	.code16
+	.section ".bstext", "ax"
 #ifdef CONFIG_EFI_STUB
-    # "MZ", MS-DOS header
-    .word    MZ_MAGIC
-    .org    0x38
-    #
-    # Offset to the PE header.
-    #
-    .long    LINUX_PE_MAGIC
-    .long    pe_header
+	# "MZ", MS-DOS header
+	.word	MZ_MAGIC
+	.org	0x38
+	#
+	# Offset to the PE header.
+	#
+	.long	LINUX_PE_MAGIC
+	.long	pe_header
 pe_header:
-    .long    PE_MAGIC
+	.long	PE_MAGIC
 
 coff_header:
 #ifdef CONFIG_X86_32
-    .set    image_file_add_flags, IMAGE_FILE_32BIT_MACHINE
-    .set    pe_opt_magic, PE_OPT_MAGIC_PE32
-    .word    IMAGE_FILE_MACHINE_I386
+	.set	image_file_add_flags, IMAGE_FILE_32BIT_MACHINE
+	.set	pe_opt_magic, PE_OPT_MAGIC_PE32
+	.word	IMAGE_FILE_MACHINE_I386
 #else
-    .set    image_file_add_flags, 0
-    .set    pe_opt_magic, PE_OPT_MAGIC_PE32PLUS
-    .word    IMAGE_FILE_MACHINE_AMD64
+	.set	image_file_add_flags, 0
+	.set	pe_opt_magic, PE_OPT_MAGIC_PE32PLUS
+	.word	IMAGE_FILE_MACHINE_AMD64
 #endif
-    .word    section_count            # nr_sections
-    .long    0                 # TimeDateStamp
-    .long    0                # PointerToSymbolTable
-    .long    1                # NumberOfSymbols
-    .word    section_table - optional_header    # SizeOfOptionalHeader
-    .word    IMAGE_FILE_EXECUTABLE_IMAGE    | \
-        image_file_add_flags        | \
-        IMAGE_FILE_DEBUG_STRIPPED    | \
-        IMAGE_FILE_LINE_NUMS_STRIPPED    # Characteristics
+	.word	section_count			# nr_sections
+	.long	0 				# TimeDateStamp
+	.long	0				# PointerToSymbolTable
+	.long	1				# NumberOfSymbols
+	.word	section_table - optional_header	# SizeOfOptionalHeader
+	.word	IMAGE_FILE_EXECUTABLE_IMAGE	| \
+		image_file_add_flags		| \
+		IMAGE_FILE_DEBUG_STRIPPED	| \
+		IMAGE_FILE_LINE_NUMS_STRIPPED	# Characteristics
 
 optional_header:
-    .word    pe_opt_magic
-    .byte    0x02                # MajorLinkerVersion
-    .byte    0x14                # MinorLinkerVersion
+	.word	pe_opt_magic
+	.byte	0x02				# MajorLinkerVersion
+	.byte	0x14				# MinorLinkerVersion
 
-    .long    ZO__data            # SizeOfCode
+	.long	ZO__data			# SizeOfCode
 
-    .long    ZO__end - ZO__data        # SizeOfInitializedData
-    .long    0                # SizeOfUninitializedData
+	.long	ZO__end - ZO__data		# SizeOfInitializedData
+	.long	0				# SizeOfUninitializedData
 
-    .long    setup_size + ZO_efi_pe_entry    # AddressOfEntryPoint
+	.long	setup_size + ZO_efi_pe_entry	# AddressOfEntryPoint
 
-    .long    setup_size            # BaseOfCode
+	.long	setup_size			# BaseOfCode
 #ifdef CONFIG_X86_32
-    .long    0                # data
+	.long	0				# data
 #endif
 
 extra_header_fields:
 #ifdef CONFIG_X86_32
-    .long    0                # ImageBase
+	.long	0				# ImageBase
 #else
-    .quad    0                # ImageBase
+	.quad	0				# ImageBase
 #endif
-    .long    salign                # SectionAlignment
-    .long    falign                # FileAlignment
-    .word    0                # MajorOperatingSystemVersion
-    .word    0                # MinorOperatingSystemVersion
-    .word    LINUX_EFISTUB_MAJOR_VERSION    # MajorImageVersion
-    .word    LINUX_EFISTUB_MINOR_VERSION    # MinorImageVersion
-    .word    0                # MajorSubsystemVersion
-    .word    0                # MinorSubsystemVersion
-    .long    0                # Win32VersionValue
+	.long	salign				# SectionAlignment
+	.long	falign				# FileAlignment
+	.word	0				# MajorOperatingSystemVersion
+	.word	0				# MinorOperatingSystemVersion
+	.word	LINUX_EFISTUB_MAJOR_VERSION	# MajorImageVersion
+	.word	LINUX_EFISTUB_MINOR_VERSION	# MinorImageVersion
+	.word	0				# MajorSubsystemVersion
+	.word	0				# MinorSubsystemVersion
+	.long	0				# Win32VersionValue
 
-    .long    setup_size + ZO__end        # SizeOfImage
+	.long	setup_size + ZO__end		# SizeOfImage
 
-    .long    salign                # SizeOfHeaders
-    .long    0                # CheckSum
-    .word    IMAGE_SUBSYSTEM_EFI_APPLICATION    # Subsystem (EFI application)
-    .word    IMAGE_DLL_CHARACTERISTICS_NX_COMPAT    # DllCharacteristics
+	.long	salign				# SizeOfHeaders
+	.long	0				# CheckSum
+	.word	IMAGE_SUBSYSTEM_EFI_APPLICATION	# Subsystem (EFI application)
+	.word	IMAGE_DLL_CHARACTERISTICS_NX_COMPAT	# DllCharacteristics
 #ifdef CONFIG_X86_32
-    .long    0                # SizeOfStackReserve
-    .long    0                # SizeOfStackCommit
-    .long    0                # SizeOfHeapReserve
-    .long    0                # SizeOfHeapCommit
+	.long	0				# SizeOfStackReserve
+	.long	0				# SizeOfStackCommit
+	.long	0				# SizeOfHeapReserve
+	.long	0				# SizeOfHeapCommit
 #else
-    .quad    0                # SizeOfStackReserve
-    .quad    0                # SizeOfStackCommit
-    .quad    0                # SizeOfHeapReserve
-    .quad    0                # SizeOfHeapCommit
+	.quad	0				# SizeOfStackReserve
+	.quad	0				# SizeOfStackCommit
+	.quad	0				# SizeOfHeapReserve
+	.quad	0				# SizeOfHeapCommit
 #endif
-    .long    0                # LoaderFlags
-    .long    (section_table - .) / 8        # NumberOfRvaAndSizes
+	.long	0				# LoaderFlags
+	.long	(section_table - .) / 8		# NumberOfRvaAndSizes
 
-    .quad    0                # ExportTable
-    .quad    0                # ImportTable
-    .quad    0                # ResourceTable
-    .quad    0                # ExceptionTable
-    .quad    0                # CertificationTable
-    .quad    0                # BaseRelocationTable
+	.quad	0				# ExportTable
+	.quad	0				# ImportTable
+	.quad	0				# ResourceTable
+	.quad	0				# ExceptionTable
+	.quad	0				# CertificationTable
+	.quad	0				# BaseRelocationTable
 
-    # Section table
+	# Section table
 section_table:
-    .ascii    ".setup"
-    .byte    0
-    .byte    0
-    .long    pecompat_fstart - salign     # VirtualSize
-    .long    salign                # VirtualAddress
-    .long    pecompat_fstart - salign    # SizeOfRawData
-    .long    salign                # PointerToRawData
+	.ascii	".setup"
+	.byte	0
+	.byte	0
+	.long	pecompat_fstart - salign 	# VirtualSize
+	.long	salign				# VirtualAddress
+	.long	pecompat_fstart - salign	# SizeOfRawData
+	.long	salign				# PointerToRawData
 
-    .long    0, 0, 0
-    .long    IMAGE_SCN_CNT_INITIALIZED_DATA    | \
-        IMAGE_SCN_MEM_READ        | \
-        IMAGE_SCN_MEM_DISCARDABLE    # Characteristics
+	.long	0, 0, 0
+	.long	IMAGE_SCN_CNT_INITIALIZED_DATA	| \
+		IMAGE_SCN_MEM_READ		| \
+		IMAGE_SCN_MEM_DISCARDABLE	# Characteristics
 
 #ifdef CONFIG_EFI_MIXED
-    .asciz    ".compat"
+	.asciz	".compat"
 
-    .long    pecompat_fsize            # VirtualSize
-    .long    pecompat_fstart            # VirtualAddress
-    .long    pecompat_fsize            # SizeOfRawData
-    .long    pecompat_fstart            # PointerToRawData
+	.long	pecompat_fsize			# VirtualSize
+	.long	pecompat_fstart			# VirtualAddress
+	.long	pecompat_fsize			# SizeOfRawData
+	.long	pecompat_fstart			# PointerToRawData
 
-    .long    0, 0, 0
-    .long    IMAGE_SCN_CNT_INITIALIZED_DATA    | \
-        IMAGE_SCN_MEM_READ        | \
-        IMAGE_SCN_MEM_DISCARDABLE    # Characteristics
+	.long	0, 0, 0
+	.long	IMAGE_SCN_CNT_INITIALIZED_DATA	| \
+		IMAGE_SCN_MEM_READ		| \
+		IMAGE_SCN_MEM_DISCARDABLE	# Characteristics
 
-    /*
-     * Put the IA-32 machine type and the associated entry point address in
-     * the .compat section, so loaders can figure out which other execution
-     * modes this image supports.
-     */
-    .pushsection ".pecompat", "a", @progbits
-    .balign    salign
-    .globl    pecompat_fstart
+	/*
+	 * Put the IA-32 machine type and the associated entry point address in
+	 * the .compat section, so loaders can figure out which other execution
+	 * modes this image supports.
+	 */
+	.pushsection ".pecompat", "a", @progbits
+	.balign	salign
+	.globl	pecompat_fstart
 pecompat_fstart:
-    .byte    0x1                # Version
-    .byte    8                # Size
-    .word    IMAGE_FILE_MACHINE_I386        # PE machine type
-    .long    setup_size + ZO_efi32_pe_entry    # Entrypoint
-    .byte    0x0                # Sentinel
-    .popsection
+	.byte	0x1				# Version
+	.byte	8				# Size
+	.word	IMAGE_FILE_MACHINE_I386		# PE machine type
+	.long	setup_size + ZO_efi32_pe_entry	# Entrypoint
+	.byte	0x0				# Sentinel
+	.popsection
 #else
-    .set    pecompat_fstart, setup_size
+	.set	pecompat_fstart, setup_size
 #endif
-    .ascii    ".text"
-    .byte    0
-    .byte    0
-    .byte    0
-    .long    ZO__data
-    .long    setup_size
-    .long    ZO__data            # Size of initialized data
-                        # on disk
-    .long    setup_size
-    .long    0                # PointerToRelocations
-    .long    0                # PointerToLineNumbers
-    .word    0                # NumberOfRelocations
-    .word    0                # NumberOfLineNumbers
-    .long    IMAGE_SCN_CNT_CODE        | \
-        IMAGE_SCN_MEM_READ        | \
-        IMAGE_SCN_MEM_EXECUTE        # Characteristics
+	.ascii	".text"
+	.byte	0
+	.byte	0
+	.byte	0
+	.long	ZO__data
+	.long	setup_size
+	.long	ZO__data			# Size of initialized data
+						# on disk
+	.long	setup_size
+	.long	0				# PointerToRelocations
+	.long	0				# PointerToLineNumbers
+	.word	0				# NumberOfRelocations
+	.word	0				# NumberOfLineNumbers
+	.long	IMAGE_SCN_CNT_CODE		| \
+		IMAGE_SCN_MEM_READ		| \
+		IMAGE_SCN_MEM_EXECUTE		# Characteristics
 
-    .ascii    ".data\0\0\0"
-    .long    ZO__end - ZO__data        # VirtualSize
-    .long    setup_size + ZO__data        # VirtualAddress
-    .long    ZO__edata - ZO__data        # SizeOfRawData
-    .long    setup_size + ZO__data        # PointerToRawData
+	.ascii	".data\0\0\0"
+	.long	ZO__end - ZO__data		# VirtualSize
+	.long	setup_size + ZO__data		# VirtualAddress
+	.long	ZO__edata - ZO__data		# SizeOfRawData
+	.long	setup_size + ZO__data		# PointerToRawData
 
-    .long    0, 0, 0
-    .long    IMAGE_SCN_CNT_INITIALIZED_DATA    | \
-        IMAGE_SCN_MEM_READ        | \
-        IMAGE_SCN_MEM_WRITE        # Characteristics
+	.long	0, 0, 0
+	.long	IMAGE_SCN_CNT_INITIALIZED_DATA	| \
+		IMAGE_SCN_MEM_READ		| \
+		IMAGE_SCN_MEM_WRITE		# Characteristics
 
-    .set    section_count, (. - section_table) / 40
+	.set	section_count, (. - section_table) / 40
 #endif /* CONFIG_EFI_STUB */
 
-    # Kernel attributes; used by setup.  This is part 1 of the
-    # header, from the old boot sector.
+	# Kernel attributes; used by setup.  This is part 1 of the
+	# header, from the old boot sector.
 
-    .section ".header", "a"
-    .globl    sentinel
-sentinel:    .byte 0xff, 0xff        /* Used to detect broken loaders */
+	.section ".header", "a"
+	.globl	sentinel
+sentinel:	.byte 0xff, 0xff        /* Used to detect broken loaders */
 
-    .globl    hdr
+	.globl	hdr
 hdr:
-        .byte setup_sects - 1
-root_flags:    .word ROOT_RDONLY
-syssize:    .long ZO__edata / 16
-ram_size:    .word 0            /* Obsolete */
-vid_mode:    .word SVGA_MODE
-root_dev:    .word 0            /* Default to major/minor 0/0 */
-boot_flag:    .word 0xAA55
+		.byte setup_sects - 1
+root_flags:	.word ROOT_RDONLY
+syssize:	.long ZO__edata / 16
+ram_size:	.word 0			/* Obsolete */
+vid_mode:	.word SVGA_MODE
+root_dev:	.word 0			/* Default to major/minor 0/0 */
+boot_flag:	.word 0xAA55
 
-    # offset 512, entry point
+	# offset 512, entry point
 
-.globl _start
+	.globl	_start
 _start:
-        # Explicitly enter this as bytes, or the assembler
-        # tries to generate a 3-byte jump here, which causes
-        # everything else to push off to the wrong offset.
-        # 请明确以字节形式输入此内容，否则汇编器会在此处尝试生成一个 3 字节的跳转指令，
-        # 这会导致其他所有内容偏移至错误的偏移量。
-        # 复制到设备时候以字节为单位
-        # 0xeb 表示跳转指令
-        .byte    0xeb                # short (2-byte) jump
-        .byte    start_of_setup-1f   # 与上条汇编一起起作用，跳转到 start_of_setup 处
+		# Explicitly enter this as bytes, or the assembler
+		# tries to generate a 3-byte jump here, which causes
+		# everything else to push off to the wrong offset.
+		.byte	0xeb		# short (2-byte) jump
+		.byte	start_of_setup-1f
 1:
 
-    # Part 2 of the header, from the old setup.S
+	# Part 2 of the header, from the old setup.S
 
-        .ascii    "HdrS"        # header signature
-        .word    0x020f        # header version number (>= 0x0105)
-                    # or else old loadlin-1.5 will fail)
-        .globl realmode_swtch
-realmode_swtch:    .word    0, 0        # default_switch, SETUPSEG
-start_sys_seg:    .word    SYSSEG        # obsolete and meaningless, but just
-                    # in case something decided to "use" it
-        .word    kernel_version-512 # pointing to kernel version string
-                    # above section of header is compatible
-                    # with loadlin-1.5 (header v1.5). Don't
-                    # change it.
+		.ascii	"HdrS"		# header signature
+		.word	0x020f		# header version number (>= 0x0105)
+					# or else old loadlin-1.5 will fail)
+		.globl realmode_swtch
+realmode_swtch:	.word	0, 0		# default_switch, SETUPSEG
+start_sys_seg:	.word	SYSSEG		# obsolete and meaningless, but just
+					# in case something decided to "use" it
+		.word	kernel_version-512 # pointing to kernel version string
+					# above section of header is compatible
+					# with loadlin-1.5 (header v1.5). Don't
+					# change it.
 
-type_of_loader:    .byte    0        # 0 means ancient bootloader, newer
-                    # bootloaders know to change this.
-                    # See Documentation/arch/x86/boot.rst for
-                    # assigned ids
+type_of_loader:	.byte	0		# 0 means ancient bootloader, newer
+					# bootloaders know to change this.
+					# See Documentation/arch/x86/boot.rst for
+					# assigned ids
 
 # flags, unused bits must be zero (RFU) bit within loadflags
 loadflags:
-        .byte    LOADED_HIGH    # The kernel is to be loaded high
+		.byte	LOADED_HIGH	# The kernel is to be loaded high
 
-setup_move_size: .word  0x8000        # size to move, when setup is not
-                    # loaded at 0x90000. We will move setup
-                    # to 0x90000 then just before jumping
-                    # into the kernel. However, only the
-                    # loader knows how much data behind
-                    # us also needs to be loaded.
+setup_move_size: .word  0x8000		# size to move, when setup is not
+					# loaded at 0x90000. We will move setup
+					# to 0x90000 then just before jumping
+					# into the kernel. However, only the
+					# loader knows how much data behind
+					# us also needs to be loaded.
 
-code32_start:                # here loaders can put a different
-                    # start address for 32-bit code.
-        .long    0x100000    # 0x100000 = default for big kernel
+code32_start:				# here loaders can put a different
+					# start address for 32-bit code.
+		.long	0x100000	# 0x100000 = default for big kernel
 
-ramdisk_image:    .long    0        # address of loaded ramdisk image
-                    # Here the loader puts the 32-bit
-                    # address where it loaded the image.
-                    # This only will be read by the kernel.
+ramdisk_image:	.long	0		# address of loaded ramdisk image
+					# Here the loader puts the 32-bit
+					# address where it loaded the image.
+					# This only will be read by the kernel.
 
-ramdisk_size:    .long    0        # its size in bytes
+ramdisk_size:	.long	0		# its size in bytes
 
 bootsect_kludge:
-        .long    0        # obsolete
+		.long	0		# obsolete
 
-heap_end_ptr:    .word    _end+STACK_SIZE-512
-                    # (Header version 0x0201 or later)
-                    # space from here (exclusive) down to
-                    # end of setup code can be used by setup
-                    # for local heap purposes.
+heap_end_ptr:	.word	_end+STACK_SIZE-512
+					# (Header version 0x0201 or later)
+					# space from here (exclusive) down to
+					# end of setup code can be used by setup
+					# for local heap purposes.
 
 ext_loader_ver:
-        .byte    0        # Extended boot loader version
+		.byte	0		# Extended boot loader version
 ext_loader_type:
-        .byte    0        # Extended boot loader type
+		.byte	0		# Extended boot loader type
 
-cmd_line_ptr:    .long    0        # (Header version 0x0202 or later)
-                    # If nonzero, a 32-bit pointer
-                    # to the kernel command line.
-                    # The command line should be
-                    # located between the start of
-                    # setup and the end of low
-                    # memory (0xa0000), or it may
-                    # get overwritten before it
-                    # gets read.  If this field is
-                    # used, there is no longer
-                    # anything magical about the
-                    # 0x90000 segment; the setup
-                    # can be located anywhere in
-                    # low memory 0x10000 or higher.
+cmd_line_ptr:	.long	0		# (Header version 0x0202 or later)
+					# If nonzero, a 32-bit pointer
+					# to the kernel command line.
+					# The command line should be
+					# located between the start of
+					# setup and the end of low
+					# memory (0xa0000), or it may
+					# get overwritten before it
+					# gets read.  If this field is
+					# used, there is no longer
+					# anything magical about the
+					# 0x90000 segment; the setup
+					# can be located anywhere in
+					# low memory 0x10000 or higher.
 
 initrd_addr_max: .long 0x7fffffff
-                    # (Header version 0x0203 or later)
-                    # The highest safe address for
-                    # the contents of an initrd
-                    # The current kernel allows up to 4 GB,
-                    # but leave it at 2 GB to avoid
-                    # possible bootloader bugs.
+					# (Header version 0x0203 or later)
+					# The highest safe address for
+					# the contents of an initrd
+					# The current kernel allows up to 4 GB,
+					# but leave it at 2 GB to avoid
+					# possible bootloader bugs.
 
-kernel_alignment:  .long CONFIG_PHYSICAL_ALIGN    #physical addr alignment
-                        #required for protected mode
-                        #kernel
+kernel_alignment:  .long CONFIG_PHYSICAL_ALIGN	#physical addr alignment
+						#required for protected mode
+						#kernel
 #ifdef CONFIG_RELOCATABLE
 relocatable_kernel:    .byte 1
 #else
 relocatable_kernel:    .byte 0
 #endif
-min_alignment:        .byte MIN_KERNEL_ALIGN_LG2    # minimum alignment
+min_alignment:		.byte MIN_KERNEL_ALIGN_LG2	# minimum alignment
 
 xloadflags:
 #ifdef CONFIG_X86_64
-# define XLF0 XLF_KERNEL_64            /* 64-bit kernel */
+# define XLF0 XLF_KERNEL_64			/* 64-bit kernel */
 #else
 # define XLF0 0
 #endif
@@ -351,9 +347,9 @@ xloadflags:
 #  define XLF23 (XLF_EFI_HANDOVER_32|XLF_EFI_HANDOVER_64)
 # else
 #  ifdef CONFIG_X86_64
-#   define XLF23 XLF_EFI_HANDOVER_64        /* 64-bit EFI handover ok */
+#   define XLF23 XLF_EFI_HANDOVER_64		/* 64-bit EFI handover ok */
 #  else
-#   define XLF23 XLF_EFI_HANDOVER_32        /* 32-bit EFI handover ok */
+#   define XLF23 XLF_EFI_HANDOVER_32		/* 32-bit EFI handover ok */
 #  endif
 # endif
 #else
@@ -376,25 +372,25 @@ xloadflags:
 #define XLF56 0
 #endif
 
-            .word XLF0 | XLF1 | XLF23 | XLF4 | XLF56
+			.word XLF0 | XLF1 | XLF23 | XLF4 | XLF56
 
 cmdline_size:   .long   COMMAND_LINE_SIZE-1     #length of the command line,
                                                 #added with boot protocol
                                                 #version 2.06
 
-hardware_subarch:    .long 0            # subarchitecture, added with 2.07
-                        # default to 0 for normal x86 PC
+hardware_subarch:	.long 0			# subarchitecture, added with 2.07
+						# default to 0 for normal x86 PC
 
-hardware_subarch_data:    .quad 0
+hardware_subarch_data:	.quad 0
 
-payload_offset:        .long ZO_input_data
-payload_length:        .long ZO_z_input_len
+payload_offset:		.long ZO_input_data
+payload_length:		.long ZO_z_input_len
 
-setup_data:        .quad 0            # 64-bit physical pointer to
-                        # single linked list of
-                        # struct setup_data
+setup_data:		.quad 0			# 64-bit physical pointer to
+						# single linked list of
+						# struct setup_data
 
-pref_address:        .quad LOAD_PHYSICAL_ADDR    # preferred load addr
+pref_address:		.quad LOAD_PHYSICAL_ADDR	# preferred load addr
 
 #
 # Getting to provably safe in-place decompression is hard. Worst case
@@ -490,12 +486,12 @@ pref_address:        .quad LOAD_PHYSICAL_ADDR    # preferred load addr
 #
 # extra_bytes = (uncompressed_size >> 8) + 131072
 
-#define ZO_z_extra_bytes    ((ZO_z_output_len >> 8) + 131072)
+#define ZO_z_extra_bytes	((ZO_z_output_len >> 8) + 131072)
 #if ZO_z_output_len > ZO_z_input_len
-# define ZO_z_extract_offset    (ZO_z_output_len + ZO_z_extra_bytes - \
-                 ZO_z_input_len)
+# define ZO_z_extract_offset	(ZO_z_output_len + ZO_z_extra_bytes - \
+				 ZO_z_input_len)
 #else
-# define ZO_z_extract_offset    ZO_z_extra_bytes
+# define ZO_z_extract_offset	ZO_z_extra_bytes
 #endif
 
 /*
@@ -509,112 +505,108 @@ pref_address:        .quad LOAD_PHYSICAL_ADDR    # preferred load addr
 # define ZO_z_min_extract_offset ((ZO_z_extract_offset + 4095) & ~4095)
 #endif
 
-#define ZO_INIT_SIZE    (ZO__end - ZO_startup_32 + ZO_z_min_extract_offset)
+#define ZO_INIT_SIZE	(ZO__end - ZO_startup_32 + ZO_z_min_extract_offset)
 
-#define VO_INIT_SIZE    (VO__end - VO__text)
+#define VO_INIT_SIZE	(VO__end - VO__text)
 #if ZO_INIT_SIZE > VO_INIT_SIZE
 # define INIT_SIZE ZO_INIT_SIZE
 #else
 # define INIT_SIZE VO_INIT_SIZE
 #endif
 
-    .macro        __handover_offset
+	.macro		__handover_offset
 #ifndef CONFIG_EFI_HANDOVER_PROTOCOL
-    .long        0
+	.long		0
 #elif !defined(CONFIG_X86_64)
-    .long        ZO_efi32_stub_entry
+	.long		ZO_efi32_stub_entry
 #else
-    /* Yes, this is really how we defined it :( */
-    .long        ZO_efi64_stub_entry - 0x200
+	/* Yes, this is really how we defined it :( */
+	.long		ZO_efi64_stub_entry - 0x200
 #ifdef CONFIG_EFI_MIXED
-    .if        ZO_efi32_stub_entry != ZO_efi64_stub_entry - 0x200
-    .error        "32-bit and 64-bit EFI entry points do not match"
-    .endif
+	.if		ZO_efi32_stub_entry != ZO_efi64_stub_entry - 0x200
+	.error		"32-bit and 64-bit EFI entry points do not match"
+	.endif
 #endif
 #endif
-    .endm
+	.endm
 
-init_size:        .long INIT_SIZE        # kernel initialization size
-handover_offset:    __handover_offset
-kernel_info_offset:    .long ZO_kernel_info
+init_size:		.long INIT_SIZE		# kernel initialization size
+handover_offset:	__handover_offset
+kernel_info_offset:	.long ZO_kernel_info
 
 # End of setup header #####################################################
 
-.section ".entrytext", "ax"
+	.section ".entrytext", "ax"
 start_of_setup:
 # Force %es = %ds
-    movw    %ds, %ax
-    movw    %ax, %es
-    cld                 # 清除方向(CF=0)，指针会递增
+	movw	%ds, %ax
+	movw	%ax, %es
+	cld
 
 # Apparently some ancient versions of LILO invoked the kernel with %ss != %ds,
 # which happened to work by accident for the old code.  Recalculate the stack
 # pointer if %ss is invalid.  Otherwise leave it alone, LOADLIN sets up the
 # stack behind its own code, so we can't blindly put it directly past the heap.
 
-# 显然，某些早期版本的 LILO 在调用内核时使用了 %ss != %ds，这在旧代码中碰巧能正常运行。
-# 如果 %ss 无效，则重新计算栈指针。
-# 否则保持不变，因为 LOADLIN 在其代码之后设置栈，所以我们不能盲目地将其直接放在堆后面。
+	movw	%ss, %dx
+	cmpw	%ax, %dx	# %ds == %ss?
+	movw	%sp, %dx
+	je	2f		# -> assume %sp is reasonably set
 
-    movw    %ss, %dx
-    cmpw    %ax, %dx    # %ds == %ss?
-    movw    %sp, %dx
-    je 2f               # 假定%sp 合理设置。assume %sp is reasonably set
+	# Invalid %ss, make up a new stack
+	movw	$_end, %dx
+	testb	$CAN_USE_HEAP, loadflags
+	jz	1f
+	movw	heap_end_ptr, %dx
+1:	addw	$STACK_SIZE, %dx
+	jnc	2f
+	xorw	%dx, %dx	# Prevent wraparound
 
-    # Invalid %ss, make up a new stack
-    movw    $_end, %dx
-    testb    $CAN_USE_HEAP, loadflags
-    jz    1f
-    movw    heap_end_ptr, %dx
-1: addw    $STACK_SIZE, %dx
-    jnc    2f
-    xorw    %dx, %dx    # Prevent wraparound
-
-2: # Now %dx should point to the end of our stack space
-    andw    $~3, %dx    # dword align (might as well...)
-    jnz    3f
-    movw    $0xfffc, %dx    # Make sure we're not zero
-3:  movw    %ax, %ss
-    movzwl    %dx, %esp    # Clear upper half of %esp
-    sti            # Now we should have a working stack
+2:	# Now %dx should point to the end of our stack space
+	andw	$~3, %dx	# dword align (might as well...)
+	jnz	3f
+	movw	$0xfffc, %dx	# Make sure we're not zero
+3:	movw	%ax, %ss
+	movzwl	%dx, %esp	# Clear upper half of %esp
+	sti			# Now we should have a working stack
 
 # We will have entered with %cs = %ds+0x20, normalize %cs so
 # it is on par with the other segments.
-    pushw    %ds
-    pushw    $6f
-    lretw
+	pushw	%ds
+	pushw	$6f
+	lretw
 6:
 
 # Check signature at end of setup
-    cmpl    $0x5a5aaa55, setup_sig
-    jne    setup_bad
+	cmpl	$0x5a5aaa55, setup_sig
+	jne	setup_bad
 
 # Zero the bss
-    movw    $__bss_start, %di
-    movw    $_end+3, %cx
-    xorl    %eax, %eax
-    subw    %di, %cx
-    shrw    $2, %cx
-    rep; stosl
+	movw	$__bss_start, %di
+	movw	$_end+3, %cx
+	xorl	%eax, %eax
+	subw	%di, %cx
+	shrw	$2, %cx
+	rep; stosl
 
 # Jump to C code (should not return)
-    calll    main
+	calll	main
 
 # Setup corrupt somehow...
 setup_bad:
-    movl    $setup_corrupt, %eax
-    calll    puts
-    # Fall through...
+	movl	$setup_corrupt, %eax
+	calll	puts
+	# Fall through...
 
-    .globl    die
-    .type    die, @function
+	.globl	die
+	.type	die, @function
 die:
-    hlt
-    jmp    die
+	hlt
+	jmp	die
 
-    .size    die, .-die
+	.size	die, .-die
 
-    .section ".initdata", "a"
+	.section ".initdata", "a"
 setup_corrupt:
-    .byte    7
-    .string    "No setup signature found...\n"
+	.byte	7
+	.string	"No setup signature found...\n"

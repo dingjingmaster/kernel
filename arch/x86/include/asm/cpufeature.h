@@ -171,38 +171,35 @@ extern void clear_cpu_cap (struct cpuinfo_x86* c, unsigned int bit);
  * it to manifest the address of boot_cpu_data in a register, fouling
  * the mainline (post-initialization) code.
  */
-static __always_inline bool _static_cpu_has (u16 bit)
+static __always_inline bool _static_cpu_has(u16 bit)
 {
-    asm goto (ALTERNATIVE_TERNARY ("jmp 6f", % c[feature], "", "jmp %l[t_no]") ".pushsection "
-                                                                               ".altinstr_aux,"
-                                                                               "\"ax\"\n"
-                                                                               "6:\n"
-                                                                               " testb %[bitnum], "
-                                                                               "%a[cap_byte]\n"
-                                                                               " jnz %l[t_yes]\n"
-                                                                               " jmp %l[t_no]\n"
-                                                                               ".popsection\n"
-              :
-              : [feature] "i"(bit), [bitnum] "i"(1 << (bit & 7)),
-                [cap_byte] "i"(&((const char*)boot_cpu_data.x86_capability)[bit >> 3])
-              :
-              : t_yes, t_no);
+	asm goto(ALTERNATIVE_TERNARY("jmp 6f", %c[feature], "", "jmp %l[t_no]")
+		".pushsection .altinstr_aux,\"ax\"\n"
+		"6:\n"
+		" testb %[bitnum], %a[cap_byte]\n"
+		" jnz %l[t_yes]\n"
+		" jmp %l[t_no]\n"
+		".popsection\n"
+		 : : [feature]  "i" (bit),
+		     [bitnum]   "i" (1 << (bit & 7)),
+		     [cap_byte] "i" (&((const char *)boot_cpu_data.x86_capability)[bit >> 3])
+		 : : t_yes, t_no);
 t_yes:
-    return true;
+	return true;
 t_no:
-    return false;
+	return false;
 }
 
 #    define static_cpu_has(bit) \
-        (__builtin_constant_p (boot_cpu_has (bit)) ? boot_cpu_has (bit) : _static_cpu_has (bit))
+        (__builtin_constant_p(boot_cpu_has (bit)) ? boot_cpu_has(bit) : _static_cpu_has(bit))
 
-#    define cpu_has_bug(c, bit) cpu_has (c, (bit))
-#    define set_cpu_bug(c, bit) set_cpu_cap (c, (bit))
-#    define clear_cpu_bug(c, bit) clear_cpu_cap (c, (bit))
+#    define cpu_has_bug(c, bit) cpu_has(c, (bit))
+#    define set_cpu_bug(c, bit) set_cpu_cap(c, (bit))
+#    define clear_cpu_bug(c, bit) clear_cpu_cap(c, (bit))
 
-#    define static_cpu_has_bug(bit) static_cpu_has ((bit))
-#    define boot_cpu_has_bug(bit) cpu_has_bug (&boot_cpu_data, (bit))
-#    define boot_cpu_set_bug(bit) set_cpu_cap (&boot_cpu_data, (bit))
+#    define static_cpu_has_bug(bit) static_cpu_has((bit))
+#    define boot_cpu_has_bug(bit) cpu_has_bug(&boot_cpu_data, (bit))
+#    define boot_cpu_set_bug(bit) set_cpu_cap(&boot_cpu_data, (bit))
 
 #    define MAX_CPU_FEATURES (NCAPINTS * 32)
 #    define cpu_have_feature boot_cpu_has

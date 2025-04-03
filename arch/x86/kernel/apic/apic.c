@@ -270,48 +270,50 @@ int lapic_get_maxlvt (void)
  * We do reads before writes even if unnecessary, to get around the
  * P5 APIC double write bug.
  */
-static void __setup_APIC_LVTT (unsigned int clocks, int oneshot, int irqen)
+static void __setup_APIC_LVTT(unsigned int clocks, int oneshot, int irqen)
 {
-    unsigned int lvtt_value, tmp_value;
+	unsigned int lvtt_value, tmp_value;
 
-    lvtt_value = LOCAL_TIMER_VECTOR;
-    if (!oneshot)
-        lvtt_value |= APIC_LVT_TIMER_PERIODIC;
-    else if (boot_cpu_has (X86_FEATURE_TSC_DEADLINE_TIMER))
-        lvtt_value |= APIC_LVT_TIMER_TSCDEADLINE;
+	lvtt_value = LOCAL_TIMER_VECTOR;
+	if (!oneshot)
+		lvtt_value |= APIC_LVT_TIMER_PERIODIC;
+	else if (boot_cpu_has(X86_FEATURE_TSC_DEADLINE_TIMER))
+		lvtt_value |= APIC_LVT_TIMER_TSCDEADLINE;
 
-    /*
-     * The i82489DX APIC uses bit 18 and 19 for the base divider.  This
-     * overlaps with bit 18 on integrated APICs, but is not documented
-     * in the SDM. No problem though. i82489DX equipped systems do not
-     * have TSC deadline timer.
-     */
-    if (!lapic_is_integrated ())
-        lvtt_value |= I82489DX_BASE_DIVIDER;
+	/*
+	 * The i82489DX APIC uses bit 18 and 19 for the base divider.  This
+	 * overlaps with bit 18 on integrated APICs, but is not documented
+	 * in the SDM. No problem though. i82489DX equipped systems do not
+	 * have TSC deadline timer.
+	 */
+	if (!lapic_is_integrated())
+		lvtt_value |= I82489DX_BASE_DIVIDER;
 
-    if (!irqen)
-        lvtt_value |= APIC_LVT_MASKED;
+	if (!irqen)
+		lvtt_value |= APIC_LVT_MASKED;
 
-    apic_write (APIC_LVTT, lvtt_value);
+	apic_write(APIC_LVTT, lvtt_value);
 
-    if (lvtt_value & APIC_LVT_TIMER_TSCDEADLINE) {
-        /*
-         * See Intel SDM: TSC-Deadline Mode chapter. In xAPIC mode,
-         * writing to the APIC LVTT and TSC_DEADLINE MSR isn't serialized.
-         * According to Intel, MFENCE can do the serialization here.
-         */
-        asm volatile ("mfence" : : : "memory");
-        return;
-    }
+	if (lvtt_value & APIC_LVT_TIMER_TSCDEADLINE) {
+		/*
+		 * See Intel SDM: TSC-Deadline Mode chapter. In xAPIC mode,
+		 * writing to the APIC LVTT and TSC_DEADLINE MSR isn't serialized.
+		 * According to Intel, MFENCE can do the serialization here.
+		 */
+		asm volatile("mfence" : : : "memory");
+		return;
+	}
 
-    /*
-     * Divide PICLK by 16
-     */
-    tmp_value = apic_read (APIC_TDCR);
-    apic_write (APIC_TDCR, (tmp_value & ~(APIC_TDR_DIV_1 | APIC_TDR_DIV_TMBASE)) | APIC_TDR_DIV_16);
+	/*
+	 * Divide PICLK by 16
+	 */
+	tmp_value = apic_read(APIC_TDCR);
+	apic_write(APIC_TDCR,
+		(tmp_value & ~(APIC_TDR_DIV_1 | APIC_TDR_DIV_TMBASE)) |
+		APIC_TDR_DIV_16);
 
-    if (!oneshot)
-        apic_write (APIC_TMICT, clocks / APIC_DIVISOR);
+	if (!oneshot)
+		apic_write(APIC_TMICT, clocks / APIC_DIVISOR);
 }
 
 /*

@@ -75,12 +75,12 @@ static inline int wrmsrl_amd_safe (unsigned msr, unsigned long long val)
  */
 
 #ifdef CONFIG_X86_32
-extern __visible void vide (void);
-__asm__ (".text\n"
-         ".globl vide\n"
-         ".type vide, @function\n"
-         ".align 4\n"
-         "vide: ret\n");
+extern __visible void vide(void);
+__asm__(".text\n"
+	".globl vide\n"
+	".type vide, @function\n"
+	".align 4\n"
+	"vide: ret\n");
 #endif
 
 static void init_amd_k5 (struct cpuinfo_x86* c)

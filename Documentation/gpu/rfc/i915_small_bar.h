@@ -6,8 +6,8 @@
  * For this new query we are adding the new query id DRM_I915_QUERY_MEMORY_REGIONS
  * at &drm_i915_query_item.query_id.
  */
-struct __drm_i915_memory_region_info 
-		** @region: The class:instance pair encoding */
+struct __drm_i915_memory_region_info {
+	/** @region: The class:instance pair encoding */
 	struct drm_i915_gem_memory_class_instance region;
 
 	/** @rsvd0: MBZ */

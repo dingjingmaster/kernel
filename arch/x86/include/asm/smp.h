@@ -122,10 +122,10 @@ void                      native_send_call_func_single_ipi (int cpu);
 
 void                      smp_store_cpu_info (int id);
 
-asmlinkage __visible void smp_reboot_interrupt (void);
-__visible void            smp_reschedule_interrupt (struct pt_regs* regs);
-__visible void            smp_call_function_interrupt (struct pt_regs* regs);
-__visible void            smp_call_function_single_interrupt (struct pt_regs* r);
+asmlinkage __visible void smp_reboot_interrupt(void);
+__visible void smp_reschedule_interrupt(struct pt_regs *regs);
+__visible void smp_call_function_interrupt(struct pt_regs *regs);
+__visible void smp_call_function_single_interrupt(struct pt_regs *r);
 
 #define cpu_physical_id(cpu) per_cpu (x86_cpu_to_apicid, cpu)
 #define cpu_acpi_id(cpu) per_cpu (x86_cpu_to_acpiid, cpu)

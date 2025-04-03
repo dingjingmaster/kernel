@@ -5,8 +5,8 @@
 #include <asm/sparsemem.h>
 
 #ifndef __ASSEMBLY__
-#    include <linux/types.h>
-#    include <asm/kaslr.h>
+#include <linux/types.h>
+#include <asm/kaslr.h>
 
 /*
  * These are used to make use of C type-checking..

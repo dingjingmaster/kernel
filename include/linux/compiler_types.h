@@ -448,7 +448,7 @@ struct ftrace_likely_data
  * We do it here by hand, because it doesn't hurt.
  */
 #ifndef asm_goto_output
-#define asm_goto_output(x...) asm volatile goto (x)
+#define asm_goto_output(x...) asm volatile goto(x)
 #endif
 
 /*
@@ -456,8 +456,8 @@ struct ftrace_likely_data
  * alternative behaviors (mainly "g" and "rm").
  */
 #ifndef ASM_INPUT_G
-#define ASM_INPUT_G "g"
-#define ASM_INPUT_RM "rm"
+  #define ASM_INPUT_G "g"
+  #define ASM_INPUT_RM "rm"
 #endif
 
 #ifdef CONFIG_CC_HAS_ASM_INLINE

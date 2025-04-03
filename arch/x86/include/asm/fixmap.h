@@ -136,30 +136,31 @@ enum fixed_addresses
 
     __end_of_permanent_fixed_addresses,
 
-/*
-     * 512 temporary boot-time mappings, used by early_ioremap(),
-     * before ioremap() is functional.
-     *
-     * If necessary we round it up to the next 512 pages boundary so
-     * that we can have a single pmd entry and a single pte table:
-     */
-#    define NR_FIX_BTMAPS 64
-#    define FIX_BTMAPS_SLOTS 8
-#    define TOTAL_FIX_BTMAPS (NR_FIX_BTMAPS * FIX_BTMAPS_SLOTS)
-    FIX_BTMAP_END   = (__end_of_permanent_fixed_addresses ^
-                     (__end_of_permanent_fixed_addresses + TOTAL_FIX_BTMAPS - 1)) &
-                                  -PTRS_PER_PTE
-                            ? __end_of_permanent_fixed_addresses + TOTAL_FIX_BTMAPS -
-                                    (__end_of_permanent_fixed_addresses & (TOTAL_FIX_BTMAPS - 1))
-                            : __end_of_permanent_fixed_addresses,
-    FIX_BTMAP_BEGIN = FIX_BTMAP_END + TOTAL_FIX_BTMAPS - 1,
-#    ifdef CONFIG_X86_32
-    FIX_WP_TEST,
-#    endif
-#    ifdef CONFIG_INTEL_TXT
-    FIX_TBOOT_BASE,
-#    endif
-    __end_of_fixed_addresses
+	/*
+	 * 512 temporary boot-time mappings, used by early_ioremap(),
+	 * before ioremap() is functional.
+	 *
+	 * If necessary we round it up to the next 512 pages boundary so
+	 * that we can have a single pmd entry and a single pte table:
+	 */
+#define NR_FIX_BTMAPS		64
+#define FIX_BTMAPS_SLOTS	8
+#define TOTAL_FIX_BTMAPS	(NR_FIX_BTMAPS * FIX_BTMAPS_SLOTS)
+	FIX_BTMAP_END =
+	 (__end_of_permanent_fixed_addresses ^
+	  (__end_of_permanent_fixed_addresses + TOTAL_FIX_BTMAPS - 1)) &
+	 -PTRS_PER_PTE
+	 ? __end_of_permanent_fixed_addresses + TOTAL_FIX_BTMAPS -
+	   (__end_of_permanent_fixed_addresses & (TOTAL_FIX_BTMAPS - 1))
+	 : __end_of_permanent_fixed_addresses,
+	FIX_BTMAP_BEGIN = FIX_BTMAP_END + TOTAL_FIX_BTMAPS - 1,
+#ifdef CONFIG_X86_32
+	FIX_WP_TEST,
+#endif
+#ifdef CONFIG_INTEL_TXT
+	FIX_TBOOT_BASE,
+#endif
+	__end_of_fixed_addresses
 };
 
 extern void reserve_top_address (unsigned long reserve);

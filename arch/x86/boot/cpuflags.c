@@ -17,13 +17,14 @@ static int          has_fpu (void)
     u16           fcw = -1, fsw = -1;
     unsigned long cr0;
 
-    asm volatile ("mov %%cr0,%0" : "=r"(cr0));
-    if (cr0 & (X86_CR0_EM | X86_CR0_TS)) {
-        cr0 &= ~(X86_CR0_EM | X86_CR0_TS);
-        asm volatile ("mov %0,%%cr0" : : "r"(cr0));
-    }
+	asm volatile("mov %%cr0,%0" : "=r" (cr0));
+	if (cr0 & (X86_CR0_EM|X86_CR0_TS)) {
+		cr0 &= ~(X86_CR0_EM|X86_CR0_TS);
+		asm volatile("mov %0,%%cr0" : : "r" (cr0));
+	}
 
-    asm volatile ("fninit ; fnstsw %0 ; fnstcw %1" : "+m"(fsw), "+m"(fcw));
+	asm volatile("fninit ; fnstsw %0 ; fnstcw %1"
+		     : "+m" (fsw), "+m" (fcw));
 
     return fsw == 0 && (fcw & 0x103f) == 0x003f;
 }
@@ -47,21 +48,28 @@ int has_eflag (unsigned long mask)
 {
     unsigned long f0, f1;
 
-    asm volatile (PUSHF "	\n\t" PUSHF "	\n\t"
-                        "pop %0	\n\t"
-                        "mov %0,%1	\n\t"
-                        "xor %2,%1	\n\t"
-                        "push %1	\n\t" POPF "	\n\t" PUSHF "	\n\t"
-                        "pop %1	\n\t" POPF
-                  : "=&r"(f0), "=&r"(f1)
-                  : "ri"(mask));
+	asm volatile(PUSHF "	\n\t"
+		     PUSHF "	\n\t"
+		     "pop %0	\n\t"
+		     "mov %0,%1	\n\t"
+		     "xor %2,%1	\n\t"
+		     "push %1	\n\t"
+		     POPF "	\n\t"
+		     PUSHF "	\n\t"
+		     "pop %1	\n\t"
+		     POPF
+		     : "=&r" (f0), "=&r" (f1)
+		     : "ri" (mask));
 
     return !!((f0 ^ f1) & mask);
 }
 
 void cpuid_count (u32 id, u32 count, u32* a, u32* b, u32* c, u32* d)
 {
-    asm volatile ("cpuid" : "=a"(*a), "=b"(*b), "=c"(*c), "=d"(*d) : "0"(id), "2"(count));
+	asm volatile("cpuid"
+		     : "=a" (*a), "=b" (*b), "=c" (*c), "=d" (*d)
+		     : "0" (id), "2" (count)
+	);
 }
 
 #define cpuid(id, a, b, c, d) cpuid_count (id, 0, a, b, c, d)

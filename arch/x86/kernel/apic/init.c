@@ -11,7 +11,8 @@
  * wait_icr_idle() must be initialized before usage. The IPI wrappers
  * use static_call() and not static_call_cond() to catch any fails.
  */
-#define DEFINE_APIC_CALL(__cb) DEFINE_STATIC_CALL_NULL (apic_call_##__cb, *apic->__cb)
+#define DEFINE_APIC_CALL(__cb)						\
+	DEFINE_STATIC_CALL_NULL(apic_call_##__cb, *apic->__cb)
 
 DEFINE_APIC_CALL (eoi);
 DEFINE_APIC_CALL (native_eoi);

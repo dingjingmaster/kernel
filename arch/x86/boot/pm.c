@@ -20,13 +20,15 @@
  */
 static void realmode_switch_hook (void)
 {
-    if (boot_params.hdr.realmode_swtch) {
-        asm volatile ("lcallw *%0" : : "m"(boot_params.hdr.realmode_swtch) : "eax", "ebx", "ecx", "edx");
-    } else {
-        asm volatile ("cli");
-        outb (0x80, 0x70); /* Disable NMI */
-        io_delay ();
-    }
+	if (boot_params.hdr.realmode_swtch) {
+		asm volatile("lcallw *%0"
+			     : : "m" (boot_params.hdr.realmode_swtch)
+			     : "eax", "ebx", "ecx", "edx");
+	} else {
+		asm volatile("cli");
+		outb(0x80, 0x70); /* Disable NMI */
+		io_delay();
+	}
 }
 
 /*
@@ -84,7 +86,7 @@ static void setup_gdt (void)
     gdt.len = sizeof (boot_gdt) - 1;
     gdt.ptr = (u32)&boot_gdt + (ds () << 4);
 
-    asm volatile ("lgdtl %0" : : "m"(gdt));
+	asm volatile("lgdtl %0" : : "m" (gdt));
 }
 
 /*
@@ -92,8 +94,8 @@ static void setup_gdt (void)
  */
 static void setup_idt (void)
 {
-    static const struct gdt_ptr null_idt = {0, 0};
-    asm volatile ("lidtl %0" : : "m"(null_idt));
+	static const struct gdt_ptr null_idt = {0, 0};
+	asm volatile("lidtl %0" : : "m" (null_idt));
 }
 
 /*

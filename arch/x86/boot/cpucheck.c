@@ -145,12 +145,14 @@ int check_cpu (int* cpu_level_ptr, int* req_level_ptr, u32** err_flags_ptr)
         struct msr m, m_tmp;
         u32        level = 1;
 
-        boot_rdmsr (0x80860004, &m);
-        m_tmp   = m;
-        m_tmp.l = ~0;
-        boot_wrmsr (0x80860004, &m_tmp);
-        asm ("cpuid" : "+a"(level), "=d"(cpu.flags[0]) : : "ecx", "ebx");
-        boot_wrmsr (0x80860004, &m);
+		boot_rdmsr(0x80860004, &m);
+		m_tmp = m;
+		m_tmp.l = ~0;
+		boot_wrmsr(0x80860004, &m_tmp);
+		asm("cpuid"
+		    : "+a" (level), "=d" (cpu.flags[0])
+		    : : "ecx", "ebx");
+		boot_wrmsr(0x80860004, &m);
 
         err = check_cpuflags ();
     } else if (err == 0x01 && !(err_flags[0] & ~(1 << X86_FEATURE_PAE)) && is_intel () && cpu.level == 6 && (cpu.model == 9 || cpu.model == 13)) {

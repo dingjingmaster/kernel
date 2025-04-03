@@ -243,11 +243,11 @@ static void clflush_page (unsigned long address)
     start      = (char*)(address & PAGE_MASK);
     end        = start + PAGE_SIZE;
 
-    /*
-     * First make sure there are no pending writes on the cache-lines to
-     * flush.
-     */
-    asm volatile ("mfence" : : : "memory");
+	/*
+	 * First make sure there are no pending writes on the cache-lines to
+	 * flush.
+	 */
+	asm volatile("mfence" : : : "memory");
 
     for (cl = start; cl != end; cl += flush_size)
         clflush (cl);
@@ -264,18 +264,19 @@ static int set_clr_page_flags (struct x86_mapping_info* info,
     pmd_t* pmdp;
     pte_t *ptep, pte;
 
-    /*
-     * First make sure there is a PMD mapping for 'address'.
-     * It should already exist, but keep things generic.
-     *
-     * To map the page just read from it and fault it in if there is no
-     * mapping yet. kernel_add_identity_map() can't be called here because
-     * that would unconditionally map the address on PMD level, destroying
-     * any PTE-level mappings that might already exist. Use assembly here
-     * so the access won't be optimized away.
-     */
-    asm volatile ("mov %[address], %%r9" ::[address] "g"(*(unsigned long*)address)
-                  : "r9", "memory");
+	/*
+	 * First make sure there is a PMD mapping for 'address'.
+	 * It should already exist, but keep things generic.
+	 *
+	 * To map the page just read from it and fault it in if there is no
+	 * mapping yet. kernel_add_identity_map() can't be called here because
+	 * that would unconditionally map the address on PMD level, destroying
+	 * any PTE-level mappings that might already exist. Use assembly here
+	 * so the access won't be optimized away.
+	 */
+	asm volatile("mov %[address], %%r9"
+		     :: [address] "g" (*(unsigned long *)address)
+		     : "r9", "memory");
 
     /*
      * The page is mapped at least with PMD size - so skip checks and walk

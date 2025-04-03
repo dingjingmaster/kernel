@@ -1145,8 +1145,8 @@ STATIC_NOPV void native_flush_tlb_one_user (unsigned long addr)
     u32  loaded_mm_asid;
     bool cpu_pcide;
 
-    /* Flush 'addr' from the kernel PCID: */
-    asm volatile ("invlpg (%0)" ::"r"(addr) : "memory");
+	/* Flush 'addr' from the kernel PCID: */
+	asm volatile("invlpg (%0)" ::"r" (addr) : "memory");
 
     /* If PTI is off there is no user PCID and nothing to flush. */
     if (!static_cpu_has (X86_FEATURE_PTI))

@@ -33,7 +33,7 @@
 #include <asm/gsseg.h>
 
 /* stub always returning 0. */
-DEFINE_ASM_FUNC (paravirt_ret0, "xor %eax,%eax", .entry.text);
+DEFINE_ASM_FUNC(paravirt_ret0, "xor %eax,%eax", .entry.text);
 
 void __init default_banner (void)
 {
@@ -41,11 +41,11 @@ void __init default_banner (void)
 }
 
 #ifdef CONFIG_PARAVIRT_XXL
-DEFINE_ASM_FUNC (_paravirt_ident_64, "mov %rdi, %rax", .text);
-DEFINE_ASM_FUNC (pv_native_save_fl, "pushf; pop %rax", .noinstr.text);
-DEFINE_ASM_FUNC (pv_native_irq_disable, "cli", .noinstr.text);
-DEFINE_ASM_FUNC (pv_native_irq_enable, "sti", .noinstr.text);
-DEFINE_ASM_FUNC (pv_native_read_cr2, "mov %cr2, %rax", .noinstr.text);
+DEFINE_ASM_FUNC(_paravirt_ident_64, "mov %rdi, %rax", .text);
+DEFINE_ASM_FUNC(pv_native_save_fl, "pushf; pop %rax", .noinstr.text);
+DEFINE_ASM_FUNC(pv_native_irq_disable, "cli", .noinstr.text);
+DEFINE_ASM_FUNC(pv_native_irq_enable, "sti", .noinstr.text);
+DEFINE_ASM_FUNC(pv_native_read_cr2, "mov %cr2, %rax", .noinstr.text);
 #endif
 
 DEFINE_STATIC_KEY_FALSE (virt_spin_lock_key);

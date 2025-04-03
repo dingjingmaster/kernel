@@ -54,15 +54,15 @@ DECLARE_PER_CPU (u32, kstack_offset);
  * the stack. For testing the resulting entropy, please see:
  * tools/testing/selftests/lkdtm/stack-entropy.sh
  */
-#define add_random_kstack_offset()                                                                    \
-    do {                                                                                              \
-        if (static_branch_maybe (CONFIG_RANDOMIZE_KSTACK_OFFSET_DEFAULT, &randomize_kstack_offset)) { \
-            u32 offset = raw_cpu_read (kstack_offset);                                                \
-            u8* ptr    = __kstack_alloca (KSTACK_OFFSET_MAX (offset));                                \
-            /* Keep allocation even after "ptr" loses scope. */                                       \
-            asm volatile ("" ::"r"(ptr) : "memory");                                                  \
-        }                                                                                             \
-    } while (0)
+#define add_random_kstack_offset() do {					\
+	if (static_branch_maybe(CONFIG_RANDOMIZE_KSTACK_OFFSET_DEFAULT,	\
+				&randomize_kstack_offset)) {		\
+		u32 offset = raw_cpu_read(kstack_offset);		\
+		u8 *ptr = __kstack_alloca(KSTACK_OFFSET_MAX(offset));	\
+		/* Keep allocation even after "ptr" loses scope. */	\
+		asm volatile("" :: "r"(ptr) : "memory");		\
+	}								\
+} while (0)
 
 /**
  * choose_random_kstack_offset - Choose the random offset for the next

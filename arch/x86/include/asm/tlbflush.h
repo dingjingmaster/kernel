@@ -240,9 +240,9 @@ void flush_tlb_one_user (unsigned long addr);
 void flush_tlb_one_kernel (unsigned long addr);
 void flush_tlb_multi (const struct cpumask* cpumask, const struct flush_tlb_info* info);
 
-#    ifdef CONFIG_PARAVIRT
-#        include <asm/paravirt.h>
-#    endif
+#ifdef CONFIG_PARAVIRT
+#include <asm/paravirt.h>
+#endif
 
 #    define flush_tlb_mm(mm) flush_tlb_mm_range (mm, 0UL, TLB_FLUSH_ALL, 0UL, true)
 

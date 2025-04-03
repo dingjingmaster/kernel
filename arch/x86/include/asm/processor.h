@@ -428,7 +428,7 @@ static inline unsigned long cpu_kernelmode_gs_base (int cpu)
     return (unsigned long)per_cpu (fixed_percpu_data.gs_base, cpu);
 }
 
-extern asmlinkage void entry_SYSCALL32_ignore (void);
+extern asmlinkage void entry_SYSCALL32_ignore(void);
 
 /* Save actual FS/GS selectors and bases to current->thread */
 void                   current_save_fsgs (void);
@@ -534,7 +534,7 @@ static inline void native_load_sp0 (unsigned long sp0)
 static __always_inline void native_swapgs (void)
 {
 #ifdef CONFIG_X86_64
-    asm volatile ("swapgs" ::: "memory");
+	asm volatile("swapgs" ::: "memory");
 #endif
 }
 
@@ -557,7 +557,7 @@ static __always_inline bool on_thread_stack (void)
 }
 
 #ifdef CONFIG_PARAVIRT_XXL
-#    include <asm/paravirt.h>
+#include <asm/paravirt.h>
 #else
 
 static inline void load_sp0 (unsigned long sp0)
@@ -703,7 +703,8 @@ static inline u32 per_cpu_l2c_id (unsigned int cpu)
  */
 static __always_inline void amd_clear_divider (void)
 {
-    asm volatile (ALTERNATIVE ("", "div %2\n\t", X86_BUG_DIV0)::"a"(0), "d"(0), "r"(1));
+	asm volatile(ALTERNATIVE("", "div %2\n\t", X86_BUG_DIV0)
+		     :: "a" (0), "d" (0), "r" (1));
 }
 
 extern void amd_check_microcode (void);

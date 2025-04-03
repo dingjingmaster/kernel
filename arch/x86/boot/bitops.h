@@ -27,15 +27,15 @@ static inline bool variable_test_bit (int nr, const void* addr)
     bool       v;
     const u32* p = addr;
 
-    asm ("btl %2,%1" CC_SET (c) : CC_OUT (c) (v) : "m"(*p), "Ir"(nr));
-    return v;
+	asm("btl %2,%1" CC_SET(c) : CC_OUT(c) (v) : "m" (*p), "Ir" (nr));
+	return v;
 }
 
 #define test_bit(nr, addr) (__builtin_constant_p (nr) ? constant_test_bit ((nr), (addr)) : variable_test_bit ((nr), (addr)))
 
 static inline void set_bit (int nr, void* addr)
 {
-    asm ("btsl %1,%0" : "+m"(*(u32*)addr) : "Ir"(nr));
+	asm("btsl %1,%0" : "+m" (*(u32 *)addr) : "Ir" (nr));
 }
 
 #endif /* BOOT_BITOPS_H */

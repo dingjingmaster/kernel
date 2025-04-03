@@ -283,28 +283,28 @@ static inline int flag_is_changeable_p (u32 flag)
 {
     u32 f1, f2;
 
-    /*
-     * Cyrix and IDT cpus allow disabling of CPUID
-     * so the code below may return different results
-     * when it is executed before and after enabling
-     * the CPUID. Add "volatile" to not allow gcc to
-     * optimize the subsequent calls to this function.
-     */
-    asm volatile ("pushfl        \n\t"
-                  "pushfl        \n\t"
-                  "popl %0        \n\t"
-                  "movl %0, %1    \n\t"
-                  "xorl %2, %0    \n\t"
-                  "pushl %0        \n\t"
-                  "popfl        \n\t"
-                  "pushfl        \n\t"
-                  "popl %0        \n\t"
-                  "popfl        \n\t"
+	/*
+	 * Cyrix and IDT cpus allow disabling of CPUID
+	 * so the code below may return different results
+	 * when it is executed before and after enabling
+	 * the CPUID. Add "volatile" to not allow gcc to
+	 * optimize the subsequent calls to this function.
+	 */
+	asm volatile ("pushfl		\n\t"
+		      "pushfl		\n\t"
+		      "popl %0		\n\t"
+		      "movl %0, %1	\n\t"
+		      "xorl %2, %0	\n\t"
+		      "pushl %0		\n\t"
+		      "popfl		\n\t"
+		      "pushfl		\n\t"
+		      "popl %0		\n\t"
+		      "popfl		\n\t"
 
-                  : "=&r"(f1), "=&r"(f2)
-                  : "ir"(flag));
+		      : "=&r" (f1), "=&r" (f2)
+		      : "ir" (flag));
 
-    return ((f1 ^ f2) & flag) != 0;
+	return ((f1^f2) & flag) != 0;
 }
 
 /* Probe for the CPUID instruction */
@@ -400,7 +400,7 @@ void                                 native_write_cr0 (unsigned long val)
     unsigned long bits_missing = 0;
 
 set_register:
-    asm volatile ("mov %0,%%cr0" : "+r"(val) : : "memory");
+	asm volatile("mov %0,%%cr0": "+r" (val) : : "memory");
 
     if (static_branch_likely (&cr_pinning)) {
         if (unlikely ((val & X86_CR0_WP) != X86_CR0_WP)) {
@@ -419,7 +419,7 @@ void __no_profile native_write_cr4 (unsigned long val)
     unsigned long bits_changed = 0;
 
 set_register:
-    asm volatile ("mov %0,%%cr4" : "+r"(val) : : "memory");
+	asm volatile("mov %0,%%cr4": "+r" (val) : : "memory");
 
     if (static_branch_likely (&cr_pinning)) {
         if (unlikely ((val & cr4_pinned_mask) != cr4_pinned_bits)) {

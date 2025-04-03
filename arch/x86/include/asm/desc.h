@@ -108,11 +108,11 @@ static inline int desc_empty (const void* ptr)
 #ifdef CONFIG_PARAVIRT_XXL
 #    include <asm/paravirt.h>
 #else
-#    define load_TR_desc() native_load_tr_desc ()
-#    define load_gdt(dtr) native_load_gdt (dtr)
-#    define load_idt(dtr) native_load_idt (dtr)
-#    define load_tr(tr) asm volatile ("ltr %0" ::"m"(tr))
-#    define load_ldt(ldt) asm volatile ("lldt %0" ::"m"(ldt))
+#define load_TR_desc()				native_load_tr_desc()
+#define load_gdt(dtr)				native_load_gdt(dtr)
+#define load_idt(dtr)				native_load_idt(dtr)
+#define load_tr(tr)				asm volatile("ltr %0"::"m" (tr))
+#define load_ldt(ldt)				asm volatile("lldt %0"::"m" (ldt))
 
 #    define store_gdt(dtr) native_store_gdt (dtr)
 #    define store_tr(tr) (tr = native_store_tr ())
@@ -133,7 +133,7 @@ static inline void paravirt_free_ldt (struct desc_struct* ldt, unsigned entries)
 }
 #endif /* CONFIG_PARAVIRT_XXL */
 
-#define store_ldt(ldt) asm ("sldt %0" : "=m"(ldt))
+#define store_ldt(ldt) asm("sldt %0" : "=m"(ldt))
 
 static inline void native_write_idt_entry (gate_desc* idt, int entry, const gate_desc* gate)
 {
@@ -189,36 +189,38 @@ static inline void __set_tss_desc (unsigned cpu, unsigned int entry, struct x86_
 
 static inline void native_set_ldt (const void* addr, unsigned int entries)
 {
-    if (likely (entries == 0))
-        asm volatile ("lldt %w0" ::"q"(0));
-    else {
-        unsigned cpu = smp_processor_id ();
-        ldt_desc ldt;
+	if (likely(entries == 0))
+		asm volatile("lldt %w0"::"q" (0));
+	else {
+		unsigned cpu = smp_processor_id();
+		ldt_desc ldt;
 
-        set_tssldt_descriptor (&ldt, (unsigned long)addr, DESC_LDT, entries * LDT_ENTRY_SIZE - 1);
-        write_gdt_entry (get_cpu_gdt_rw (cpu), GDT_ENTRY_LDT, &ldt, DESC_LDT);
-        asm volatile ("lldt %w0" ::"q"(GDT_ENTRY_LDT * 8));
-    }
+		set_tssldt_descriptor(&ldt, (unsigned long)addr, DESC_LDT,
+				      entries * LDT_ENTRY_SIZE - 1);
+		write_gdt_entry(get_cpu_gdt_rw(cpu), GDT_ENTRY_LDT,
+				&ldt, DESC_LDT);
+		asm volatile("lldt %w0"::"q" (GDT_ENTRY_LDT*8));
+	}
 }
 
 static inline void native_load_gdt (const struct desc_ptr* dtr)
 {
-    asm volatile ("lgdt %0" ::"m"(*dtr));
+	asm volatile("lgdt %0"::"m" (*dtr));
 }
 
 static __always_inline void native_load_idt (const struct desc_ptr* dtr)
 {
-    asm volatile ("lidt %0" ::"m"(*dtr));
+	asm volatile("lidt %0"::"m" (*dtr));
 }
 
 static inline void native_store_gdt (struct desc_ptr* dtr)
 {
-    asm volatile ("sgdt %0" : "=m"(*dtr));
+	asm volatile("sgdt %0":"=m" (*dtr));
 }
 
 static inline void store_idt (struct desc_ptr* dtr)
 {
-    asm volatile ("sidt %0" : "=m"(*dtr));
+	asm volatile("sidt %0":"=m" (*dtr));
 }
 
 static inline void native_gdt_invalidate (void)
@@ -255,28 +257,28 @@ static inline void native_load_tr_desc (void)
 	 * If the current GDT is the read-only fixmap, swap to the original
 	 * writeable version. Swap back at the end.
 	 */
-    if (gdt.address == (unsigned long)fixmap_gdt) {
-        load_direct_gdt (cpu);
-        restore = 1;
-    }
-    asm volatile ("ltr %w0" ::"q"(GDT_ENTRY_TSS * 8));
-    if (restore)
-        load_fixmap_gdt (cpu);
+	if (gdt.address == (unsigned long)fixmap_gdt) {
+		load_direct_gdt(cpu);
+		restore = 1;
+	}
+	asm volatile("ltr %w0"::"q" (GDT_ENTRY_TSS*8));
+	if (restore)
+		load_fixmap_gdt(cpu);
 }
 #else
 static inline void native_load_tr_desc (void)
 {
-    asm volatile ("ltr %w0" ::"q"(GDT_ENTRY_TSS * 8));
+	asm volatile("ltr %w0"::"q" (GDT_ENTRY_TSS*8));
 }
 #endif
 
 static inline unsigned long native_store_tr (void)
 {
-    unsigned long tr;
+	unsigned long tr;
 
-    asm volatile ("str %0" : "=r"(tr));
+	asm volatile("str %0":"=r" (tr));
 
-    return tr;
+	return tr;
 }
 
 static inline void native_load_tls (struct thread_struct* t, unsigned int cpu)

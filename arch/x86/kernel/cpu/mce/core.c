@@ -396,10 +396,10 @@ noinstr u64 mce_rdmsrl (u32 msr)
 	 * architectural violation and needs to be reported to hw vendor. Panic
 	 * the box to not allow any further progress.
 	 */
-    asm volatile ("1: rdmsr\n"
-                  "2:\n" _ASM_EXTABLE_TYPE (1b, 2b, EX_TYPE_RDMSR_IN_MCE)
-                  : EAX_EDX_RET (val, low, high)
-                  : "c"(msr));
+	asm volatile("1: rdmsr\n"
+		     "2:\n"
+		     _ASM_EXTABLE_TYPE(1b, 2b, EX_TYPE_RDMSR_IN_MCE)
+		     : EAX_EDX_RET(val, low, high) : "c" (msr));
 
     return EAX_EDX_VAL (val, low, high);
 }
@@ -425,12 +425,11 @@ static noinstr void mce_wrmsrl (u32 msr, u64 v)
     low  = (u32)v;
     high = (u32)(v >> 32);
 
-    /* See comment in mce_rdmsrl() */
-    asm volatile ("1: wrmsr\n"
-                  "2:\n" _ASM_EXTABLE_TYPE (1b, 2b, EX_TYPE_WRMSR_IN_MCE)
-                  :
-                  : "c"(msr), "a"(low), "d"(high)
-                  : "memory");
+	/* See comment in mce_rdmsrl() */
+	asm volatile("1: wrmsr\n"
+		     "2:\n"
+		     _ASM_EXTABLE_TYPE(1b, 2b, EX_TYPE_WRMSR_IN_MCE)
+		     : : "c" (msr), "a"(low), "d" (high) : "memory");
 }
 
 /*

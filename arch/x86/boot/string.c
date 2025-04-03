@@ -31,9 +31,10 @@
 
 int memcmp (const void* s1, const void* s2, size_t len)
 {
-    bool diff;
-    asm ("repe; cmpsb" CC_SET (nz) : CC_OUT (nz) (diff), "+D"(s1), "+S"(s2), "+c"(len));
-    return diff;
+	bool diff;
+	asm("repe; cmpsb" CC_SET(nz)
+	    : CC_OUT(nz) (diff), "+D" (s1), "+S" (s2), "+c" (len));
+	return diff;
 }
 
 /*
@@ -199,21 +200,21 @@ char* strchr (const char* s, int c)
 
 static inline u64 __div_u64_rem (u64 dividend, u32 divisor, u32* remainder)
 {
-    union
-    {
-        u64 v64;
-        u32 v32[2];
-    } d = {dividend};
-    u32 upper;
+	union {
+		u64 v64;
+		u32 v32[2];
+	} d = { dividend };
+	u32 upper;
 
-    upper    = d.v32[1];
-    d.v32[1] = 0;
-    if (upper >= divisor) {
-        d.v32[1] = upper / divisor;
-        upper %= divisor;
-    }
-    asm ("divl %2" : "=a"(d.v32[0]), "=d"(*remainder) : "rm"(divisor), "0"(d.v32[0]), "1"(upper));
-    return d.v64;
+	upper = d.v32[1];
+	d.v32[1] = 0;
+	if (upper >= divisor) {
+		d.v32[1] = upper / divisor;
+		upper %= divisor;
+	}
+	asm ("divl %2" : "=a" (d.v32[0]), "=d" (*remainder) :
+		"rm" (divisor), "0" (d.v32[0]), "1" (upper));
+	return d.v64;
 }
 
 static inline u64 __div_u64 (u64 dividend, u32 divisor)
