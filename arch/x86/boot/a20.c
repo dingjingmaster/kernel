@@ -12,6 +12,7 @@
  */
 
 #include "boot.h"
+#include "linux/types.h"
 
 #define MAX_8042_LOOPS 100000
 #define MAX_8042_FF 32
