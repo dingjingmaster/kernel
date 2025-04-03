@@ -55,6 +55,7 @@ file(GLOB LIB_SRC
         ${CMAKE_SOURCE_DIR}/lib/ctype.c
         ${CMAKE_SOURCE_DIR}/lib/ctype.c
         ${CMAKE_SOURCE_DIR}/lib/debug_locks.c
+        ${CMAKE_SOURCE_DIR}/lib/debugobjects.c
         ${CMAKE_SOURCE_DIR}/lib/dec_and_lock.c
         ${CMAKE_SOURCE_DIR}/lib/decompress.c
         ${CMAKE_SOURCE_DIR}/lib/decompress_bunzip2.c

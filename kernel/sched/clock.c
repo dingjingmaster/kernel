@@ -233,8 +233,9 @@ static int __init sched_clock_init_late(void)
 	 */
 	smp_mb(); /* matches {set,clear}_sched_clock_stable() */
 
-	if (__sched_clock_stable_early)
+	if (__sched_clock_stable_early) {
 		__set_sched_clock_stable();
+	}
 
 	return 0;
 }

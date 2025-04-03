@@ -193,6 +193,7 @@ file(GLOB ARCH_SRC
         ${CMAKE_SOURCE_DIR}/arch/x86/kernel/jump_label.c
         ${CMAKE_SOURCE_DIR}/arch/x86/events/intel/lbr.c
         ${CMAKE_SOURCE_DIR}/arch/x86/mm/srat.c
+        ${CMAKE_SOURCE_DIR}/arch/x86/mm/kasan_init_64.c
         ${CMAKE_SOURCE_DIR}/arch/x86/kernel/irq_work.c
         ${CMAKE_SOURCE_DIR}/arch/x86/events/intel/p6.c
         ${CMAKE_SOURCE_DIR}/arch/x86/kernel/setup.c

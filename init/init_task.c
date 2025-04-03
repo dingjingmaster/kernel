@@ -59,9 +59,12 @@ unsigned long init_shadow_call_stack[SCS_SIZE / sizeof (long)] = {[(SCS_SIZE / s
 #endif
 
 /**
+ * @brief
  * Set up the first task table, touch at your own risk!. Base=0,
  * limit=0x1fffff (=2MB)
  * 64 字节对齐
+ *
+ * init_task: 第一个进程
  */
 struct task_struct init_task __aligned (L1_CACHE_BYTES) = {
 #ifdef CONFIG_THREAD_INFO_IN_TASK
@@ -71,7 +74,7 @@ struct task_struct init_task __aligned (L1_CACHE_BYTES) = {
         .__state                 = 0,
         .stack                   = init_stack,
         .usage                   = REFCOUNT_INIT (2),
-        .flags                   = PF_KTHREAD,
+        .flags                   = PF_KTHREAD,  // 指示是内核线程
         .prio                    = MAX_PRIO - 20,   // 120
         .static_prio             = MAX_PRIO - 20,   // 120
         .normal_prio             = MAX_PRIO - 20,   // 120

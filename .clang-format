@@ -24,7 +24,7 @@ AlignOperands: AlignAfterOperator
 AlignTrailingComments:
   Kind: Always
   OverEmptyLines: 3
-AllowAllParametersOfDeclarationOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Always
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortFunctionsOnASingleLine: None
@@ -36,7 +36,7 @@ AlwaysBreakBeforeMultilineStrings: false
 AlwaysBreakTemplateDeclarations: false
 BreakTemplateDeclarations: Yes
 BinPackArguments: true
-BinPackParameters: OnePerLine
+BinPackParameters: AlwaysOnePerLine
 BraceWrapping:
   AfterCaseLabel: false
   AfterClass: true
@@ -768,7 +768,7 @@ SpacesInContainerLiterals: false
 SpacesInCStyleCastParentheses: false
 SpacesInParentheses: false
 SpacesInSquareBrackets: false
-Standard: Cpp03
+Standard: Auto
 TabWidth: 4
 UseTab: Never
 ...

@@ -468,10 +468,13 @@ int static_call_text_reserved (void* start, void* end)
 }
 
 /**
- * 在内核初始化阶段按特定优先级执行静态初始化代码，其核心作用是通过 initcall 机制实现模块化初始化控制。以下是详细解析：
+ * @brief
+ * 在内核初始化阶段按特定优先级执行静态初始化代码，其核心作用是通过 initcall 机制实现模块化初始化控制。
+ * 以下是详细解析：
  *
  * static_call_init 是 initcall 家族中的一员，属于 Linux 内核初始化框架的一部分。
- * initcall 通过不同等级（如 early_initcall、arch_initcall、device_initcall 等）定义初始化函数的执行顺序，确保硬件、子系统等按依赖关系逐层初始化
+ * initcall 通过不同等级（如 early_initcall、arch_initcall、device_initcall 等）
+ * 定义初始化函数的执行顺序，确保硬件、子系统等按依赖关系逐层初始化
  */
 int __init static_call_init (void)
 {
@@ -494,11 +497,13 @@ int __init static_call_init (void)
     }
 
 #ifdef CONFIG_MODULES
-    if (!static_call_initialized)
+    if (!static_call_initialized) {
         register_module_notifier (&static_call_module_nb);
+    }
 #endif
 
     static_call_initialized = 1;
+
     return 0;
 }
 early_initcall (static_call_init);

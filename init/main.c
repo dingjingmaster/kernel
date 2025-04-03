@@ -922,7 +922,7 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
      * enable them.
      */
     boot_cpu_init ();       // 设置CPU0的状态为可用
-    page_address_init ();
+    page_address_init ();   // 空实现
     pr_notice ("%s", linux_banner);
     setup_arch (&command_line);
     /* Static keys and static calls are needed by LSMs */
@@ -940,12 +940,33 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
     pr_notice ("Kernel command line: %s\n", saved_command_line);
     /* parameters may set static keys */
     parse_early_param ();
-    after_dashes = parse_args ("Booting kernel", static_command_line, __start___param, __stop___param - __start___param, -1, -1, NULL, &unknown_bootoption);
+    after_dashes = parse_args ("Booting kernel",
+        static_command_line,
+        __start___param,
+        __stop___param - __start___param,
+        -1,
+        -1,
+        NULL,
+        &unknown_bootoption);
     print_unknown_bootoptions ();
     if (!IS_ERR_OR_NULL (after_dashes))
-        parse_args ("Setting init args", after_dashes, NULL, 0, -1, -1, NULL, set_init_arg);
+        parse_args ("Setting init args",
+            after_dashes,
+            NULL,
+            0,
+            -1,
+            -1,
+            NULL,
+            set_init_arg);
     if (extra_init_args)
-        parse_args ("Setting extra init args", extra_init_args, NULL, 0, -1, -1, NULL, set_init_arg);
+        parse_args ("Setting extra init args",
+            extra_init_args,
+            NULL,
+            0,
+            -1,
+            -1,
+            NULL,
+            set_init_arg);
 
     /* Architectural and non-timekeeping rng init, before allocator init */
     random_init_early (command_line);
@@ -972,8 +993,9 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
      */
     sched_init ();
 
-    if (WARN (!irqs_disabled (), "Interrupts were enabled *very* early, fixing it\n"))
+    if (WARN (!irqs_disabled (), "Interrupts were enabled *very* early, fixing it\n")) {
         local_irq_disable ();
+    }
     radix_tree_init ();
     maple_tree_init ();
 
@@ -995,8 +1017,9 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
     /* Trace events are available after this */
     trace_init ();
 
-    if (initcall_debug)
+    if (initcall_debug) {
         initcall_debug_enable ();
+    }
 
     context_tracking_init ();
     /* init some links before init_ISA_irqs() */
@@ -1034,8 +1057,9 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
      * this. But we do want output early, in case something goes wrong.
      */
     console_init ();
-    if (panic_later)
+    if (panic_later) {
         panic ("Too many boot %s vars at `%s'", panic_later, panic_param);
+    }
 
     lockdep_init ();
 
@@ -1047,16 +1071,20 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
     locking_selftest ();
 
 #ifdef CONFIG_BLK_DEV_INITRD
-    if (initrd_start && !initrd_below_start_ok && page_to_pfn (virt_to_page ((void*)initrd_start)) < min_low_pfn) {
-        pr_crit ("initrd overwritten (0x%08lx < 0x%08lx) - disabling it.\n", page_to_pfn (virt_to_page ((void*)initrd_start)), min_low_pfn);
+    if (initrd_start
+        && !initrd_below_start_ok
+        && page_to_pfn (virt_to_page ((void*)initrd_start)) < min_low_pfn) {
+        pr_crit ("initrd overwritten (0x%08lx < 0x%08lx) - disabling it.\n",
+            page_to_pfn (virt_to_page ((void*)initrd_start)), min_low_pfn);
         initrd_start = 0;
     }
 #endif
     setup_per_cpu_pageset ();
     numa_policy_init ();
     acpi_early_init ();
-    if (late_time_init)
+    if (late_time_init) {
         late_time_init ();
+    }
     sched_clock_init ();
     calibrate_delay ();
 
@@ -1065,8 +1093,9 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
     pid_idr_init ();
     anon_vma_init ();
 #ifdef CONFIG_X86
-    if (efi_enabled (EFI_RUNTIME_SERVICES))
+    if (efi_enabled (EFI_RUNTIME_SERVICES)) {
         efi_enter_virtual_mode ();
+    }
 #endif
     thread_stack_cache_init ();
     cred_init ();

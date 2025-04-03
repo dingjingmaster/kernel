@@ -872,14 +872,16 @@ static void get_cpu_vendor (struct cpuinfo_x86* c)
 void cpu_detect (struct cpuinfo_x86* c)
 {
     /* Get vendor name */
-    cpuid (0x00000000, (unsigned int*)&c->cpuid_level, (unsigned int*)&c->x86_vendor_id[0], (unsigned int*)&c->x86_vendor_id[8],
-           (unsigned int*)&c->x86_vendor_id[4]);
+    cpuid (0x00000000,
+        (unsigned int*)&c->cpuid_level,
+        (unsigned int*)&c->x86_vendor_id[0],
+        (unsigned int*)&c->x86_vendor_id[8],
+        (unsigned int*)&c->x86_vendor_id[4]);
 
     c->x86 = 4;
     /* Intel-defined flags: level 0x00000001 */
     if (c->cpuid_level >= 0x00000001) {
         u32 junk, tfms, cap0, misc;
-
         cpuid (0x00000001, &tfms, &misc, &junk, &cap0);
         c->x86          = x86_family (tfms);
         c->x86_model    = x86_model (tfms);
@@ -1619,9 +1621,9 @@ void __init early_cpu_init (void)
 
     for (cdev = __x86_cpu_dev_start; cdev < __x86_cpu_dev_end; cdev++) {
         const struct cpu_dev* cpudev = *cdev;
-
-        if (count >= X86_VENDOR_NUM)
+        if (count >= X86_VENDOR_NUM) {
             break;
+        }
         cpu_devs[count] = cpudev;
         count++;
 

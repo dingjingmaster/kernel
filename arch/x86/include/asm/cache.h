@@ -6,7 +6,7 @@
 
 /* L1 cache line size */
 #define L1_CACHE_SHIFT (CONFIG_X86_L1_CACHE_SHIFT)
-#define L1_CACHE_BYTES (1 << L1_CACHE_SHIFT)  // 64字节
+#define L1_CACHE_BYTES (1 << L1_CACHE_SHIFT)  // 64 字节
 
 #define __read_mostly __section (".data..read_mostly")
 

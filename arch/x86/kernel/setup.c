@@ -111,7 +111,8 @@ struct boot_params     boot_params;
 static struct resource rodata_resource = {.name  = "Kernel rodata",
                                           .start = 0,
                                           .end   = 0,
-                                          .flags = IORESOURCE_BUSY | IORESOURCE_SYSTEM_RAM};
+                                          .flags = IORESOURCE_BUSY |
+                                                   IORESOURCE_SYSTEM_RAM};
 
 // 数据区
 static struct resource data_resource   = {.name  = "Kernel data",
@@ -198,7 +199,8 @@ EXPORT_SYMBOL (edd);
  */
 static inline void __init copy_edd (void)
 {
-    memcpy (edd.mbr_signature, boot_params.edd_mbr_sig_buffer, sizeof (edd.mbr_signature));
+    memcpy (edd.mbr_signature, boot_params.edd_mbr_sig_buffer,
+            sizeof (edd.mbr_signature));
     memcpy (edd.edd_info, boot_params.eddbuf, sizeof (edd.edd_info));
     edd.mbr_signature_nr = boot_params.edd_mbr_sig_buf_entries;
     edd.edd_info_nr      = boot_params.eddbuf_entries;
@@ -277,20 +279,20 @@ static u64 __init get_ramdisk_size (void)
 static void __init relocate_initrd (void)
 {
     /* Assume only end is not page aligned */
-    u64 ramdisk_image = get_ramdisk_image ();
-    u64 ramdisk_size  = get_ramdisk_size ();
-    u64 area_size     = PAGE_ALIGN (ramdisk_size);
+    u64 ramdisk_image     = get_ramdisk_image ();
+    u64 ramdisk_size      = get_ramdisk_size ();
+    u64 area_size         = PAGE_ALIGN (ramdisk_size);
 
     /* We need to move the initrd down into directly mapped mem */
-    u64 relocated_ramdisk =
-            memblock_phys_alloc_range (area_size, PAGE_SIZE, 0, PFN_PHYS (max_pfn_mapped));
+    u64 relocated_ramdisk = memblock_phys_alloc_range (area_size, PAGE_SIZE, 0,
+                                                       PFN_PHYS (max_pfn_mapped));
     if (!relocated_ramdisk)
         panic ("Cannot find place for new RAMDISK of size %lld\n", ramdisk_size);
 
     initrd_start = relocated_ramdisk + PAGE_OFFSET;
     initrd_end   = initrd_start + ramdisk_size;
-    printk (KERN_INFO "Allocated new RAMDISK: [mem %#010llx-%#010llx]\n", relocated_ramdisk,
-            relocated_ramdisk + ramdisk_size - 1);
+    printk (KERN_INFO "Allocated new RAMDISK: [mem %#010llx-%#010llx]\n",
+            relocated_ramdisk, relocated_ramdisk + ramdisk_size - 1);
 
     copy_from_early_mem ((void*)initrd_start, ramdisk_image, ramdisk_size);
 
@@ -325,7 +327,8 @@ static void __init reserve_initrd (void)
 
     initrd_start = 0;
 
-    printk (KERN_INFO "RAMDISK: [mem %#010llx-%#010llx]\n", ramdisk_image, ramdisk_end - 1);
+    printk (KERN_INFO "RAMDISK: [mem %#010llx-%#010llx]\n", ramdisk_image,
+            ramdisk_end - 1);
 
     if (pfn_range_is_mapped (PFN_DOWN (ramdisk_image), PFN_DOWN (ramdisk_end))) {
         /* All are mapped, easy case */
@@ -411,7 +414,8 @@ static void __init parse_setup_data (void)
     u64                pa_data, pa_next;
 
     /**
-     * setup_data 字段属于 boot_params.hdr 结构体的一部分，用于存储引导程序传递给内核的关键参数，例如：
+     * setup_data 字段属于 boot_params.hdr 结构体的一部分，用于存储引导程序传递给内核的关键参数，
+     * 例如：
      *  - 内存布局信息（如物理内存大小、可用内存区域）
      *  - 显示模式设置（如分辨率、颜色深度）
      *  - 命令行参数（如 root=/dev/sda1）
@@ -514,19 +518,46 @@ static void __init arch_reserve_crashkernel (void)
 }
 
 static struct resource standard_io_resources[] = {
-        {.name = "dma1", .start = 0x00, .end = 0x1f, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-        {.name = "pic1", .start = 0x20, .end = 0x21, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-        {.name = "timer0", .start = 0x40, .end = 0x43, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-        {.name = "timer1", .start = 0x50, .end = 0x53, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-        {.name = "keyboard", .start = 0x60, .end = 0x60, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-        {.name = "keyboard", .start = 0x64, .end = 0x64, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name  = "dma1",
+         .start = 0x00,
+         .end   = 0x1f,
+         .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name  = "pic1",
+         .start = 0x20,
+         .end   = 0x21,
+         .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name  = "timer0",
+         .start = 0x40,
+         .end   = 0x43,
+         .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name  = "timer1",
+         .start = 0x50,
+         .end   = 0x53,
+         .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name  = "keyboard",
+         .start = 0x60,
+         .end   = 0x60,
+         .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name  = "keyboard",
+         .start = 0x64,
+         .end   = 0x64,
+         .flags = IORESOURCE_BUSY | IORESOURCE_IO},
         {.name  = "dma page reg",
          .start = 0x80,
          .end   = 0x8f,
          .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-        {.name = "pic2", .start = 0xa0, .end = 0xa1, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-        {.name = "dma2", .start = 0xc0, .end = 0xdf, .flags = IORESOURCE_BUSY | IORESOURCE_IO},
-        {.name = "fpu", .start = 0xf0, .end = 0xff, .flags = IORESOURCE_BUSY | IORESOURCE_IO}};
+        {.name  = "pic2",
+         .start = 0xa0,
+         .end   = 0xa1,
+         .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name  = "dma2",
+         .start = 0xc0,
+         .end   = 0xdf,
+         .flags = IORESOURCE_BUSY | IORESOURCE_IO},
+        {.name  = "fpu",
+         .start = 0xf0,
+         .end   = 0xff,
+         .flags = IORESOURCE_BUSY | IORESOURCE_IO}};
 
 void __init reserve_standard_io_resources (void)
 {
@@ -698,28 +729,36 @@ static void __init early_reserve_memory (void)
     // 保留 ramdisk 展开内存
     early_reserve_initrd ();
 
-    // 内核启动早期阶段与系统初始化相关的特定内存区域标记为保留区域，确保这些区域内存中保存的setup数据不会被后续内存分配所覆盖或使用。
-    // - 保留关键的启动数据区域：BIOS或引导加载器将一些重要配置信息、参数以及其他setup数据存放在特定内存区域，被memblock设置位保留，避免被通用内存分配器误用
-    // - 适配x86架构的特殊需求：x86平台某些特殊内存布局要求，比如低内存(0 ~ 1MB)中某些区域必须保持原样。该函数会根据平台要求，保留相应内存范围，以保证与旧有BIOS数据区、EBDA(扩展BIOS数据区)等相关数据不会被破坏
-    // - 为后续内核初始化提供保障：在内核进一步建立完善内存管理机制（比如：页描述符数组和buddy分配器）之前，确保这些setup数据保持不变。
+    // 内核启动早期阶段与系统初始化相关的特定内存区域标记为保留区域，
+    // 确保这些区域内存中保存的setup数据不会被后续内存分配所覆盖或使用。
+    // - 保留关键的启动数据区域：BIOS或引导加载器将一些重要配置信息、
+    //   参数以及其他setup数据存放在特定内存区域，被memblock设置位保留，避免被通用内存分配器误用
+    // - 适配x86架构的特殊需求：x86平台某些特殊内存布局要求，
+    //   比如低内存(0 ~ 1MB)中某些区域必须保持原样。该函数会根据平台要求，保留相应内存范围，
+    //   以保证与旧有BIOS数据区、EBDA(扩展BIOS数据区)等相关数据不会被破坏
+    // - 为后续内核初始化提供保障：在内核进一步建立完善内存管理机制
+    //  （比如：页描述符数组和buddy分配器）之前，确保这些setup数据保持不变。
     memblock_x86_reserve_range_setup_data ();
 
     // 保留BIOS和固件使用的内存
     reserve_bios_regions ();
 
     /**
-     * 在Intel Sandy Bridge(SNB)平台上调整和保留特定的物理内存区域，以防止内核错误使用某些可能导致系统不稳定的内存范围。
+     * 在Intel Sandy Bridge(SNB)平台上调整和保留特定的物理内存区域，
+     * 以防止内核错误使用某些可能导致系统不稳定的内存范围。
      * 其主要功能包括：
      *  1. 检测并保留问题内存区域
      *  2. 防止GPU或硬件冲突
      *  3. 调用 memblock_remove进行调整
      *
-     * SNB 是Intel 2011年推出的第二代Core处理器微架构，属于x86-64指令集架构的CPU平台。它是Nehaiem(第一代 Core i系列)的继任者，主要用于桌面、笔记本和服务器市场。
+     * SNB 是Intel 2011年推出的第二代Core处理器微架构，属于x86-64指令集架构的CPU平台。
+     * 它是Nehaiem(第一代 Core i系列)的继任者，主要用于桌面、笔记本和服务器市场。
      *  1. 32nm制程工艺
      *  2. 集成GPU(核显)
      *  3. 改进微架构
      *  4. 新增内存控制器
-     *  5. 引入PCIe 2.0控制器：处理器内部集成了 PCIe 2.0控制器，减少了对外部芯片组的依赖，提高了I/O速度
+     *  5. 引入PCIe 2.0控制器：处理器内部集成了 PCIe 2.0控制器，减少了对外部芯片组的依赖，
+     *     提高了I/O速度
      */
     trim_snb_memory ();
 }
@@ -785,8 +824,8 @@ void __init setup_arch (char** cmdline_p)
      * copy kernel address range established so far and switch
      * to the proper swapper page table
      */
-    clone_pgd_range (swapper_pg_dir + KERNEL_PGD_BOUNDARY, initial_page_table + KERNEL_PGD_BOUNDARY,
-                     KERNEL_PGD_PTRS);
+    clone_pgd_range (swapper_pg_dir + KERNEL_PGD_BOUNDARY,
+                     initial_page_table + KERNEL_PGD_BOUNDARY, KERNEL_PGD_PTRS);
 
     load_cr3 (swapper_pg_dir);
     /*
@@ -829,12 +868,11 @@ void __init setup_arch (char** cmdline_p)
      */
     olpc_ofw_detect ();
 
-    idt_setup_early_traps ();
+    idt_setup_early_traps ();   // 设置 IDT 表
     early_cpu_init ();
     jump_label_init ();
     static_call_init ();
     early_ioremap_init ();
-
     setup_olpc_ofw_pgd ();
 
     ROOT_DEV    = old_decode_dev (boot_params.hdr.root_dev);
@@ -857,16 +895,18 @@ void __init setup_arch (char** cmdline_p)
     rd_image_start = boot_params.hdr.ram_size & RAMDISK_IMAGE_START_MASK;
 #endif
 #ifdef CONFIG_EFI
-    if (!strncmp ((char*)&boot_params.efi_info.efi_loader_signature, EFI32_LOADER_SIGNATURE, 4)) {
+    if (!strncmp ((char*)&boot_params.efi_info.efi_loader_signature,
+                  EFI32_LOADER_SIGNATURE, 4)) {
         set_bit (EFI_BOOT, &efi.flags);
-    } else if (!strncmp ((char*)&boot_params.efi_info.efi_loader_signature, EFI64_LOADER_SIGNATURE,
-                         4)) {
+    }
+    else if (!strncmp ((char*)&boot_params.efi_info.efi_loader_signature,
+                         EFI64_LOADER_SIGNATURE, 4)) {
         set_bit (EFI_BOOT, &efi.flags);
         set_bit (EFI_64BIT, &efi.flags);
     }
 #endif
 
-    x86_init.oem.arch_setup (); // x86_64 空实现
+    x86_init.oem.arch_setup (); // x86_64 空实现， void x86_init_noop (void)
 
     /**
      * Do some memory reservations *before* memory is added to memblock, so
@@ -884,21 +924,24 @@ void __init setup_arch (char** cmdline_p)
      * 在此之后，引导加载程序或固件或内核文本中仍然需要的所有内容都应该在e820中提前保留或标记为非RAM。
      * 所有其他内存都是空闲的。
      * 这个调用需要发生在e820__memory_setup()之前，
-     * e820__memory_setup()调用Xen dom0上的xen_memory_setup()，这依赖于这些早期的保留已经发生的事实。
+     * e820__memory_setup()调用Xen dom0上的xen_memory_setup()，
+     * 这依赖于这些早期的保留已经发生的事实。
      */
     early_reserve_memory ();
 
     // boot_cpu_data.x86_phys_bits = arch/x86/kernel/setup.c
     // boot_cpu_data.x86_phys_bits = MAX_PHYSMEM_BITS;
     // MAX_PHYSMEM_BITS 2^n: max size of physical address space
-    // arch/x86/include/asm/sparsemem.h => #define MAX_PHYSMEM_BITS (pgtable_l5_enabled() ? 52 : 46)
+    // arch/x86/include/asm/sparsemem.h
+    // => #define MAX_PHYSMEM_BITS (pgtable_l5_enabled() ? 52 : 46)
     // 传统4级页表：PGD、PUD、PMD、PTE
     iomem_resource.end = (1ULL << boot_cpu_data.x86_phys_bits) - 1;
 
     e820__memory_setup ();
     parse_setup_data ();
 
-    // 桥梁功能：作为内核与 BIOS 之间的接口，将 BIOS 存储的 EDD 数据（包含硬盘、光驱等存储设备的详细信息）
+    // 桥梁功能：作为内核与 BIOS 之间的接口，
+    // 将 BIOS 存储的 EDD 数据（包含硬盘、光驱等存储设备的详细信息）
     // 解析到内核可用的数据结构中。
     copy_edd (); // 空实现
 
@@ -907,12 +950,13 @@ void __init setup_arch (char** cmdline_p)
     }
 
     /**
-     * Linux 内核初始化过程中用于设置初始内存管理结构（Initial Memory Management, init_mm）的核心函数，
-     * 其作用主要包括以下方面:
+     * Linux 内核初始化过程中用于设置初始内存管理结构（Initial Memory Management, init_mm）
+     * 的核心函数，其作用主要包括以下方面:
      *  1. 初始化初始内存描述符
      *      创建内存描述符：该函数负责创建并初始化全局内存描述符 init_mm，
      *      该结构体记录了内核早期阶段使用的内存布局信息，包括:
-     *        - 虚拟地址空间：定义内核初始的虚拟地址范围（如 0xFFFF800000000000 到 0xFFFFFFFFFFFFFFFF）
+     *        - 虚拟地址空间：定义内核初始的虚拟地址范围（如 0xFFFF800000000000
+     *          到 0xFFFFFFFFFFFFFFFF）
      *        - 页表配置：设置初始页表（如临时页表），确保内核能够访问物理内存和设备I/O空间
      *        - 内存区域注册：将 BIOS/E820 探测到的可用内存区域（如 E820_RAM）注册到 init_mm 中，
      *          为后续内存管理模块提供基础数据
@@ -938,7 +982,7 @@ void __init setup_arch (char** cmdline_p)
     bss_resource.start    = __pa_symbol (__bss_start);
     bss_resource.end      = __pa_symbol (__bss_stop) - 1;
 
-    x86_configure_nx (); // CPU 是否包含NX功能(禁止数据段执行)
+    x86_configure_nx ();  // CPU 是否包含NX功能(禁止数据段执行)
     parse_early_param (); // 解析 __setup 命令行参数 console 和 earlycon
 
     if (efi_enabled (EFI_BOOT)) {
@@ -987,7 +1031,7 @@ void __init setup_arch (char** cmdline_p)
     }
 
     reserve_ibft_region ();
-    x86_init.resources.dmi_setup ();
+    x86_init.resources.dmi_setup (); // void __init dmi_setup(void);
 
     /**
      * VMware detection requires dmi to be available, so this
@@ -996,7 +1040,8 @@ void __init setup_arch (char** cmdline_p)
      * called before cache_bp_init() for setting up MTRR state.
      *
      * VMware检测需要dmi可用，所以这需要在dmi_setup（）之后完成，用于引导CPU。
-     * 对于某些客户机类型（Xen PV、SEV-SNP、TDX），需要在cache_bp_init（）之前调用它来设置MTRR状态。
+     * 对于某些客户机类型（Xen PV、SEV-SNP、TDX），
+     * 需要在cache_bp_init（）之前调用它来设置MTRR状态。
      */
     init_hypervisor_platform ();
 
@@ -1178,24 +1223,28 @@ void __init setup_arch (char** cmdline_p)
 
     /* Some platforms need the APIC registered for NUMA configuration */
     early_acpi_boot_init ();
-    x86_init.mpparse.early_parse_smp_cfg ();
+    x86_init.mpparse.early_parse_smp_cfg (); // void mpparse_parse_early_smp_config(void);
 
     x86_flattree_get_config ();
 
     initmem_init ();
     dma_contiguous_reserve (max_pfn_mapped << PAGE_SHIFT);
 
-    if (boot_cpu_has (X86_FEATURE_GBPAGES))
+    if (boot_cpu_has (X86_FEATURE_GBPAGES)) {
         hugetlb_cma_reserve (PUD_SHIFT - PAGE_SHIFT);
+    }
 
     /*
      * Reserve memory for crash kernel after SRAT is parsed so that it
      * won't consume hotpluggable memory.
+     *
+     * 在解析 SRAT 后为崩溃内核预留内存，以免占用热插拔内存。
      */
     arch_reserve_crashkernel ();
 
-    if (!early_xdbc_setup_hardware ())
+    if (!early_xdbc_setup_hardware ()) {
         early_xdbc_register_console ();
+    }
 
     x86_init.paging.pagetable_init ();
 
@@ -1290,7 +1339,8 @@ void __init            i386_reserve_resources (void)
 
 #endif /* CONFIG_X86_32 */
 
-static struct notifier_block kernel_offset_notifier = {.notifier_call = dump_kernel_offset};
+static struct notifier_block kernel_offset_notifier = {.notifier_call =
+                                                               dump_kernel_offset};
 
 static int __init            register_kernel_offset_dumper (void)
 {

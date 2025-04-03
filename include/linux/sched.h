@@ -1937,6 +1937,11 @@ union thread_union
 extern struct thread_info init_thread_info;
 #endif
 
+/**
+ * @brief init_stack
+ *  THREAD_SIZE: 32KB
+ *  第一个进程的栈 4KB
+ */
 extern unsigned long init_stack[THREAD_SIZE / sizeof (unsigned long)];
 
 #ifdef CONFIG_THREAD_INFO_IN_TASK
