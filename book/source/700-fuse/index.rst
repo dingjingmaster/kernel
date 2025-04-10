@@ -7,3 +7,4 @@ FUSE
 
     libfuse-21.md
     libfuse-25.md
+    libfuse-30.md
