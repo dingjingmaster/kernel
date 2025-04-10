@@ -142,4 +142,4 @@ static int fuse_open(const char* path, int file)
 
 ## truncate
 
-清空文件夹
+清空文件
