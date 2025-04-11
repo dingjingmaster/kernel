@@ -7,3 +7,4 @@
 
     proc-kallsyms.md
     memory-layout.md
+    vm-memory-layout.md
