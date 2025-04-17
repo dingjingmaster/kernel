@@ -14,6 +14,7 @@ Linux 开发教程
     001-glibc/index.rst
     002-ling-sheng/index.rst
     700-fuse/index.rst
+    710-dpdk/index.rst
     800-Filesystem/index.rst
     801-Memory-Management/index.rst
     900-assembly/index.rst
@@ -25,3 +26,4 @@ Linux 开发教程
     998-about-hw/index.rst
     999-linux-version/index.rst
     1000-wayland/index.rst
+    9999/index.rst
