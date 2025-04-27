@@ -13,6 +13,7 @@ Linux 开发教程
     000-concepts/index.rst
     001-glibc/index.rst
     002-ling-sheng/index.rst
+    600-ioctl/index.rst
     700-fuse/index.rst
     710-dpdk/index.rst
     800-Filesystem/index.rst
