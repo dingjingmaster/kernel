@@ -7,3 +7,4 @@
 
     core-vfs/index.rst
     ext4/index.rst
+    proc/index.rst
