@@ -14,3 +14,4 @@ LWN.net
     8894-kernel_hardening-Hardened_usercopy.md
     8900-vDSO-On_vsyscalls_and_the_vDSO.md
     8901-vDSO-Implementing_virtual_system_calls.md
+    9000-library_mode-Running_the_kernel_in_library_mode.md
