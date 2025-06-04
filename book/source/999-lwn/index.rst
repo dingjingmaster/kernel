@@ -5,6 +5,8 @@ LWN.net
     :maxdepth: 2
     :caption: 目录:
 
+    2000-character_encoding-The_kernel_and_character_set_encodings.md
+    2001-character_encoding-Working_with_UTF-8_in_the_kernel.md
     8888-kernel_hardening-sanitizing_kernel_memory.md
     8889-kernel_hardening-page_sanitization_part_2.md
     8890-kernel_hardening-kernel_address_randomization.md
