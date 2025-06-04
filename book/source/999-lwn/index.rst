@@ -13,3 +13,4 @@ LWN.net
     8893-kernel_hardening-Two_PaX_features_move_toward_the_mainline.md
     8894-kernel_hardening-Hardened_usercopy.md
     8900-vDSO-On_vsyscalls_and_the_vDSO.md
+    8901-vDSO-Implementing_virtual_system_calls.md
