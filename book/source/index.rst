@@ -17,6 +17,7 @@ Linux 开发教程
     600-ioctl/index.rst
     601-eBPF/index.rst
     602-ptrace/index.rst
+    603-link_map/index.rst
     700-fuse/index.rst
     710-dpdk/index.rst
     800-Filesystem/index.rst
