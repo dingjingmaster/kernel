@@ -7,3 +7,4 @@ Capstone
 
     0000-概述.md
     0001-architecture.md
+    0002-struct.md
