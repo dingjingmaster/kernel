@@ -6,3 +6,4 @@ GNU C参考手册(2.41版本)
     :caption: 目录:
 
     001-导言.md
+    002-error.md
