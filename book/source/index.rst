@@ -11,8 +11,8 @@ Linux 开发教程
     :caption: 目录
 
     000-concepts/index.rst
+    001-libc/index.rst
     001-glibc/index.rst
-    002-ling-sheng/index.rst
     003-Linux内核完全注释V3.0/index.rst
     600-ioctl/index.rst
     601-eBPF/index.rst
