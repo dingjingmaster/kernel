@@ -31,6 +31,7 @@ Linux 开发教程
     997-about-others/index.rst
     998-about-hw/index.rst
     999-linux-version/index.rst
+    999-linux-kernel-read/index.rst
     999-lwn/index.rst
     1000-wayland/index.rst
     9999/index.rst
