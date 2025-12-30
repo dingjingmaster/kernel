@@ -263,7 +263,6 @@ $(filter-out $(this-makefile), $(MAKECMDGOALS)) __all: __sub-make
 __sub-make:
 	$(Q)$(MAKE) $(no-print-directory) -C $(abs_objtree) \
 	-f $(abs_srctree)/Makefile $(MAKECMDGOALS)
-	#@echo "make -C $(abs_objtree) -f $(abs_srctree)/Makefile $(MAKECMDGOALS)"
 
 else # need-sub-make
 
