@@ -49,35 +49,289 @@
 #include <asm/byteorder.h>
 #include <uapi/linux/fs.h>
 
+/**
+ * 在 Linux 内核中，struct backing_dev_info（通常简称为 BDI）的主要作用是管理和抽象块设备
+ * （如磁盘、SSD）的 I/O 相关的特性和状态，特别是与内存回写（writeback）机制相关的信息。
+ * 它作为一个接口，将上层的文件系统和页缓存管理与底层的物理存储设备连接起来，并提供精细化的控制
+ *  - 脏页回写管理
+ *  - I/O拥塞控制
+ *  - 预读
+ *  - 设备特性标志
+ */
 struct backing_dev_info;
+
+/**
+ * struct bdi_writeback 是 Linux 内核中一个非常重要的数据结构，
+ * 它的作用是负责管理和执行与特定存储设备相关联的内存脏页（dirty pages）的回写（writeback）操作。
+ */
 struct bdi_writeback;
+
+/**
+ * 在 Linux 内核中，struct bio（Block I/O 的缩写）是一个核心数据结构，
+ * 用于表示一个正在进行的块 I/O 操作。
+ * 它的主要功能是作为块设备子系统中的 I/O 请求的基本载体，
+ * 将上层文件系统或直接 I/O 请求所需的数据传输信息传递给底层的 I/O 调度器和设备驱动程序。
+ * - I/O请求描述：封装了完成一个I/O操作所需的所有基本信息，包括：
+ *  - 目标设备和分区
+ *  - 设备上的起始扇区地址
+ *  - 要传输的数据量(大小)
+ *  - I/O方向（读/写）及其他操作类型
+ *  - 一个指向完成回调函数的指针，以便在I/O完成后通知上层
+ * - 支持Scatter-GatherI/O（分散-收集I/O）, 它不要求内存缓存区在物理上是连续的
+ * - 它只包含表示I/O操作所需的最小信息
+ * - I/O合并与拆分
+ */
 struct bio;
+
+/**
+ * struct io_comp_batch 是 Linux 内核中用于批量处理 I/O 完成事件的数据结构，
+ * 主要与异步 I/O (AIO) 和高性能的 io_uring 子系统相关。
+ * - 提高效率(批量操作)
+ * - 减少开销
+ * - 作为回调函数的参数
+ * - 支持高性能异步I/O
+ */
 struct io_comp_batch;
+
+/**
+ * 在 Linux 内核中，struct export_operations 结构体的主要功能是定义并提供一个具体文件系统
+ * （例如 ext4、XFS）如何支持“导出”（exporting）自身的能力。
+ * 这种能力对于实现**网络文件系统（如 NFS, Network File System）**至关重要。
+ *
+ * 具体来说，它的作用是为远程访问提供必要的机制，使得客户端可以通过网络协议识别和定位特定的文件或目录，
+ * 即使在服务器重启后也能保持一致性。
+ * 该结构体包含了一系列函数指针（操作方法），核心功能包括：
+ * - 文件句柄的编解码(encode_fh和decode_fh/fh_to_dentry)
+ *  - encode_fh: 将内核中一个目录项或索引节点转换为一个持久的、与具体文件系统相关的文件句柄, 这个句柄可以安全的发送给网络客户端
+ *  - decode_fh/fh_to_dentry: 允许文件系统接收一个远程客户端发来的文件句柄，并使用它在本地文件系统
+ *      中准确找到对应的dentry或inode结构
+ * - 获取父目录信息(fh_to_parent和get_parent)
+ * - 提交元数据: 允许文件系统确保某些元数据更改(例如创建文件后的inode更新)被提交到稳定存储器 这对于保证NFS事务的持久性和一致性至关重要
+ */
 struct export_operations;
+
+/**
+ * struct fiemap_extent_info 在 Linux 内核中是一个内部使用的数据结构，
+ * 其核心作用是在虚拟文件系统（VFS）层和具体文件系统实现（如 Ext4、XFS）之间传递和管理 FIEMAP IOCTL 请求的状态和结果。
+ * FIEMAP 是一个系统调用接口，允许用户空间程序高效地获取文件在磁盘上的物理存储布局
+ * （即获取 Extent 映射信息），而无需逐块查询。
+ *
+ * 具体功能包括：
+ * - 封装请求参数
+ * - 管理返回缓存区
+ * - 跟踪映射数量
+ * - 作为辅助函数的桥梁
+ */
 struct fiemap_extent_info;
+
+/**
+ * struct hd_geometry 在 Linux 内核中的主要作用是表示磁盘的物理或逻辑几何结构参数
+ * （CHS：柱面、磁头、扇区），并作为用户空间程序（如 fdisk、lilo）与内核进行交互，获取或设置这些参数的接口。
+ *
+ * 主要功能：
+ * - 传统磁盘分区工具的兼容性：现代磁盘驱动器主要使用LBA(逻辑块寻址), 物理CHS几何参数在很大程度上已经成为抽象。
+ *  为了保持与旧版本分区工具和引导加载程序的兼容性,内核需要提供这些参数
+ * - HDIO_GETGEO IOCTL接口
+ * - 协助构建分区表
+ */
 struct hd_geometry;
+
+/**
+ * struct iovec 是一个标准 C 库和 Linux 内核中使用的数据结构，
+ * 主要功能是用于**分散/收集 I/O（Scatter/Gather I/O）**操作。
+ * 它定义了一个内存区域的描述符，指明数据所在的位置（基地址）和长度。
+ */
 struct iovec;
+
+/**
+ * struct kiocb（Kernel I/O Control Block，内核 I/O 控制块）是 Linux 内核中用于表示和管理单个异步 I/O (AIO) 操作的核心数据结构。
+ * 它的主要功能是作为异步 I/O 系统的“任务描述符”，跟踪 I/O 操作从提交到完成的整个生命周期。
+ * 主要作用包括：
+ * - 表示异步请求：当用户空间通过 io_submit 等接口发起异步I/O请求时候，内核会为每个请求分配一个struct kiocb 实例
+ * - 跟踪I/O状态
+ * - 连接用户空间与内核实现
+ * - 提供完成通知机制
+ */
 struct kiocb;
+
+/**
+ * struct kobject 是 Linux 设备模型（Linux Device Model）的核心基石，其主要功能是提供一个标准的、
+ * 可引用的对象管理框架，使得内核中的复杂数据结构可以在用户空间以文件和目录的形式表示出来，
+ * 通常表现为 /sys 文件系统中的节点。
+ *
+ * 核心作用：
+ * 1. 引用计数管理
+ * 2. 层次结构管理
+ * 3. 与sysfs的集成
+ * 4. 类型和操作抽象
+ */
 struct kobject;
+
+/**
+ * struct pipe_inode_info 是 Linux 内核中专门用于管理管道（pipe）和 FIFO（命名管道）通信机制的核心数据结构。
+ * 它的主要功能是维护和控制一个特定管道的数据缓冲区、状态信息以及同步机制。
+ * 核心功能:
+ * - 数据缓存区管理
+ * - 同步与进程通信
+ * - 引用计数与状态跟踪
+ * - 零拷贝优化支持
+ */
 struct pipe_inode_info;
+
+/**
+ * struct poll_table_struct 是 Linux 内核中用于实现 I/O 多路复用机制
+ * （如 poll()、select() 和 epoll()）的一个关键数据结构。
+ * 它的主要功能是提供一个抽象接口，使得驱动程序或文件系统能够在进程调用这些 I/O 监控函数时，
+ * 注册等待队列（wait queues）。
+ * 核心作用:
+ * - 收集等待队列
+ * - 抽象注册机制(poll_wait):该函数接收一个struct file指针和一个 struct poll_table_struct指针
+ * - 避免忙等待: 事件驱动
+ * - 接口兼容性: 隐藏了底层select()、poll、epoll机制的具体实现差异, 为驱动程序提供了一个统一的注册接口
+ */
 struct poll_table_struct;
+
+/**
+ * struct kstatfs 是 Linux 内核中的一个数据结构，其作用是表示一个文件系统的统计信息
+ * （如可用空间、总空间、文件系统类型等），供用户空间通过 statfs() 和 fstatfs() 系统调用查询。
+ * 主要功能:
+ *  当用户空间的程序(例如:df命令、文件管理器)需要获取某个挂载点的磁盘使用情况时候, 内核会填充一个
+ *  struct kstatfs 结构体, 并将其数据返回给用户空间
+ */
 struct kstatfs;
+
+/**
+ * struct vm_area_struct（通常简称为 VMA）是 Linux 内核内存管理子系统中最核心的数据结构之一。
+ * 它的作用是描述进程虚拟地址空间中的一个连续的内存区域（或段）。
+ * 一个进程的整个虚拟地址空间由一个链表或红黑树结构的 vm_area_struct 实例集合组成。
+ * 每个 VMA 定义了该区域的起始地址、结束地址、访问权限以及它所映射到的后备存储（backing store）。
+ */
 struct vm_area_struct;
+
+/**
+ * 在 Linux 内核中，struct vfsmount 的作用是表示文件系统的一次具体“挂载实例”
+ * （a specific mount instance of a filesystem）。
+ * 它是虚拟文件系统（VFS）层管理文件系统层次结构的关键数据结构。
+ * 主要功能:
+ *  - 关联文件系统到挂载点:
+ *  - 存储挂载特定信息
+ *  - 包含核心关联指针:
+ *      - mnt_root: 指向该挂载为二年系统根目录的 struct dentry 结构体
+ *      - mnt_sb: 指向该文件系统的 struct super+block 结构体
+ *      - mnt_flags: 存储此次挂载操作特有的标志(例如:是否是只读挂载 MS_RDONLY)
+ *  - 路径解析的导航器: 在内核进行路径查找时候, struct vfsmount 与 struct dentry 一起封装在 struct path
+ *  结构体中, 用于记录当前查找状态, 并实现跨越挂载点的导航
+ */
 struct vfsmount;
+
+/**
+ * struct cred（Credentials 的缩写，凭据或证书）是 Linux 内核安全子系统中一个至关重要的数据结构。
+ * 它的主要功能是表示和管理一个进程（或一个线程）在系统中的安全身份和权限信息。
+ * 内核使用 struct cred 来决定一个进程是否有权执行特定的操作，例如打开文件、发送信号、改变系统设置等。
+ */
 struct cred;
+
+/**
+ * struct swap_info_struct 是 Linux 内核中用于管理系统**交换区（Swap Space）**的核心数据结构。
+ * 它的主要功能是表示一个具体的交换设备或交换文件，并管理其所有相关的元数据和状态，
+ * 使得内核能够高效地使用该区域进行内存与磁盘之间的数据交换（Paging 和 Swapping）。
+ */
 struct swap_info_struct;
+
+/**
+ * 在 Linux 内核中，struct seq_file 的功能是提供一个方便、高效且标准化的框架，
+ * 用于向用户空间暴露大量的格式化、动态生成的数据，主要用于 /proc 和 /sys 文件系统。
+ * 它的设计目标是为了解决传统方法（如一次性分配大缓冲区）的低效和复杂性。
+ */
 struct seq_file;
+
+/**
+ * struct workqueue_struct 是 Linux 内核中用于管理**工作队列（Workqueues）**子系统的核心数据结构。
+ * 工作队列是一种内核机制，用于将需要在进程上下文中执行的任务（而不是在中断上下文中执行的任务）异步延迟执行。
+ */
 struct workqueue_struct;
+
+/**
+ * struct iov_iter 是 Linux 内核中一个非常重要的通用迭代器数据结构，
+ * 其核心功能是提供一个统一、灵活且高效的接口，用于遍历和操作分散在内存中
+ * （通常是用户空间或内核空间的不同缓冲区）的 I/O 数据流。
+ * 它是对底层数据结构（如 struct iovec, struct bio_vec, struct kvec 等）的抽象，
+ * 使得内核中的读/写操作函数不需要关心数据到底存储在哪里，只需使用迭代器即可。
+ */
 struct iov_iter;
+
+/**
+ * struct fscrypt_inode_info 是 Linux 内核中用于文件系统级别加密 (fscrypt) 的关键数据结构。
+ * 它的功能是存储与特定索引节点（inode，即文件或目录）关联的所有加密元数据和状态信息。
+ */
 struct fscrypt_inode_info;
+
+/**
+ * struct fscrypt_operations 是 Linux 内核中用于定义文件系统加密（fscrypt）具体操作方法的集合。
+ * 它的功能是充当一个接口，将通用的 VFS（虚拟文件系统）加密框架与具体的、
+ * 支持加密功能的文件系统实现（如 Ext4、F2FS）连接起来。
+ */
 struct fscrypt_operations;
+
+/**
+ * struct fsverity_info 是 Linux 内核中用于**文件系统数据完整性和真实性验证（fs-verity 子系统）**的关键数据结构。
+ * 它的主要功能是存储和管理与特定文件相关联的 Merkle 树（哈希树）元数据和验证状态。
+ */
 struct fsverity_info;
+
+/**
+ * struct fsverity_operations 的功能是定义一个接口规范（一组函数指针），
+ * 供支持 fs-verity 功能的具体文件系统（如 Ext4、F2FS）实现其特有的数据完整性验证操作。
+ * 这个结构体将通用的 fs-verity 核心逻辑与不同的文件系统实现隔离开来，
+ * 使得内核知道如何针对特定文件系统执行 Merkle 树元数据的读写和管理。
+ */
 struct fsverity_operations;
+
+/**
+ * struct fsnotify_mark_connector 是 Linux 内核 fsnotify（文件系统通知）子系统中的一个内部数据结构，
+ * 用于连接一个被监控的文件系统对象（inode 或 vfsmount）与实际的监控标记列表。
+ */
 struct fsnotify_mark_connector;
+
+/**
+ * struct fsnotify_sb_info 是 Linux 内核 fsnotify（文件系统通知）子系统中的一个数据结构，
+ * 其功能是管理和存储与特定文件系统超级块（super_block）关联的所有通知相关信息。
+ */
 struct fsnotify_sb_info;
+
+/**
+ * struct fs_context 是 Linux 内核中新的挂载 API 的核心数据结构，
+ * 其功能是在执行文件系统挂载（mount）、重新配置（remount）或获取超级块（superblock）的过程中，
+ * 作为临时的“上下文”或“配置管理器”。
+ * 它是一个容器，用于在多步骤的挂载过程中暂存所有必要的参数和状态。
+ */
 struct fs_context;
+
+/**
+ * struct fs_parameter_spec 是 Linux 内核中用于描述文件系统挂载选项（mount options）
+ * 的元数据结构。它主要与新的挂载 API 和 struct fs_context 框架配合使用。
+ * 它的功能是提供一个规范，定义特定文件系统支持哪些参数、这些参数的类型（例如，布尔值、整数、字符串）以及如何解析它们。
+ */
 struct fs_parameter_spec;
+
+/**
+ * struct fileattr 是 Linux 内核中一个轻量级的数据结构，
+ * 主要功能是表示文件的基本属性或元数据的一个子集，特别关注那些与用户空间可见的、
+ * 或在文件系统间传递文件属性相关的信息。
+ * 它的设计目的是为了在内核的不同子系统之间（例如 VFS 层和特定的文件系统实现之间）高效地传递通用的文件属性，
+ * 同时避免使用更复杂、更大的结构体（如 struct inode 或完整的 struct kstat）。
+ */
 struct fileattr;
+
+/**
+ * @brief 在 Linux 内核中，struct iomap_ops 的功能是定义一组回调函数（操作方法），
+ * 用于将文件的逻辑字节范围映射到物理存储位置。它是现代 Linux I/O 抽象层 iomap 库的核心部分，
+ * 旨在替代传统的、低效的 buffer_head 机制。
+ * 具体来说，iomap_ops 结构体提供以下核心作用：
+ * - 逻辑到物理地址映射
+ * - 标准化I/O路径
+ * - 支持现代存储特性
+ */
 struct iomap_ops;
 
 extern void __init inode_init(void);
@@ -91,24 +345,48 @@ extern unsigned int sysctl_nr_open;
 typedef __kernel_rwf_t rwf_t;
 
 struct buffer_head;
+/**
+ * @brief 这个类型定义（typedef）定义了一个函数指针类型 get_block_t，
+ * 该函数是 Linux 内核中块设备文件系统（如 Ext2/3）的核心操作函数之一。
+ * 其主要功能是将文件内部的逻辑块号（Logical Block Number）映射到磁盘上的物理扇区地址。
+ * @param inode
+ * @param iblock
+ * @param bh_result
+ * @param create
+ * @return
+ */
 typedef int (get_block_t)(struct inode *inode, sector_t iblock,
 			struct buffer_head *bh_result, int create);
+
+/**
+ * @brief 这个类型定义（typedef）定义了一个函数指针类型 dio_iodone_t，
+ * 它是 Linux 内核直接 I/O (Direct I/O 或 O_DIRECT) 子系统中使用的回调函数类型。
+ * @param iocb
+ * @param offset
+ * @param bytes
+ * @param private
+ * @return
+ */
 typedef int (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
 			ssize_t bytes, void *private);
 
-#define MAY_EXEC		0x00000001
-#define MAY_WRITE		0x00000002
-#define MAY_READ		0x00000004
-#define MAY_APPEND		0x00000008
-#define MAY_ACCESS		0x00000010
-#define MAY_OPEN		0x00000020
-#define MAY_CHDIR		0x00000040
+#define MAY_EXEC		0x00000001  // 检查是否有执行权限（例如运行一个程序）。对于目录，表示是否有权限搜索（进入）该目录。
+#define MAY_WRITE		0x00000002  // 检查是否有写入权限（修改文件内容）。
+#define MAY_READ		0x00000004  // 检查是否有读取权限（读取文件内容）。
+#define MAY_APPEND		0x00000008  // 检查是否有追加写入权限（只允许在文件末尾添加数据，通常与 MAY_WRITE 结合使用）。
+#define MAY_ACCESS		0x00000010  // 检查是否有基本的访问权限，但不涉及读/写/执行本身，例如使用 access() 系统调用时检查是否存在性
+#define MAY_OPEN		0x00000020  // 检查是否有权限打开文件，这通常是读/写/执行权限检查的父级操作
+#define MAY_CHDIR		0x00000040  // 检查是否有权限改变目录（进入目录），与 MAY_EXEC 对于目录的含义类似，但更 specifically 指向 chdir() 操作
 /* called from RCU mode, don't block */
-#define MAY_NOT_BLOCK		0x00000080
+#define MAY_NOT_BLOCK	0x00000080  // 这不是权限标志。它是一个指令性的标志，告诉权限检查函数：当前代码正在 RCU（Read-Copy-Update）读端侧运行，不允许阻塞或睡眠。
+                                    // 如果执行权限检查需要阻塞（例如需要 I/O 来读取 ACL 访问控制列表），则应返回一个特殊错误（如 -EAGAIN）而不是阻塞
 
 /*
  * flags in file.f_mode.  Note that FMODE_READ and FMODE_WRITE must correspond
  * to O_WRONLY and O_RDWR via the strange trick in do_dentry_open()
+ *
+ * 这些宏定义是 Linux 内核中用于表示文件打开模式（File Mode）和能力标志的常量。
+ * 这些标志通常存储在 struct file 结构体的 f_mode 字段中，用于描述文件当前是如何被打开的，以及它支持哪些操作类型。
  */
 
 /* file is open for reading */
@@ -130,6 +408,11 @@ typedef int (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
 
 /* FMODE_* bit 8 */
 
+/**
+ * 这两个宏定义是 Linux 内核中用于表示文件**目录哈希模式（Directory Hashing Mode）**的标志。
+ * 这些标志通常与使用哈希树作为目录索引的文件系统（例如某些配置下的 Ext4、Btrfs）相关，
+ * 它们决定了在内部管理目录条目时使用的哈希算法和存储格式。
+ */
 /* 32bit hashes as llseek() offset (for directories) */
 #define FMODE_32BITHASH         ((__force fmode_t)(1 << 9))
 /* 64bit hashes as llseek() offset (for directories) */
@@ -140,10 +423,24 @@ typedef int (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
  *
  * Currently a special hack for the XFS open_by_handle ioctl, but we'll
  * hopefully graduate it to a proper O_CMTIME flag supported by open(2) soon.
+ *
+ * 不更新修改时间（No CMOD Time Update）。
+ * 当设置此标志打开文件时，内核被指示在写入数据到文件时，
+ * 不更新该文件的元数据修改时间（mtime）和状态改变时间（ctime）。
+ * 这通常用于特定的工具或应用程序，它们需要在修改文件内容的同时保持时间戳不变。
  */
 #define FMODE_NOCMTIME		((__force fmode_t)(1 << 11))
 
-/* Expect random access pattern */
+/**
+ * Expect random access pattern
+ *
+ * 期望随机访问模式（Expect Random Access Pattern）。
+ * 这个标志是对内核 I/O 子系统的一个性能提示。
+ * 它告诉内核：这个文件将被随机地、非顺序地访问。
+ * 收到这个提示后，内核会倾向于禁用或减少预读（read-ahead）操作，
+ * 因为顺序预读对于随机访问是低效的，可以节省 I/O 带宽。
+ * 这类似于用户空间调用 fadvise(..., POSIX_FADV_RANDOM) 的效果。
+ */
 #define FMODE_RANDOM		((__force fmode_t)(1 << 12))
 
 /* FMODE_* bit 13 */
@@ -218,7 +515,8 @@ typedef int (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
 #define WHITEOUT_MODE 0
 #define WHITEOUT_DEV 0
 
-/*
+/**
+ * @brief
  * This is the Inode Attributes structure, used for notify_change().  It
  * uses the above definitions as flags, to know which values have changed.
  * Also, in this manner, a Filesystem can look at only the values it cares
@@ -226,6 +524,33 @@ typedef int (dio_iodone_t)(struct kiocb *iocb, loff_t offset,
  * request to change from the FS layer.
  *
  * Derek Atkins <warlord@MIT.EDU> 94-10-20
+ *
+ * struct iattr（inode attribute，索引节点属性）是 Linux 内核中的一个数据结构，
+ * 用于在内核调用（通常是 VFS 层调用具体文件系统实现时）之间传递文件（inode）的元数据修改请求。
+ * 它的主要功能是充当一个标准化的容器，指定需要修改哪些文件属性，以及它们的新值。
+ *
+ * 1. 标准化属性修改接口：
+ *      当用户空间调用 chmod()（修改权限）、
+ *      chown()（修改所有者）、
+ *      utime()（修改时间戳）或 truncate()（修改文件大小）等系统调用时，
+ *      VFS 层会将这些请求打包进一个 struct iattr 结构体。
+ * 2. 使用标志位指示修改内容：
+ *      struct iattr 中包含一个关键字段 ia_valid。
+ *      这是一个位掩码，用于精确地指定哪些属性需要被修改。
+ *      这样做的好处是，一个 struct iattr 结构体可以同时处理多种属性修改（例如，同时修改大小和时间），
+ *      并且内核知道哪些字段是有效的、哪些应该被忽略。常用的标志包括：
+ *          ATTR_MODE：表示需要修改权限模式（ia_mode 字段有效）。
+ *          ATTR_UID：表示需要修改用户 ID（ia_uid 字段有效）。
+ *          ATTR_SIZE：表示需要修改文件大小（ia_size 字段有效）。
+ *          ATTR_MTIME：表示需要修改修改时间（ia_mtime 字段有效）。
+ * 3. 携带新属性值：
+ *      该结构体包含了所有可能需要修改的属性的新值，例如：
+ *      ia_mode：新的权限模式。
+ *      ia_size：新的文件大小。
+ *      ia_uid, ia_gid：新的用户 ID 和组 ID。
+ * 4. 调用文件系统操作：
+ *      VFS 层随后会调用具体文件系统（如 ext4 的 inode_operations->setattr 函数）的实现，
+ *      并将这个填充好的 struct iattr 传递下去，由文件系统驱动负责将更改写入磁盘。
  */
 struct iattr {
 	unsigned int	ia_valid;
@@ -255,12 +580,15 @@ struct iattr {
 	struct timespec64 ia_mtime;
 	struct timespec64 ia_ctime;
 
-	/*
-	 * Not an attribute, but an auxiliary info for filesystems wanting to
-	 * implement an ftruncate() like method.  NOTE: filesystem should
-	 * check for (ia_valid & ATTR_FILE), and not for (ia_file != NULL).
-	 */
-	struct file	*ia_file;
+    /*
+     * Not an attribute, but an auxiliary info for filesystems wanting to
+     * implement an ftruncate() like method.  NOTE: filesystem should
+     * check for (ia_valid & ATTR_FILE), and not for (ia_file != NULL).
+     *
+     * 字段是一个指向 struct file 结构体的指针。
+     * 它的含义是指定当前属性修改操作是针对哪一个打开的文件描述符（如果适用的话）
+     */
+    struct file	*ia_file;
 };
 
 /*
@@ -298,8 +626,15 @@ struct iattr {
  * special semantics to the caller.  These are much larger than the bytes in a
  * page to allow for functions that return the number of bytes operated on in a
  * given page.
+ *
+ * 用于表示特定文件操作 AOP（Address Space Operations，地址空间操作）函数的返回值。
+ * 它的主要功能是定义两个特定的、表示成功或特殊条件的非零返回值：
+ *  - AOP_WRITEPAGE_ACTIVATE = 0x80000：表示 writepage 操作成功，并且该页需要被激活（activation）。
+ *  - AOP_TRUNCATED_PAGE = 0x80001：表示在执行操作（例如截断文件）时，相关的页面已被成功截断。
+ * 在 Linux 内核的文件系统代码中，标准做法是成功返回 0，失败返回负的错误码。
+ * 然而，某些 AOP 函数（例如 writepage）需要能够返回特殊的正数值来指示调用者执行额外的操作（如激活页面），
+ * 而不仅仅是简单的成功（0）。enum positive_aop_returns 正是为了提供这些特殊的状态码。
  */
-
 enum positive_aop_returns {
 	AOP_WRITEPAGE_ACTIVATE	= 0x80000,
 	AOP_TRUNCATED_PAGE	= 0x80001,
@@ -308,8 +643,74 @@ enum positive_aop_returns {
 /*
  * oh the beauties of C type declarations.
  */
+/**
+ * @brief
+ *  struct page 是一个核心的数据结构，其功能是管理物理内存
+ *  Linux 内核将系统的全部物理内存划分为固定大小的块，称为“页”（通常为 4KiB 或更大），
+ *  并为每一个物理内存页框（Page Frame）分配一个对应的 struct page 结构体实例。
+ *
+ *  struct page 结构体本身并不包含实际的页面数据，而是包含了元数据（metadata），
+ *  用于描述和跟踪该物理页框的各种属性和使用状态
+ *
+ * struct page 的主要功能和用途包括:
+ *  - 状态跟踪：它包含一系列标志（flags），用于指示页面的当前状态，
+ *      例如是否被修改（dirty）、
+ *      是否被锁定（locked）、
+ *      是否在内存中（present）、
+ *      是否属于一个大页（compound page）等
+ *  - 引用计数：它维护一个引用计数器（_refcount），记录当前有多少个地方（例如用户进程、内核数据结构、页缓存等）
+ *      正在使用这个物理页。当引用计数降为零时，该页才会被释放并回归到空闲内存池。
+ *  - 内存管理链表：它包含 struct list_head 成员，使得该结构体可以被链接到各种不同的内核链表中，例如：
+ *      - LRU（最近最少使用）列表：用于内存回收和页面交换（swapping）管理
+ *      - 空闲列表：当页面空闲时，由伙伴系统（buddy allocator）用于管理。
+ *  - 映射信息：对于用作页缓存（page cache）或匿名内存（anonymous memory）的页面，
+ *      struct page 包含指向相关地址空间 (struct address_space) 或匿名虚拟内存结构 (struct anon_vma) 的指针，
+ *      以便内核知道该页框属于哪个文件或哪个进程的地址空间。
+ *  - 虚拟地址映射：内核提供了多种辅助函数（如 virt_to_page()、pfn_to_page() 等），
+ *      用于在物理页框号（PFN）、虚拟地址和对应的 struct page 结构体之间进行转换，从而实现对物理内存的有效访问和控制
+ * 由于系统中物理内存页的数量庞大（例如，4GB 内存就有超过一百万个页），struct page 的大小对系统内存开销非常敏感。
+ * 因此，内核开发者们会尽可能地压缩这个结构体的大小，使用复杂的联合体（unions）来复用字段，以节省宝贵的内存空间
+ */
 struct page;
+
+/**
+ * @brief
+ * struct address_space 是一个关键的数据结构，其核心功能是管理页缓存（Page Cache），
+ * 并作为虚拟文件系统（VFS）与特定文件系统实现之间进行内存 I/O 操作的桥梁
+ * 简单来说，struct address_space 负责:
+ *  - 管理文件数据在内存中的缓存：它将磁盘文件（或其他物理设备上的数据）的各个部分映射到内存中的物理页框（由 struct page 表示）。
+ *    系统通过这个结构体来查找一个文件的特定偏移量对应的数据是否已经在内存中，如果在，就直接访问，否则就从磁盘加载
+ *  - 提供文件操作接口（AOPs）：struct address_space 包含一个指向 struct address_space_operations 的指针（通常命名为 a_ops），该结构体定义了一系列操作函数，例如 readpage、writepage、writepages 等。
+ *    这些操作是文件系统特有的，负责将页缓存中的数据与实际的物理存储设备（如磁盘、SSD）进行同步。
+ *  - 维护映射关系：它内部使用一个基数树（radix tree）或类似的数据结构，高效地索引属于该地址空间的所有页面。
+ *    通过这个结构体，内核可以根据文件偏移量快速定位到具体的 struct page。
+ *  - 数据同步：它跟踪哪些页面被“弄脏”（dirty，即在内存中被修改但尚未写入磁盘），
+ *    并在适当的时候（例如，调用 sync() 或系统进行回写操作时）将这些数据写回永久存储
+ * 每个文件系统的索引节点（struct inode）都会关联一个 struct address_space 结构体（通过 i_mapping 字段），用于管理该文件的页缓存。
+ * 此外，内核还可能使用其他的 address_space 实例来管理交换区（swap space）等非文件的内存映射
+ */
 struct address_space;
+
+/**
+ * @brief
+ * struct writeback_control 是一个用于控制页面回写（page writeback）操作行为和参数的结构体
+ * 当内核决定将内存中已修改（"dirty"）的页面写回到底层存储设备（如磁盘、SSD）时，
+ * 无论是通过后台回写进程（如 kupdate、pdflush 线程，现在通常是每个设备的回写线程）
+ * 还是通过前台用户进程的同步操作（如 sync()、fsync()），
+ * 都需要使用 struct writeback_control 来传递指令和状态
+ *
+ * 它的主要功能包括:
+ * - 指定回写数量：nr_to_write 字段指示本次操作应尝试写回多少个页面。文件系统在执行回写操作时会检查此字段，每写完一页就将其递减
+ * - 定义回写范围：range_start 和 range_end 字段可以指定一个文件的字节范围，提示文件系统只需回写该范围内的脏页，而不是整个文件
+ * - 设置同步模式：sync_mode 字段（通常是 WB_SYNC_NONE 或 WB_SYNC_ALL）决定了操作的同步级别。
+ *   例如，WB_SYNC_ALL 表示必须等待所有相关的 I/O 完成，而 WB_SYNC_NONE 则表示可以异步提交 I/O 请求
+ * - 标识操作来源：结构体中的位标志（如 for_background、for_reclaim、for_sync 等）
+ *   指明了回写操作是由哪个子系统触发的（例如，是内存回收机制触发的，还是用户调用 sync() 触发的），
+ *   这有助于内核根据不同的场景调整其行为和优先级
+ * - 传递控制组信息：如果启用了控制组（cgroup）回写功能，该结构体还会包含指向特定 bdi_writeback 实例的指针，
+ *   以便正确地将 I/O 归属到相应的控制组，从而实现 I/O 带宽的公平分配和限制
+ * 总之，struct writeback_control 是内核 I/O 子系统中一个关键的“控制面板”，用于精细管理和协调脏页的回写过程。
+ */
 struct writeback_control;
 struct readahead_control;
 
