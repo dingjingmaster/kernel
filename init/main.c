@@ -910,7 +910,7 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
     set_task_stack_end_magic (&init_task);      // init_task, 内核启动的第一个进程
     smp_setup_processor_id ();
     debug_objects_early_init ();
-    init_vmlinux_build_id ();
+    init_vmlinux_build_id ();                       // mark_rodata_ro() 初始化后相关变量变为只读
 
     cgroup_init_early ();
 
@@ -925,16 +925,49 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
     page_address_init ();   // 空实现
     pr_notice ("%s", linux_banner);
     setup_arch (&command_line);
+
     /* Static keys and static calls are needed by LSMs */
+    // jump_label_init() 的主要任务是遍历内核镜像中的 __jump_table 节，并将代码中预留的占位指令替换为最优的跳转指令。
+    // 默认状态：在编译时，为了保证逻辑正确，内核在所有 static_branch 位置通常预留了一个 5 字节的 NOP 指令。
+    // 初始化动作：该函数会根据每个分支的初始布尔值（True 或 False），决定是将 NOP 保持原样，还是将其修改为 jmp (绝对跳转) 指令。
     jump_label_init ();
+
+    // 静态调用是为了解决**间接跳转（Indirect Calls）**带来的性能损耗而设计的。
+    // 传统方式：内核中许多地方使用函数指针（如 ops->func()）。在 CPU 层面，这表现为 call *%rax。由于 2025 年依然受 Spectre 等漏洞影响，这类跳转通常需要经过复杂的 Retpoline 或硬件防护（如 IBT），性能开销极大。
+    // Static Call 方式：static_call_init() 会遍历内核镜像中的 .static_call_sites 节，将原本通过指针跳转的间接指令，硬编码替换为直接的 call <address> 或 jmp <address> 指令。
     static_call_init ();
+
+    // 内核启动早期用于初始化 LSM（Linux Security Modules，Linux 安全模块） 框架的关键函数
+    // 它确保了安全策略在系统运行任何用户态代码或挂载复杂文件系统之前就已经生效
     early_security_init ();
     setup_boot_config ();
     setup_command_line (command_line);
+
+    // setup_nr_cpu_ids() 是一个用于确定系统逻辑 CPU 数量上限的关键初始化函数。
+    // 该函数的主要任务是计算并设置全局变量 nr_cpu_ids
     setup_nr_cpu_ids ();
+
+    // 是为每个 CPU 核心分配并建立独立的静态 Per-CPU 变量区域
+    // 在 vmlinux 静态镜像中，所有的 Per-CPU 变量都存放在 .data..percpu 段中，这只是一个母本（Template）
+    // 1. 计算需求：根据前一步 setup_nr_cpu_ids() 确定的 CPU 数量，计算总内存需求
+    // 2. 申请内存：为每一个可能的 CPU 核心申请一块足够大的物理内存
+    // 3. 克隆数据：将 .data..percpu 段中的初始化数据完整地“复印”到每一块新申请的内存中
+    // 4. 建立映射：设置基地址寄存器(如 x86 的 GS 段基址, ARM64的TPIDR_EL1),使得每个 CPU 在访问同一个变量名时, 实际指向的是属于自己的那个副本
     setup_per_cpu_areas ();
+
+    // 为当前正在执行启动流程的那个 CPU(即 Boot CPU / CPU 0)完成最后的运行环境设置, 使其具备运行完整内核任务的能力
+    // 该函数紧随 setup_per_cpu_areas() 执行, 标志着系统从“单核模式”向“多核准备模式”的过渡
+    // 虽然此时系统还没有唤醒其他从核心(Secondary CPUs), 但 Boot CPU 需要先把自己武装好
+    // 1. 绑定 Per-CPU 区域：将之前由 setup_per_cpu_areas() 分配好的内存副本正式关联到当前 CPU 的寄存器(如 x86 的 GS 寄存器或 ARM64 的 TPIDR_ELx)
+    // 2. 初始化 CPU 映射表：将当前 CPU 标记为 present(存在)和 online(在线)
+    // 3. 设置 CPU 状态索引：在内核的 cpu_data 结构体中填充当前硬件的详细信息(如缓存大小、特性标志、型号 ID 等)
     smp_prepare_boot_cpu (); /* arch-specific boot-cpu hooks */
+
+    // 在某些架构如 x86 中被称为 numa_init 序列的一部分是内核启动早期用于建立 NUMA（非一致存储访问） 拓扑结构的初始化函数。
+    // 内存被物理地连接在不同的 CPU 插槽或核心簇上。访问本地内存比跨节点访问远程内存快得多
     early_numa_node_init ();
+
+    // 它为系统中每一个潜在的 CPU 核心建立起一套状态管理机制，使得 CPU 可以在系统运行期间动态地“上线”或“离线”。
     boot_cpu_hotplug_init ();
 
     pr_notice ("Kernel command line: %s\n", saved_command_line);
@@ -976,14 +1009,41 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
      * initalization of page allocator
      */
     setup_log_buf (0);
+
+    // 是虚拟文件系统(VFS)启动最早期执行的初始化函数
+    // 它在 start_kernel() 的极早期阶段被调用,主要负责为内核中最核心的两个缓存: Dentry Cache(目录项缓存)和 Inode Cache(索引节点缓存)分配初始的哈希表空间
     vfs_caches_init_early ();
+
+    // 内核启动早期的一个关键函数,其核心任务是对内核主镜像中的异常处理表(Exception Table, __ex_table)进行排序.
+    // 排序目的：在链接阶段, 各 .o 文件中的异常条目是按编译顺序合并的, 地址是乱序的.
+    // sort_main_extable() 使用二分查找算法(Binary Search)的逻辑, 将这些条目按指令地址(insn)从小到大重新排序
     sort_main_extable ();
+
+    // 初始化硬件异常处理. 它定义了当 CPU 遇到非法操作（如除零、页错误、非法指令）时，应该跳转到哪段内核代码去处理
     trap_init ();
+
+    // 内核内存管理子系统初始化的核心枢纽函数
+    // 标志着内核从早期简单的内存管理(memblock) 向功能完整的核心内存管理(Core Memory Management)的正式转变
     mm_core_init ();
+
+    // 内核启动早期的一个安全初始化函数. 它的核心任务是初始化用于修改只读代码段的特殊映射机制
+    // 为了防止攻击者篡改指令，内核代码段().text)被标记为只读(Read-Only)和不可写(NX).
+    // 然而, 内核在运行时仍需修改指令（例如: Ftrace 挂载, Jump Label 开关、静态调用替换等). 直接修改代码段会触发页错误(Page Fault).
+    // poking_init() 建立了一套名为 Text Poking 的机制, 允许内核在严格受控的情况下, “临时”且“安全”地重写这些受保护的代码区域。
+    // 创建专用页表(Poking Address Space): poking_init() 会在内存中申请一个专用的、私有的虚拟地址空间副本
+    // 建立影子映射(Shadow Mapping): 它将实际的只读代码段映射到这个特殊的虚拟地址上, 但在该地址下赋予其可写权限.
+    // 初始化写保护切换逻辑: 确保每次修改指令时, CPU 都能通过这个临时的“窗口”写入新指令, 并在写入完成后立即失效, 从而防止恶意程序利用该窗口.
     poking_init ();
+
+    // ftrace_init() 是内核启动阶段用于初始化 函数追踪器 (Function Tracer) 的核心函数. 它负责建立起内核动态代码分析和性能监控的基础框架.
+    // ftrace_init() 最重要的任务是对内核指令进行“预处理”
+    // 1. 扫描 __mcount_loc 节：在编译内核时，如果开启了 CONFIG_DYNAMIC_FTRACE，编译器会在每个函数的入口处插入一条特殊的调用指令(通常是 mcount 或 __fentry__).编译器还会将这些指令的地址全部记录在 vmlinux 的 __mcount_loc 节中
+    // 2. 指令热补丁 (Hot-patching): ftrace_init() 启动后, 会遍历这些地址, 并将所有的 call 指令替换为 NOP (空指令)
+    // 3. 目的: 这样在默认情况下, 内核运行速度几乎不受影响(零开销). 只有当你通过 /sys/kernel/tracing 开启某个函数的追踪时, ftrace 才会再次利用 poking_init() 建立的机制, 将 NOP 动态替换回跳转指令.
     ftrace_init ();
 
     /* trace_printk can be enabled here */
+    // early_trace_init() 是内核追踪子系统的第一阶段初始化函数. 它负责在系统启动早期(甚至在文件系统和中断完全就绪前)建立最基础的日志记录能力
     early_trace_init ();
 
     /*
@@ -991,18 +1051,36 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
      * timer interrupt). Full topology setup happens at smp_init()
      * time - but meanwhile we still have a functioning scheduler.
      */
+    // sched_init() 是内核启动序列中最核心的初始化函数之一. 它的任务是从零开始构建进程调度系统, 为内核从“单任务启动状态”转变为“多任务多 CPU 状态”奠定基础.
     sched_init ();
 
     if (WARN (!irqs_disabled (), "Interrupts were enabled *very* early, fixing it\n")) {
         local_irq_disable ();
     }
+    // 内核启动早期用于初始化基数树(Radix Tree)
+    // 基数树是一种空间利用率极高且查找速度极快的紧凑多路搜索树
+    // 由于基数树的节点（Nodes）在系统运行期间会被极其频繁地创建和销毁（例如每打开一个文件、每缓存一个内存页都会用到），如果每次都通过标准的内存分配器申请内存，性能开销将不可接受
+    // radix_tree_init() 的主要任务是:
+    // 1. 初始化 Slab 缓存：调用 kmem_cache_create() 为基数树节点创建一个专用的内存池(通常称为 radix_tree_node_cachep)
+    // 2. 配置节点预分配逻辑：设置内核在内存紧张时如何预留基数树节点, 以确保关键路径(如页高速缓存查找)不会因为内存不足而阻塞
     radix_tree_init ();
+
+    // 它标志着内核现代数据结构框架的建立，用于取代老旧的红黑树（rbtree）来管理内存区域
+    // 枫树（Maple Tree）是 Linux 内核近年来引入的一种 B-tree 变体，专门为管理虚拟内存区域（VMA）而设计。maple_tree_init() 的主要任务是:
+    // 1. 初始化 Slab 缓存：调用 kmem_cache_create() 为枫树节点（Maple Nodes）创建一个名为 maple_node 的专用内存池
+    // 2. 配置并发属性：确保枫树节点在多核并发访问时符合 RCU(Read-Copy-Update) 安全要求
+    // 3. 优化内存布局：由于枫树节点的大小通常经过精心设计以匹配 CPU 缓存行(Cache Line),该函数负责在分配时确保存储对齐, 从而最大限度地减少 2025 年高性能处理器上的缓存失效
     maple_tree_init ();
 
     /*
      * Set up housekeeping before setting up workqueues to allow the unbound
      * workqueue to take non-housekeeping into account.
      */
+    // 专门用于处理 “内核管家任务”的隔离
+    // 在多核处理器中，内核需要执行许多背景任务（如 RCU 回调、时钟滴答处理、内核线程工作队列等）。这些任务被称为 “Housekeeping”
+    // housekeeping_init() 的任务是根据用户在启动参数中设置的 isolcpus= 或 nohz_full= 指令，将系统中的 CPU 划分为两类:
+    // 1. Housekeeping CPUs: 负责处理所有的内核杂务(打扫房间)
+    // 2. Isolated CPUs(隔离核): 尽量免除内核杂务的打扰, 全身心投入运行用户指定的关键应用
     housekeeping_init ();
 
     /*
@@ -1010,25 +1088,44 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
      * early.  Work item execution depends on kthreads and starts after
      * workqueue_init().
      */
+    // workqueue_init_early() 是通用工作队列(Workqueue, wq)子系统的第一阶段初始化函数
+    // 它的核心任务是在系统启动的极早期(甚至在中断和完整内存管理就绪前),建立起最基础的任务异步执行机制
     workqueue_init_early ();
 
+    // 是内核启动早期用于初始化 RCU (Read-Copy-Update) 机制的核心函数
+    // 是 Linux 内核实现高并发、无锁读取的关键技术，几乎所有内核子系统（如网络、文件系统、调度器）都极度依赖它
     rcu_init ();
 
     /* Trace events are available after this */
+    // 核追踪子系统（Tracing System）的第二阶段完整初始化函数
     trace_init ();
 
     if (initcall_debug) {
+        // initcall_debug_enable 是一个全局布尔变量(标志位), 用于控制内核在启动过程中是否打印每一个初始化函数(initcall)的详细执行信息
         initcall_debug_enable ();
     }
 
+    // context_tracking_init() 是内核启动后期的一个关键函数，主要用于初始化上下文跟踪(Context Tracking)子系统
+    // 它是实现 NO_HZ_FULL(全无滴答/无中断)模式的核心技术基础
+    // 该函数的主要任务是初始化用于追踪 CPU 在用户态（User）、内核态（Kernel）和异常上下文之间切换的状态机
+    // 核心功能：监控 CPU 状态切换:
+    // 1. 状态监测: 当 CPU 进入或退出用户态时, 上下文跟踪系统会捕获这些切换
+    // 2. 触发 RCU 宽限期: 如果某个核心被设置为隔离核(Isolated CPU), 上下文跟踪会通知 RCU 子系统: “该核心已进入用户态, 不再需要通过时钟滴答来同步 RCU 宽限期”
+    // 3. 虚拟化支持: 在 2025 年的云计算场景中, 该函数也为 KVM 客户机切换时的上下文跟踪提供支持
     context_tracking_init ();
+
     /* init some links before init_ISA_irqs() */
+    // 负责在系统启动早期，为内核建立起最基础的中断描述符（Interrupt Descriptors）管理架构
     early_irq_init ();
     init_IRQ ();
     tick_init ();
     rcu_init_nohz ();
     init_timers ();
+
+    // 初始化可睡眠 RCU (Sleepable Read-Copy-Update) 子系统的函数
     srcu_init ();
+
+    // hrtimers_init() 是内核启动早期用于初始化 高精度定时器(High-Resolution Timers)框架的核心函数
     hrtimers_init ();
     softirq_init ();
     timekeeping_init ();
@@ -1038,17 +1135,47 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
     random_init ();
 
     /* These make use of the fully initialized rng */
+    // 内核启动早期用于初始化 KFENCE (Kernel Electric Fence) 的函数
+    // KFENCE 是一种低开销、基于内存分页的检测工具, 专门用于捕获内核中的堆溢出(Heap out-of-bounds),
+    // 释放后使用(Use-after-free)等内存错误. 它被设计为可以在生产环境（Production）中长期开启
     kfence_init ();
+
+    // boot_init_stack_canary() 是一个至关重要的安全初始化函数.
+    // 它的核心任务是为内核启动过程中的第一个进程（即 init_task，0 号进程）设置栈金丝雀（Stack Canary）
+    // 这是防御 栈溢出攻击(Stack Smashing) 的第一道防线
+    // 该函数利用硬件生成的随机数或高质量熵源, 生成一个不可预测的数值(Canary), 并将其注入到 init_task 的进程描述符中
+    // 原理: 在函数调用时, 编译器会在栈帧的返回地址前插入这个随机值. 函数返回前会检查该值是否被篡改. 如果黑客通过溢出覆盖了返回地址, 必然会破坏这个“金丝雀”值, 内核检测到不一致后会立即触发 Panic，阻止恶意代码执行
+    // 全局设置: 在 x86 架构下, 该函数还会将生成的随机值写入特殊的段寄存器(如 %gs:40), 以便编译器生成的检查代码能快速访问
     boot_init_stack_canary ();
 
+    // perf_event_init() 是内核性能监测子系统(Perf Events)的核心初始化函数. 它负责建立起一套统一的、能够跨越 CPU 硬件和内核软件的观测基础设施
+    // 主要任务是初始化性能事件的管理框架，使用户态工具（如 perf 命令）能够捕获各种系统指标
     perf_event_init ();
+
+    // profile_init() 是内核启动早期用于初始化旧版内核剖析工具(Kernel Profiling)的函数
+    // 虽然现代内核更倾向于使用更强大的 Perf 和 eBPF，但 profile_init() 所代表的机制仍然作为基础的采样手段存在于内核中
+    // profile_init() 的主要任务是为内核提供一种简单的统计方法，用来查看 CPU 时间主要消耗在哪些内核函数上
+    // 1. 分配剖析缓冲区 (Profiling Buffer)：根据内核启动参数 profile=N（N 通常是位移值，用于定义采样精度），该函数会调用 memblock_alloc() 分配一块连续内存
+    // 2. 建立地址映射：将内核的代码段（.text）划分为多个小的直方图区间（bins）
+    // 3. 采样逻辑：一旦初始化完成，每当系统发生时钟中断（Tick）时，如果 CPU 处于内核态，内核就会记录当前的程序计数器（PC/IP）落在哪个区间，并增加该区间的计数
     profile_init ();
+
+    // call_function_init() 是内核启动早期用于初始化 SMP（对称多处理）函数调用基础设施 的函数
+    // 它是实现 IPI（Inter-Processor Interrupts，核间中断） 机制的逻辑基础，允许一个 CPU 核心指挥另一个核心执行特定的函数
     call_function_init ();
     WARN (!irqs_disabled (), "Interrupts were enabled early\n");
 
     early_boot_irqs_disabled = false;
     local_irq_enable ();
 
+    // kmem_cache_init_late() 是 Slab/Slub 分配器初始化的最后一个阶段
+    // 它在 start_kernel() 的后期执行, 此时系统的基础基础设施(如中断、文件系统、工作队列)已经就绪, 可以完成那些依赖于高级功能的内存池设置
+    // 由于此时内核已经具备了完整的多线程和文件系统操作能力，kmem_cache_init_late() 主要负责:
+    // 1. 启用 Slab 别名(Aliasing): 在系统启动初期，为了安全和调试，内核可能会创建许多独立的缓存。到了后期，为了节省内存，kmem_cache_init_late() 会扫描具有相同属性（大小、对齐等）的缓存，并将它们合并
+    // 2. 注册 Sysfs 接口: 这是该函数最重要的任务之一。它在 /sys/kernel/slab 目录下为每一个活跃的 Slab 缓存创建文件夹和统计文件
+    //    通过这些文件，用户可以观察 /sys/kernel/slab/<name>/objects 来监控内存使用情况
+    // 3. 激活高性能特性: 初始化与 CPU 离线/在线 相关的 Slab 缓存动态调整逻辑
+    // 4. 完成 Slab 调试工具初始化: 如果开启了 CONFIG_SLUB_DEBUG, 它会在此处配置更复杂的内存破坏检测逻辑
     kmem_cache_init_late ();
 
     /*
@@ -1056,11 +1183,15 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
      * we've done PCI setups etc, and console_init() must be aware of
      * this. But we do want output early, in case something goes wrong.
      */
+    // 是内核启动序列中一个极具“仪式感”的时刻. 它的核心任务是: 初始化并激活真正的终端控制台设备, 使用户能够看到内核日志(dmesg)的输出
+    // 在调用此函数之前, 所有的内核日志(printk)都只能存储在内存缓冲区(log_buf)中，或者通过极原始的 early_printk(如果硬件支持)输出
     console_init ();
     if (panic_later) {
         panic ("Too many boot %s vars at `%s'", panic_later, panic_param);
     }
 
+    // lockdep_init() 是内核死锁检测器 (Lock Dependency Validator) 的核心初始化函数
+    // 它是 Linux 内核中最强大的调试工具之一, 负责在系统运行过程中实时监控所有锁的加锁顺序, 以预测并防止潜在的死锁风险
     lockdep_init ();
 
     /*
@@ -1068,6 +1199,7 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
      * to self-test [hard/soft]-irqs on/off lock inversion bugs
      * too:
      */
+    // locking_selftest() 是内核启动阶段的一个自检函数, 专门用于验证死锁检测器 (Lockdep) 的功能是否正常, 以及内核各种锁原语(Spinlock, Mutex, RWSEM 等)的正确性
     locking_selftest ();
 
 #ifdef CONFIG_BLK_DEV_INITRD
@@ -1079,7 +1211,20 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
         initrd_start = 0;
     }
 #endif
+    // setup_per_cpu_pageset() 是内存管理子系统(MM)初始化的重要环节. 它的核心任务是为每个 CPU 核心初始化页面高速缓存(Per-CPU Pageset，简称 PCP)
+    // 它是解决多核系统在频繁申请和释放内存页时产生锁竞争的关键机制
+    // 在 Linux 的伙伴系统（Buddy System）中，全局的物理页分配是受锁保护的。如果成百上千个 CPU 同时申请内存，全局锁会成为性能瓶颈
+    // 1. 初始化 PCP 结构：为每个 CPU 的每个内存管理区(Zone)初始化 struct per_cpu_pages
+    // 2. 预填充本地缓存：配置每个 CPU 可以在私有缓存中保留多少个物理页(通常是 high 和 batch 参数)
+    // 3. 实现无锁分配：当一个进程申请单张页面(Order 0)时, 内核会优先从当前 CPU 的 PCP 缓存中直接取走，完全不需要获取全局伙伴系统锁
     setup_per_cpu_pageset ();
+
+    // numa_policy_init() 是内核启动后期用于初始化 NUMA 策略管理系统 的函数
+    // 如果说 early_numa_node_init 是划分内存的“行政区划”, 那么 numa_policy_init() 就是制定“人口（数据）落户政策”的开端
+    // 该函数的主要任务是初始化内核默认的内存分配策略，并为后续进程自定义策略提供基础设施：
+    // 1. 设定默认策略 (Default Policy): 初始化全局默认的内存分配方式(通常是 MPOL_PREFERRED_LOCAL), 即优先从执行当前代码的 CPU 所在的本地节点分配内存
+    // 2. 初始化 SLAB 缓存: 调用 kmem_cache_create() 为 struct mempolicy 创建专门的 Slab 缓存池. 由于每个进程、甚至每个内存区域都可以有独立的 NUMA 策略, 这些结构体会被频繁创建
+    // 3. 支持共享内存策略: 为共享内存（shmem/tmpfs）中的任务初始化基于索引的策略管理框架
     numa_policy_init ();
     acpi_early_init ();
     if (late_time_init) {

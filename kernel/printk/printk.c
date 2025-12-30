@@ -1176,12 +1176,19 @@ void __init setup_log_buf(int early)
 	 * early, e.g. from setup_arch(), and second - when percpu_areas
 	 * are initialised.
 	 */
+	// 逻辑栅栏：在内核启动的极早期，许多宏和内联函数（如 get_cpu_var 或 this_cpu_read）会依赖 Per-CPU 基地址指针。
+	// 状态切换：在调用该函数之前，任何尝试访问 Per-CPU 变量的操作都是危险的或未定义的。执行此函数后，内核后续的代码逻辑就可以放心地假设 Per-CPU 环境已经就绪
 	if (!early)
 		set_percpu_data_ready();
 
 	if (log_buf != __log_buf)
 		return;
 
+	// 在多核（SMP）环境准备就绪后，通知日志子系统为每个 CPU 激活私有的日志缓冲处理
+	// 1. 激活 Per-CPU 辅助结构：确保 printk 子系统能够识别并使用之前由 setup_per_cpu_areas() 分配好的 Per-CPU 变量
+	// 2. 支持并发写入: 在现代内核中, 为了防止多个 CPU 同时调用 printk 导致的死锁(例如在持有锁的情况下又触发了 printk), 内核使用了延迟输出机制. 该函数通过初始化相关的 Per-CPU 状态, 使得每个核心可以安全地将日志先写入本地队列
+	// 3. 初始化 CPU 编号信息: 确保后续输出的日志条目可以准确记录是由哪一个 CPU 核心产生的(即我们在 dmesg 中看到的 [CPU 0] 标签的基础).
+	// 无锁环形缓冲区：现代内核引入了新的无锁环形缓冲区
 	if (!early && !new_log_buf_len)
 		log_buf_add_cpu();
 
@@ -1194,35 +1201,36 @@ void __init setup_log_buf(int early)
 		return;
 	}
 
+	// memblock_alloc 负责在系统启动阶段分配一块连续的物理内存，并返回其对应的虚拟地址
+	// 此时内核的正式内存管理系统(如伙伴系统 Buddy System 或 Slab 分配器)尚未建立, memblock 算法是唯一的内存分配手段
 	new_log_buf = memblock_alloc(new_log_buf_len, LOG_ALIGN);
 	if (unlikely(!new_log_buf)) {
-		pr_err("log_buf_len: %lu text bytes not available\n",
-		       new_log_buf_len);
+		pr_err("log_buf_len: %lu text bytes not available\n", new_log_buf_len);
 		return;
 	}
 
 	new_descs_size = new_descs_count * sizeof(struct prb_desc);
 	new_descs = memblock_alloc(new_descs_size, LOG_ALIGN);
 	if (unlikely(!new_descs)) {
-		pr_err("log_buf_len: %zu desc bytes not available\n",
-		       new_descs_size);
+		pr_err("log_buf_len: %zu desc bytes not available\n", new_descs_size);
 		goto err_free_log_buf;
 	}
 
 	new_infos_size = new_descs_count * sizeof(struct printk_info);
 	new_infos = memblock_alloc(new_infos_size, LOG_ALIGN);
 	if (unlikely(!new_infos)) {
-		pr_err("log_buf_len: %zu info bytes not available\n",
-		       new_infos_size);
+		pr_err("log_buf_len: %zu info bytes not available\n", new_infos_size);
 		goto err_free_descs;
 	}
 
+	// 内核无锁环形缓冲区（Lockless Printk Ringbuffer，简称 PRB）中的一个内部辅助函数
+	// 它的主要功能是初始化一个用于“读取”操作的记录结构体，确保读取器(Reader)能正确地从缓冲区中提取日志信息
 	prb_rec_init_rd(&r, &info, &setup_text_buf[0], sizeof(setup_text_buf));
 
 	prb_init(&printk_rb_dynamic,
-		 new_log_buf, ilog2(new_log_buf_len),
-		 new_descs, ilog2(new_descs_count),
-		 new_infos);
+			new_log_buf, ilog2(new_log_buf_len),
+			new_descs, ilog2(new_descs_count),
+			new_infos);
 
 	local_irq_save(flags);
 
@@ -1231,6 +1239,9 @@ void __init setup_log_buf(int early)
 	new_log_buf_len = 0;
 
 	free = __LOG_BUF_LEN;
+	// prb_for_each_record 是无锁环形缓冲区（Printk Ringbuffer, PRB）子系统提供的一个核心迭代宏
+	// 它的主要功能是：从给定的起始序列号开始，遍历日志缓冲区中所有有效的记录
+	// 在 2025 年的内核架构中, printk 实现了完全无锁化. 该宏在遍历时利用内存屏障（Memory Barriers）和序号校验, 确保读取器不会读到正在被写入的破碎数据
 	prb_for_each_record(0, &printk_rb_static, seq, &r) {
 		text_size = add_to_rb(&printk_rb_dynamic, &r);
 		if (text_size > free)
@@ -1257,13 +1268,11 @@ void __init setup_log_buf(int early)
 	}
 
 	if (seq != prb_next_seq(&printk_rb_static)) {
-		pr_err("dropped %llu messages\n",
-		       prb_next_seq(&printk_rb_static) - seq);
+		pr_err("dropped %llu messages\n", prb_next_seq(&printk_rb_static) - seq);
 	}
 
 	pr_info("log_buf_len: %u bytes\n", log_buf_len);
-	pr_info("early log buf free: %u(%u%%)\n",
-		free, (free * 100) / __LOG_BUF_LEN);
+	pr_info("early log buf free: %u(%u%%)\n", free, (free * 100) / __LOG_BUF_LEN);
 	return;
 
 err_free_descs:

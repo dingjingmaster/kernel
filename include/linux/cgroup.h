@@ -361,6 +361,16 @@ static inline void cgroup_put(struct cgroup *cgrp)
 	css_put(&cgrp->self);
 }
 
+/**
+ * @brief 
+ * 是一个全局的互斥锁（Mutex），用于保护控制组（cgroup）子系统的核心层级结构和状态
+ * 它是 Cgroup v1 和 v2 机制中确保配置一致性的最高级锁。
+ * cgroup_lock 主要负责保护以下操作的原子性和同步：
+ * 	1. 层级结构变更：创建、删除子 cgroup 目录（如 mkdir 或 rmdir 操作）
+ * 	2. 子系统绑定（Mounting/Unmounting）：在挂载 cgroup 文件系统时，将具体的子系统（如 cpu, memory, cpuset）绑定到某个层级。
+ * 	3. 进程迁移（Process Migration）：将一个进程从一个 cgroup 移动到另一个 cgroup 时，需要锁住整个层级以防止竞争。
+ * 	4. 控制器状态变更：修改 cgroup.subtree_control 动态开启或关闭子层级的控制器。
+ */
 extern struct mutex cgroup_mutex;
 
 static inline void cgroup_lock(void)

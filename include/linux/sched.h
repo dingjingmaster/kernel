@@ -430,6 +430,18 @@ struct sched_info
 #define SCHED_FIXEDPOINT_SCALE (1L << SCHED_FIXEDPOINT_SHIFT)
 
 /* Increase resolution of cpu_capacity calculations */
+/**
+ * @brief 
+ * 能量感知调度（EAS, Energy Aware Scheduling）和负载均衡的核心常量
+ * #define SCHED_CAPACITY_SCALE	1024L
+ * 1024 代表一个“标准 CPU”在最高频率下的计算能力
+ * 为何是 1024？：为了提高性能，内核调度器使用定点运算而非浮点运算。1024 是 \(2^{10}\)，允许内核通过移位操作（>> 10）快速完成归一化计算。
+ * 
+ * 作用:
+ *  算力归一化：系统中最强核心（大核）的最高算力被定义为 1024。相对而言，小核的算力可能只有 400 或 600。
+ *  负载均衡 (Load Balancing)：调度器在移动任务时，不只是看任务数量，而是看“负载占算力的百分比”。如果一个任务需要 800 的算力，调度器会将其放入大核（1024），而不会放入小核（600），以避免过载。
+ *  DVFS（动态频率调节）耦合：CPU 的算力会随频率变化。如果 CPU 当前运行频率只有最高频率的一半，其当前的 capacity 就会被视为 \(1024\times 0.5=512\)
+ */
 #define SCHED_CAPACITY_SHIFT SCHED_FIXEDPOINT_SHIFT
 #define SCHED_CAPACITY_SCALE (1L << SCHED_CAPACITY_SHIFT)
 
@@ -818,8 +830,8 @@ struct task_struct
      */
     randomized_struct_fields_start
 
-            void* stack; // 指向内核栈
-    refcount_t    usage;
+    void*           stack; // 指向内核栈
+    refcount_t      usage;
     /* Per task flags (PF_*), defined further below: */
     unsigned int  flags;
     unsigned int  ptrace;

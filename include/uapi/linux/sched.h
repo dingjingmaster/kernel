@@ -112,17 +112,17 @@ struct clone_args
 /*
  * Scheduling policies
  */
-#define SCHED_NORMAL 0
-#define SCHED_FIFO 1
-#define SCHED_RR 2
-#define SCHED_BATCH 3
+#define SCHED_NORMAL    0       // 最常用的调度策略, 用于普通交互或后台进程. 2024/2025年将算法由CFS进化为 EEVDF
+#define SCHED_FIFO      1       // 实时策略 -- 先进先出, 一旦占用CPU, 除非被更高优先级实时任务抢占或主动放弃, 否则一直运行
+#define SCHED_RR        2       // 实时策略 -- 时间片轮转, 每个任务有时间片，到期后任务排到最末位
+#define SCHED_BATCH     3       // 用于非交互式的CPU密集型批处理任务. 它会稍微降低调度频率, 以减少上下文切换开销, 提高缓存利用率
 /* SCHED_ISO: reserved but not implemented yet */
-#define SCHED_IDLE 5
-#define SCHED_DEADLINE 6
-#define SCHED_EXT 7
+#define SCHED_IDLE      5       // 极其低优先级的任务. 只有当系统完全没有其它任务运行时候, 才会调度此类进程
+#define SCHED_DEADLINE  6       // 基于GEDF(Global Earliest Deadline First)算法. 通过设置周期、运行时间和截至日期保证任务在特定时间内完成，常用于音视频同步或工业控制
+#define SCHED_EXT       7       // 2024合并新特性, 基于BPF的调度器. 它允许开发者使用BPF编写自定义调度逻辑. 可以动态加载特殊的调度算法
 
 /* Can be ORed in to make sure the process is reverted back to SCHED_NORMAL on fork */
-#define SCHED_RESET_ON_FORK 0x40000000
+#define SCHED_RESET_ON_FORK 0x40000000  // 当父进程创建子进程fork时候, 强制重置子进程的调度属性, 防止恶意进程通过fork滥用实时优先级，从而导致系统锁死
 
 /*
  * For the sched_{set,get}attr() calls
