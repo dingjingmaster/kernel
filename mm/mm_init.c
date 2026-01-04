@@ -2336,6 +2336,20 @@ void __init page_alloc_init_late(void)
  * - it is assumed that the hash table must contain an exact power-of-2
  *   quantity of entries
  * - limit is the number of hash buckets, not the total allocation size
+ *
+ * Linux内核在启动早期或子系统初始化阶段使用的一个通用hash表分配器，主要作用是：
+ * 为系统级(全局)数据结构分配一个"大型、连续的hash桶数组", 并根据内存规模自动决定合适大小.
+ * - dentry cache(目录项缓存)
+ * - inode cache
+ * - pid hash表
+ * - 文件锁/epoll/netfilter/conntrack hash表
+ * - 路由表、邻居表(网络子系统)
+ * 这些表共同特点:
+ * - 启动后长期存在
+ * - 读写非常频繁
+ * - 对象数量和系统内存强相关
+ * - 不能太小(冲突严重)
+ * - 不能无限大(浪费内存)
  */
 void *__init alloc_large_system_hash(const char *tablename,
 				     unsigned long bucketsize,
@@ -2630,8 +2644,13 @@ static void __init mem_init_print_info(void)
 		);
 }
 
-/*
- * Set up kernel memory allocators
+/**
+ * @brief Set up kernel memory allocators
+ * Linux内核在启动早期用于初始化 "内存管理核心子系统" 的关键函数.
+ * 它负责把内核从"启动阶段的临时内存模型", 切换到 "完整可用的内存管理体系".
+ * - 建立内核运行所需的 "最小但完整" 的 MM 核心结构
+ * - 初始化与进程无关的全局内存对象
+ * - 为后续 page allocator/slab/VMA 打好基础
  */
 void __init mm_core_init(void)
 {

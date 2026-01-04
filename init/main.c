@@ -1012,6 +1012,7 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
 
     // 是虚拟文件系统(VFS)启动最早期执行的初始化函数
     // 它在 start_kernel() 的极早期阶段被调用,主要负责为内核中最核心的两个缓存: Dentry Cache(目录项缓存)和 Inode Cache(索引节点缓存)分配初始的哈希表空间
+    // 
     vfs_caches_init_early ();
 
     // 内核启动早期的一个关键函数,其核心任务是对内核主镜像中的异常处理表(Exception Table, __ex_table)进行排序.

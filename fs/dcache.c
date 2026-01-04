@@ -3214,10 +3214,56 @@ void __init vfs_caches_init_early(void)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(in_lookup_hashtable); i++)
+	// in_lookup_hashtable 是虚拟文件系统(VFS)目录项缓存(dcache)机制中一个辅助hash表.
+	// 其作用是: 管理正在进行的并行查找操作, 防止多个进程在同一个目录下对同一个文件名重复发起耗时的底层磁盘查找
+	// 工作机制:
+	// 	1. 第一个进入的进程会创建一个"处于查找中"状态的dentry, 并将其插入 in_lookup_hashtable
+	// 	2. 随后到达的其他进程在常规缓存中找不到该文件后, 会检查 in_lookup_hashtable
+	//	3. 如果发现该进程名称已经在表中, 后续进程会进入等待状态, 直到第一个进程完成磁盘读取并填充完数据.
+	// 具体流程:
+	//	1. 该hash表通常与 DCACHE_PAR_LOOKUP 标志位配合使用
+	//	2. 分配: 使用 d_alloc_parallel() 分配一个临时 dentry
+	//	3. 插入: 该dentry会被放入 in_lookup_hashtable
+	// 	4. 等待/执行: 如果已存在, 后续进程会调用 wait_on_bit() 等待; 如果不存在, 当前进程执行真正的 ->lookup()
+	// 	5. 完成: 查找结束后调用 d_lookup_done(), 此时, dentry 会从 in_lookup_hashtable 中移除, 并正式加入主 dentry hash表中
+	for (i = 0; i < ARRAY_SIZE(in_lookup_hashtable); i++) {
 		INIT_HLIST_BL_HEAD(&in_lookup_hashtable[i]);
+	}
 
+	// 预先分配并初始化内核最基础的hash表控制结构
+	// 具体职责:
+	//	1. 确定hash表大小: 根据系统物理内存的总量, 计算出最适合当前系统的Dentry Hash Table(目录项hash表) 和 Inode Hash Table的大小.
+	//	2. 早期内存申请: 使用memblock算法(e若非后期的kmalloc)申请连续的物理内存块, 用于存放hash表的索引数组
+	//	3. 建立骨架: 初始化hash桶(Hash Buckets)的链表头
+	// 文件系统, 如虚拟的 rootfs 是内核启动后最早需要运行的组件之一. 如果在文件系统挂载之后再初始化hash表, 会导致
+	// 内存分配冲突和严重的启动延迟
+	//
+	// Dentry Cache 是目录项(Directory Entry)的缩写. Dentry Cache是一块位于内存中的高速缓存, 用于存储文件路径和物理文件(inode)之间的映射关系
+	// 在Linux中, 它的作用至关重要, 主要体现在以下三个方面:
+	// 1. 加速路径解析(最核心作用), 在访问 '/home/user/xxx.txt' 时候, 如果没有缓存, 内存必须读取根目录 / 的磁盘块、找到 home 的位置、读取 home 目录块、找到 user 的位置
+	//	  依次类推... 有了Dentry Cache： 内核直接在内存hash表中匹配字符串, 瞬间找到对应的inode, 避免了多次缓慢的磁盘IO
+	// 2. 维护文件系统的逻辑结构: Dentry并不是上真实的对象(磁盘上只有inode和数据块), 它是内核在内存中建立的逻辑树状图. 它记录了父子目录关系, 使得 cd .. 或路径回溯操作变的极致高效.
+	// 3. 缓存负面结构: 这是Dentry Cache的一个精妙设计. 如果一个进程频繁尝试访问一个不存在的文件(例如: 某些软件扫描配置), Dentry Cache 会记录该文件不存在的状态.
+	// 		当下一个进程再次请求该不存在的文件时候, 内核直接返回错误, 而不是取扫描物理磁盘, 有效防止了针对文件系统的拒绝服务攻击
 	dcache_init_early();
+
+	// Inode-cache 是虚拟文件系统的核心加速机制. 它主要用于在内存中缓存文件的元数据
+	// 如果说 Dentry-cache 是路径导航(解决文件在哪里), 那么inode-cache就是文件的身份信息卡(解决文件是什么)
+	// 1. 避免频繁读取磁盘元苏剧: 文件的所有信息(权限、所有者、大小、物理块位置、修改时间)都存储在磁盘的inode区
+	//	- 没有缓存时候: 每次读写文件、检查权限或查看大小, 内核都必须发起一次磁盘I/O来读取inode结构
+	//	- 有缓存时候: inode被加载到内存的 struct inode 对象中. 后续所有元数据操作均在内存中完成, 性能提升数千倍
+	// 2. 加速文件数据的定位(数据寻址)
+	// 	- inode中存储了文件数据块在磁盘上的物理分布信息(如: ext4 的extents或btrfs的b-tree 索引)
+	// 	- 作用: 当你执行read操作时候, 内核通过 inode-cache 迅速查到数据存储在哪些扇区, 从而直接发起对数据块的读取, 跳过了对文件索引结构的重复检索
+	// 3. 支持并发访问和状态同步(Inode-cache不仅仅是只读缓存, 它还负责维护文件的动态状态)
+	//	- 锁定机制: 当多个进程同时写入一个文件时候, inode 中的信号量确保了操作的原子性
+	// 	- 脏页追踪: 当文件内容被修改后, inode会被标记位脏页, 确保内核后序能将修改后的元数据刷回磁盘
+	// 4. 引用计数和生命周期管理
+	//	- 打开文件维护: 只要有一个进程打开了文件, 其对应的inode就会被锁定在cache中, 防止在操作期间被销毁
+	//	- 赢链接共享: 如果有多个文件名指向同一个文件,它们会在内存中共享同一个inode对象, 节省内存并保持状态一致
+	//
+	// Dentry-cache: 通过文件名找找到对应的inode编号
+	// Inode-cacheL: 通过inode编号找到对应文件的实际信息和内容
 	inode_init_early();
 }
 
