@@ -19,8 +19,12 @@ struct iov_iter;
 struct mnt_idmap;
 struct ns_common;
 
-/*
- * block/bdev.c
+/**
+ * @brief block/bdev.c
+ * 建立块设备（Block Device）在内存中的缓存基础设施, 具体职责如下:
+ *  1. 初始化bdev对象的slab缓存
+ *  2. 初始化伪文件系统bdevfs
+ *  3. 关联块设备与inode
  */
 #ifdef CONFIG_BLOCK
 extern void __init bdev_cache_init(void);

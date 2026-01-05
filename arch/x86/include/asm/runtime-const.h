@@ -25,6 +25,10 @@
 		:"+r" (__ret));					\
 	__ret; })
 
+/**
+ * @brief 用于运行时常量优化的关键初始化函数. 它的核心作用是通过动态修改指令代码,
+ * 	将某些在启动阶段才能确定的变量值转化为代码中的立即数, 从而消除运行时的内存访问开销
+ */
 #define runtime_const_init(type, sym) do {		\
 	extern s32 __start_runtime_##type##_##sym[];	\
 	extern s32 __stop_runtime_##type##_##sym[];	\

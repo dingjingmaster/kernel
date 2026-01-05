@@ -148,6 +148,12 @@ static inline int percpu_counter_init_many(struct percpu_counter *fbc,
 	return 0;
 }
 
+/**
+ * @brief 初始化一个高性能的、分布式的每个CPU计数器
+ * 	1. 内存分配: 为每个CPU的核心分配独立的本地计数器变量(通常是s32类型)
+ *	2. 初始值设定: 将全局计数值初始化为指定值, 并准备好与之配套的自旋锁, 用于保护全局累加操作
+ *	3. 性能优化准备: 配置批处理阈值机制. 当本地CPU上的计数值增量在小范围内(通常为2*num_online_cpus())变动时, 只更新本地缓存, 而不触发全局加锁
+ */
 static inline int percpu_counter_init(struct percpu_counter *fbc, s64 amount,
 				      gfp_t gfp)
 {

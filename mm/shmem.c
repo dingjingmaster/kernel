@@ -4952,6 +4952,8 @@ void __init shmem_init(void)
 
 	shmem_init_inodecache();
 
+	// 是一个特定的内核配置选项, 其功能是为tmpfs提供磁盘配额(Quota)支持
+	// 以往通过传入参数size限制整个文件系统的总容量, 使用此选项后, 允许管理员对tmpfs上的单个用户或组进行资源限制
 #ifdef CONFIG_TMPFS_QUOTA
 	register_quota_format(&shmem_quota_format);
 #endif
@@ -4969,6 +4971,9 @@ void __init shmem_init(void)
 		goto out1;
 	}
 
+	// 它允许内核自动、透明地管理大页（Huge Pages），而无需应用程序显式修改代码或调用 libhugetlbfs
+	// THP 作用：内核在后台自动将连续的 4KB 页面合并为 2MB（x86_64 架构）或更大的页面。
+	// “透明”特性：应用程序依然认为自己在访问 4KB 页面，但硬件层面的寻址效率大幅提升，通常可带来 5% 到 20% 的性能提升。
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	if (has_transparent_hugepage() && shmem_huge > SHMEM_HUGE_DENY)
 		SHMEM_SB(shm_mnt->mnt_sb)->huge = shmem_huge;

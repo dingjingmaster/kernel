@@ -536,6 +536,22 @@ void __init files_init(void)
  * One file with associated inode and dcache is very roughly 1K. Per default
  * do not use more than 10% of our memory for files.
  */
+/**
+ * @brief 是一个专门用于计算和设置系统级别最大打开文件数的初始化函数.
+ * 它通常在内核启动的早期阶段(紧随内存管理和核心VFS缓存初始化之后)被调用, 其核心职责如下:
+ *  1. 动涛计算系统上限: 该函数会根据当前系统的物理内存(RAM)总量自动计算出一个合理的系统级文件打开上线(即: fs.file-max参数)
+ *    计算逻辑: 内核会预留处一部分内存用于管理文件对象, 通常的算法是确保即便在打开最大数量的文件时候, 这些文件结构体(struct file)所占的内存
+ *    也不会超过系统总内存的一个固定比例(比如: 10%)
+ *    内存感知: 在高端服务器(TB级内存)和嵌入式设备(MB级内存)上, 它计算出的初始值会有显著差异, 以确保系统不会因为打开过多文件而导致内核内存耗尽.
+ *  2. 设置 files_stat 状态
+ *    它会初始化 files_stat 结构体, 该结构体维护着系统当前的文件分配状态:
+ *    1. max_files: 存储计算出的最大允许值
+ *    2. nr_files: 当前已分配的文件对象总数
+ *  3. 与用户态的接口
+ *    该函数确定的初始值直接反映在 /proc/sys/fs/file-max 中. 虽然用户(root)之后可以通过sysctl命令手动修改这个值, 但files_maxfiles_init确保了在
+ *    系统启动时刻有一个安全且经过压力评估的默认值
+ * 这个函数防止单个或多个进程通过恶意打开大量文件来耗尽内核的slab内存(即:filp_cache), 导致系统瘫痪
+ */
 void __init files_maxfiles_init(void)
 {
 	unsigned long n;

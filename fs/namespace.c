@@ -5499,16 +5499,33 @@ static void __init init_mount_tree(void)
 	struct mnt_namespace *ns;
 	struct path root;
 
+	// 该函数封装了创建一个可用挂载点的所有关键步骤
+	// 1. 查找/创建超级块: 它会调用特定文件系统的 mount 方法，来获取或创建一个描述该文件系统实例的 super_block
+	// 2. 分配挂载结构体: 它会从 mnt_cache 中分配一个 struct mount(包含 struct vfsmount), 用于代表这次具体的挂载动作
+	// 3. 建立根目录关联: 将该挂载实例与文件系统的根目录dentry关联起来, 从而构建出文件系统的层级关系
+	// 4. 安全检查: 触发LSM的钩子函数, 验证当前内核上下文是否有权执行该挂载操作
+	//
+	// do_mount                  vfs_kern_mount
+	// 用户空间系统调用            内核内部代码
+	// 处理来自用户态的字符串指针   直接处理内核指针/结构体
+	// 自动将挂载点接入全局挂载树   仅创建挂载实例, 需手动调用mnt_add_count等接入树
 	mnt = vfs_kern_mount(&rootfs_fs_type, 0, "rootfs", NULL);
-	if (IS_ERR(mnt))
+	if (IS_ERR(mnt)) {
 		panic("Can't create rootfs");
+	}
 
 	ns = alloc_mnt_ns(&init_user_ns, false);
-	if (IS_ERR(ns))
+	if (IS_ERR(ns)) {
 		panic("Can't allocate initial namespace");
+	}
+
+	// 通过 struct vfsmount 指针获取 struct mount 指针
 	m = real_mount(mnt);
 	ns->root = m;
 	ns->nr_mounts = 1;
+
+	// 将一个已经初始化的挂载点(struct mount)正式关联到特定的挂载命名空间(Mount Namespace)中
+	// 根目录开始生效
 	mnt_add_to_ns(ns, m);
 	init_task.nsproxy->mnt_ns = ns;
 	get_mnt_ns(ns);
@@ -5520,9 +5537,24 @@ static void __init init_mount_tree(void)
 	set_fs_pwd(current->fs, &root);
 	set_fs_root(current->fs, &root);
 
+	// 将一个挂载点(struct mount)插入到所属命名空间的红黑树(RB-Tree)中，以实现基于挂载 ID 的快速索引
 	mnt_ns_tree_add(ns);
 }
 
+/**
+ * @brief 
+ * 负责初始化内核挂载树, 并构建虚拟文件系统的根结构.
+ * 
+ * 1. 初始化挂载缓存(mnt_cache): mnt_init首先通过slab分配器创建mnt_cache缓存.
+ *    功能: 专门用于分配 struct mount结构体(在旧版本中为: struct vfsmount的封装)
+ *    作用: 每当系统执行挂载操作(如: mount /dev/sdb1 /mnt)时, 内核都会从这个缓存中申请空间来存储挂载点的元数据
+ * 2. 初始化挂载哈希表: 为了快速查找已经挂载的文件系统, mnt_init会分配并初始化Mount Hash Table
+ *    作用: 通过父挂载点和目标目录的dentry计算hash值, 内核可以瞬间定位到一个路径是否是挂载点, 以及挂载的是哪个文件系统
+ * 3. 注册并挂载 rootfs
+ *    注册rootfs: 调用init_rootfs()
+ *    创建初始根目录: 调用 init_mount_tree(). 此时内核会在内存中建立第一个真正的/(根目录)
+ *    注意这个是初始根文件系统. 在启动后期, 内核会通过 root= 参数将真正的磁盘分区挂载, 然后切换到真正的根分区
+ */
 void __init mnt_init(void)
 {
 	int err;
@@ -5541,20 +5573,35 @@ void __init mnt_init(void)
 				HASH_ZERO,
 				&mp_hash_shift, &mp_hash_mask, 0, 0);
 
-	if (!mount_hashtable || !mountpoint_hashtable)
+	if (!mount_hashtable || !mountpoint_hashtable) {
 		panic("Failed to allocate mount hash table\n");
+	}
 
+	// 为内核中所有基于内核的虚拟文件系统提供通用的基础支撑.
+	// 初始化核心元数据缓存
 	kernfs_init();
 
 	err = sysfs_init();
-	if (err)
-		printk(KERN_WARNING "%s: sysfs_init error: %d\n",
-			__func__, err);
+	if (err) {
+		printk(KERN_WARNING "%s: sysfs_init error: %d\n", __func__, err);
+	}
+
+	// 动态创建一个 kobject 结构体, 并将其注册到内核对象层次结构中,同时在sysfs创建对应的目录
+	// 创建了 /sys/fs
 	fs_kobj = kobject_create_and_add("fs", NULL);
-	if (!fs_kobj)
+	if (!fs_kobj) {
 		printk(KERN_WARNING "%s: kobj create error\n", __func__);
+	}
+
+	// 初始化共享内存子系统, 并设置内核内部使用的tmpfs机制.
+	// 它是Linux内存管理和虚拟文件系统之间的重要纽带. 以下是其具体执行的核心任务:
+	// 1. 注册tmpfs文件系统, 它是现代Linux系统中/dev/shm、/run、/tmp的核心底层实现
+	// 2. 初始化内核内部挂载点(shm_mnt), 这是该函数最关键的动作之一. 它会在内核内部执行一次秘密挂载: 创建一个名为shm_mnt的内核级挂载点. 即使用户没有手动挂载tmpfs, 内核也会需要一个现成的环境来分配共享内存. 例如: 当你调用shmget或shm_open时候, 内核实际上是在这个内部挂载点上创建了隐藏文件
 	shmem_init();
+
 	init_rootfs();
+
+	// 注册并挂载rootfs
 	init_mount_tree();
 }
 

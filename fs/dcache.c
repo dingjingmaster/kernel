@@ -3269,6 +3269,21 @@ void __init vfs_caches_init_early(void)
 
 void __init vfs_caches_init(void)
 {
+	// names_cache 是一个专门用于存储和管理文件路径名字符串的内存缓存池(Slab Cache)
+	// 主要作用包括:
+	//	1. 统一路径名内存分配: 当引用程序调用 open, stat 或 unlink等系统调用时候, 内核需要将用户空间传递的路径名拷贝到内核空间进行解析.
+	// 		names_cache 为这些字符串提供了一个大小固定(一般是PATH_MAX)的预分配内存池
+	//	2. 避免内存碎片与提升性能: 由于文件系统操作及其频繁, 如果每次解析路径都通过kmalloc分配内存, 会导致大量的内存碎片. names_cache通过
+	//		slab分配器维护了一系列已经初始化好的4LB内存块, 实现了内存的快速复用
+	//	3. 安全隔离与生命周期管理: 内核使用getname()函数从names_cache中申请空间来存放路径名, 并在路径解析完成后, 通过 putname() 将其释放回缓存池.
+	//		这种机制确保了在复杂的并发环境下, 文件路径字符串的生命周期得到了严格控制
+	//
+	//	缓存名称          缓存内容                             作用
+	//	names_cache      原始路径字符串(如:/etc/passwd)        存放从用户态拷贝过来的临时路径字符串
+	//	dentry_cache     目录项结构体(struct dentry)           缓存解析后的目录/文件层级关系, 加速路径查找
+	//	inode_cache      索引节点结构体(struct inode)          缓存文件的元数据(权限、大小、物理位置等)
+	//
+	// names_cache是路径解析的 "原料仓库", 而 dentry_cache 是解析后的 "地图"
 	names_cachep = kmem_cache_create_usercopy("names_cache", PATH_MAX, 0,
 			SLAB_HWCACHE_ALIGN|SLAB_PANIC, 0, PATH_MAX, NULL);
 
@@ -3276,6 +3291,7 @@ void __init vfs_caches_init(void)
 	inode_init();
 	files_init();
 	files_maxfiles_init();
+	// 初始化挂载树
 	mnt_init();
 	bdev_cache_init();
 	chrdev_init();

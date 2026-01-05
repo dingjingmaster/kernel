@@ -71,21 +71,30 @@ enum _slab_flag_bits {
  */
 /* DEBUG: Perform (expensive) checks on alloc/free */
 #define SLAB_CONSISTENCY_CHECKS	__SLAB_FLAG_BIT(_SLAB_CONSISTENCY_CHECKS)
-/* DEBUG: Red zone objs in a cache */
+
+// 设置 红色区域, 在对象的前后插入额外的保护字节, 用于检测缓存区溢出(Buffer Overflow)
 #define SLAB_RED_ZONE		__SLAB_FLAG_BIT(_SLAB_RED_ZONE)
-/* DEBUG: Poison objects */
+
+// 内存毒化, 在内存释放后用特定模式(如: a5a5a5a5) 填充内存, 用于检测释放后的非法访问(Use-After-Free)
 #define SLAB_POISON		__SLAB_FLAG_BIT(_SLAB_POISON)
+
 /* Indicate a kmalloc slab */
 #define SLAB_KMALLOC		__SLAB_FLAG_BIT(_SLAB_KMALLOC)
-/* Align objs on cache lines */
+
+// 与硬件L1高速缓存行(cache line)对齐.
+// 作用: 确保缓存中的每个对象起始地址都是缓存行大小(通常为64个字节)的倍数. 这能有效防止伪共享, 提升多个并发下的访问效率, 是性能敏感型对象(如: dentry)的首选
 #define SLAB_HWCACHE_ALIGN	__SLAB_FLAG_BIT(_SLAB_HWCACHE_ALIGN)
-/* Use GFP_DMA memory */
+
+/**
+ * @brief 在DMA内存区域分配, 强制从ZONE_DMA(通常是物理内存的前16MB分配内存), 适用于某些老旧硬件或有特殊寻址限制的设备驱动
+ */
 #define SLAB_CACHE_DMA		__SLAB_FLAG_BIT(_SLAB_CACHE_DMA)
 /* Use GFP_DMA32 memory */
 #define SLAB_CACHE_DMA32	__SLAB_FLAG_BIT(_SLAB_CACHE_DMA32)
 /* DEBUG: Store the last owner for bug hunting */
 #define SLAB_STORE_USER		__SLAB_FLAG_BIT(_SLAB_STORE_USER)
-/* Panic if kmem_cache_create() fails */
+
+// 如果创建失败, 触发宕机
 #define SLAB_PANIC		__SLAB_FLAG_BIT(_SLAB_PANIC)
 /*
  * SLAB_TYPESAFE_BY_RCU - **WARNING** READ THIS!
@@ -136,8 +145,10 @@ enum _slab_flag_bits {
  * protection.
  *
  * Note that SLAB_TYPESAFE_BY_RCU was originally named SLAB_DESTROY_BY_RCU.
+ *
+ * 通过RCU机制保证类型安全. 确保在RCU读取侧临界区内, 即使对象被释放, 其占用的内存也不会立即返回给系统页分配器, 而是保持
+ * 为该特定slab类型. 这允许读取者安全的访问对象, 直到RCU周期结束
  */
-/* Defer freeing slabs to RCU */
 #define SLAB_TYPESAFE_BY_RCU	__SLAB_FLAG_BIT(_SLAB_TYPESAFE_BY_RCU)
 /* Trace allocations and frees */
 #define SLAB_TRACE		__SLAB_FLAG_BIT(_SLAB_TRACE)
@@ -161,6 +172,9 @@ enum _slab_flag_bits {
  *   (subsystem-specific) debug option is enabled
  * - performance critical caches, should be very rare and consulted with slab
  *   maintainers, and not used together with CONFIG_SLUB_TINY
+ *
+ * 禁止合并, 内核默认会将大小相似、属性想用的slab缓存合并以节省内存. 
+ * 设置此标志可强制创建一个独立的缓存池, 常用于需要独立统计信息或排查特定对象内存泄漏的场景
  */
 #define SLAB_NO_MERGE		__SLAB_FLAG_BIT(_SLAB_NO_MERGE)
 
@@ -170,7 +184,11 @@ enum _slab_flag_bits {
 #else
 # define SLAB_FAILSLAB		__SLAB_FLAG_UNUSED
 #endif
-/* Account to memcg */
+
+/**
+ * @brief 计入内存控制组统计, 将该缓存的内存消耗归属于触发分配的进程所属的cgroup. 常用于用户态可触发分配的内核对象(如: 文件描述符、VMA结构),
+ * 防止恶意用户耗尽系统内核内存.
+ */
 #ifdef CONFIG_MEMCG
 # define SLAB_ACCOUNT		__SLAB_FLAG_BIT(_SLAB_ACCOUNT)
 #else
@@ -196,8 +214,10 @@ enum _slab_flag_bits {
 #define SLAB_SKIP_KFENCE	__SLAB_FLAG_UNUSED
 #endif
 
-/* The following flags affect the page allocator grouping pages by mobility */
-/* Objects are reclaimable */
+/**
+ * @brief 标记为可回收, 告诉内核该缓存的对象是可以被回收的(例如: 文件系统缓存). 
+ * 在计算系统可用内存时候, 这些内存不会被视为"已用不可回收"
+ */
 #ifndef CONFIG_SLUB_TINY
 #define SLAB_RECLAIM_ACCOUNT	__SLAB_FLAG_BIT(_SLAB_RECLAIM_ACCOUNT)
 #else
@@ -241,7 +261,8 @@ struct mem_cgroup;
 bool slab_is_available(void);
 
 /**
- * struct kmem_cache_args - Less common arguments for kmem_cache_create()
+ * @brief 
+ *  struct kmem_cache_args - Less common arguments for kmem_cache_create()
  *
  * Any uninitialized fields of the structure are interpreted as unused. The
  * exception is @freeptr_offset where %0 is a valid value, so
@@ -251,6 +272,11 @@ bool slab_is_available(void);
  *
  * When %NULL args is passed to kmem_cache_create(), it is equivalent to all
  * fields unused.
+ * 为了优化slab分配接口而引入的新型配置结构体. 主要功能和设计目标如下:
+ * 1. 统一接口与扩展性: 在旧版本中, 创建 slab 缓存(如: kmem_cache_create或kmem_cache_create_usercopy)时候,
+ *    参数列表非常长(包括名称、大小、对齐、标志位、构造函数等).
+ *    struct kmem_cache_args将这些零散的参数封装成一个结构体, 后续修改字段时候无须修改函数签名
+ * 2. 精确配置特定功能
  */
 struct kmem_cache_args {
 	/**
@@ -258,13 +284,13 @@ struct kmem_cache_args {
 	 *
 	 * %0 means no specific alignment is requested.
 	 */
-	unsigned int align;
+	unsigned int align;    // 内存对象的对齐方式, 确保从该缓存分配的对象在内存中以指定的字节数对齐. 如果设为0, 则由系统根据硬件L1 Cache 自动选择对齐方式
 	/**
 	 * @useroffset: Usercopy region offset.
 	 *
 	 * %0 is a valid offset, when @usersize is non-%0
 	 */
-	unsigned int useroffset;
+	unsigned int useroffset; // 允许拷贝到用户空间的区域偏移量和大小. 这是对内核安全机制的配置. 它明确标记了该对象中哪一部分数据允许使用 copy_to_user 或 copy_from_user访问, 从而防止内核敏感数据泄漏
 	/**
 	 * @usersize: Usercopy region size.
 	 *
@@ -292,7 +318,7 @@ struct kmem_cache_args {
 	 * Note that @ctor currently isn't supported with custom free pointers
 	 * as a @ctor requires an external free pointer.
 	 */
-	unsigned int freeptr_offset;
+	unsigned int freeptr_offset;  // 空闲指针的偏移位置. 作用: 为了防御某些溢出攻击, 或者为了优化数据结构布局, 开发者可以将管理用的空闲指针放置在对象的特定偏移处, 而不是对象的开头 
 	/**
 	 * @use_freeptr_offset: Whether a @freeptr_offset is used.
 	 */

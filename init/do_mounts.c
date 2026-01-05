@@ -488,6 +488,7 @@ struct file_system_type rootfs_fs_type = {
 
 void __init init_rootfs (void)
 {
+    // 一般不会有 TMPFS 未配置的情况
     if (IS_ENABLED (CONFIG_TMPFS)) {
         if (!saved_root_name[0] && !root_fs_names)
             is_tmpfs = true;
