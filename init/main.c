@@ -1254,6 +1254,7 @@ asmlinkage __visible __init __no_sanitize_address __noreturn __no_stack_protecto
     net_ns_init ();
     // 初始化虚拟文件系统(VFS)所需的所有关键缓存结构, 并构建最初的文件系统层次结构
     vfs_caches_init ();
+
     pagecache_init ();
     signals_init ();
     seq_file_init ();

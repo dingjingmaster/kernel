@@ -78,7 +78,8 @@ struct p_log {
 	struct fc_log *log;
 };
 
-/*
+/**
+ * @brief 
  * Filesystem context for holding the parameters used in the creation or
  * reconfiguration of a superblock.
  *
@@ -86,18 +87,36 @@ struct p_log {
  * already set.
  *
  * See Documentation/filesystems/mount_api.rst
+ *
+ * struct fs_context 是虚拟文件系统(VFS)层的核心数据结构, 被形象地称为"挂载上下文"
+ * 它是现代 Linux 挂载 API（fsopen / fspick 体系）的灵魂，取代了过去简单但扩展性差的参数传递方式
+ * - 设计目标: 实现"配置"与"执行"的分离
+ * - 生命周期: 由 fsopen() 创建, 在参数设置完成后由 fsmount() 转换为真正的挂载点, 最后被销毁
  */
 struct fs_context {
+	// 指向该文件系统特定的解析和挂载函数
 	const struct fs_context_operations *ops;
 	struct mutex		uapi_mutex;	/* Userspace access mutex */
+
+	// 文件系统类型
 	struct file_system_type	*fs_type;
+
+	// 私有数据: 文件系统自己的配置结构体(如 Ext4 的超级块选项)
 	void			*fs_private;	/* The filesystem's context */
 	void			*sget_key;
+
+	// 生成的根节点: get_tree 成功后, 该字段指向该文件系统的根目录
 	struct dentry		*root;		/* The root and superblock */
+
+	// 用户命名空间: 用于验证当前用户是否有权挂载该设备
 	struct user_namespace	*user_ns;	/* The user namespace for this mount */
 	struct net		*net_ns;	/* The network namespace for this mount */
 	const struct cred	*cred;		/* The mounter's credentials */
+
+	// 错误日志记录器: 通过 errorf() 等宏，将详细的挂载失败原因传回给用户态
 	struct p_log		log;		/* Logging buffer */
+
+	// 数据源: 即挂载源(如 /dev/sda1)
 	const char		*source;	/* The source name (eg. dev path) */
 	void			*security;	/* LSM options */
 	void			*s_fs_info;	/* Proposed s_fs_info */
@@ -112,12 +131,43 @@ struct fs_context {
 	bool			exclusive:1;    /* create new superblock, reject existing one */
 };
 
+/**
+ * @brief 
+ * 全新文件系统挂载 API（fs_context 机制）的核心
+ * 
+ * 主要功能:
+ * 1. 参数解析: 将用户态传来的字符串(如 rw, relatime, size=1G)转换为内核内部的变量.
+ * 2. 状态校验: 在真正读取磁盘前, 检查配置参数是否合法且冲突.
+ * 3. 获取树(Get Tree): 真正触发磁盘 I/O 或内存分配, 构建根目录的 dentry
+ */
 struct fs_context_operations {
+	// 	清理：如果挂载失败或上下文销毁，释放分配的临时资源
 	void (*free)(struct fs_context *fc);
+
+	// 负责深拷贝（Deep Copy）当前的挂载上下文结构体
+	// 多阶段挂载: 在现代 VFS 挂载流程中, 内核可能需要保存一份当前配置的副本.
+	//           例如: 在尝试复杂的挂载操作时, 如果一种配置失败, 内核可以利用备份的副本快速重试另一种配置
+	// 资源复制: 它不仅仅是内存拷贝, 还需要正确处理引用计数(如增加特定私有数据的引用), 
+	//           确保两个独立的 fs_context 实例不会因为共享同一个指针而导致提前释放(Use-After-Free)
 	int (*dup)(struct fs_context *fc, struct fs_context *src_fc);
+
+	// 参数解析器：每当用户指定一个选项（如 -o nodev）时，该函数被调用。它取代了复杂的字符串拆解逻辑。
 	int (*parse_param)(struct fs_context *fc, struct fs_parameter *param);
+
+	// parse_monolithic 负责处理旧式(Legacy)的, 未经解析的原始挂载选项字符串
+	// 向后兼容性: 在引入 fs_context 之前, 用户态通过 mount(2) 系统调用的最后一个参数传递一整串以逗号分隔的选项
+	//            (例如 "rw,relatime,iocharset=utf8")
+	// 现代流程: 通常使用 .parse_param 逐个键值对地处理参数
+	// Monolithic 流程: 如果用户态直接调用了旧的 mount 系统调用, 或者文件系统需要处理不符合 key=value 格式的复杂原始数据, 
+	//                 内核会调用此函数将整串字符一次性交给文件系统处理
+	// 如果文件系统没有定义此函数, 内核通常会提供一个默认实现(generic_parse_monolithic), 
+	// 它会自动将长字符串拆分为单个参数并反复调用 .parse_param
 	int (*parse_monolithic)(struct fs_context *fc, void *data);
+
+	// 获取根节点：执行挂载的核心。它负责填充 fc->root。如果没这个，挂载就无法产生目录
 	int (*get_tree)(struct fs_context *fc);
+
+	// 重新配置：处理 remount（重新挂载）操作，允许在不卸载的情况下修改挂载选项
 	int (*reconfigure)(struct fs_context *fc);
 };
 

@@ -1237,30 +1237,35 @@ struct vfsmount *fc_mount(struct fs_context *fc)
 }
 EXPORT_SYMBOL(fc_mount);
 
-struct vfsmount *vfs_kern_mount(struct file_system_type *type,
-				int flags, const char *name,
-				void *data)
+struct vfsmount *vfs_kern_mount(struct file_system_type *type, int flags, const char *name, void *data)
 {
 	struct fs_context *fc;
 	struct vfsmount *mnt;
 	int ret = 0;
 
-	if (!type)
+	if (!type) {
 		return ERR_PTR(-EINVAL);
+	}
 
 	fc = fs_context_for_mount(type, flags);
-	if (IS_ERR(fc))
+	if (IS_ERR(fc)) {
 		return ERR_CAST(fc);
+	}
 
-	if (name)
-		ret = vfs_parse_fs_string(fc, "source",
-					  name, strlen(name));
-	if (!ret)
+	if (name) {
+		ret = vfs_parse_fs_string(fc, "source", name, strlen(name));
+	}
+
+	if (!ret) {
 		ret = parse_monolithic_mount_data(fc, data);
-	if (!ret)
+	}
+
+	if (!ret) {
 		mnt = fc_mount(fc);
-	else
+	}
+	else {
 		mnt = ERR_PTR(ret);
+	}
 
 	put_fs_context(fc);
 	return mnt;
@@ -5528,6 +5533,8 @@ static void __init init_mount_tree(void)
 	// 根目录开始生效
 	mnt_add_to_ns(ns, m);
 	init_task.nsproxy->mnt_ns = ns;
+	
+	// 增加挂载命名空间引用计数的安全辅助函数
 	get_mnt_ns(ns);
 
 	root.mnt = mnt;
