@@ -57,6 +57,11 @@ For 32-bit we have the following conventions - kernel is built with
       function's register parameters degenerate to regparm=2 in essence.
 
 */
+/*
+ * 中文说明:
+ * 本文件定义 x86 入口汇编共用的调用约定、寄存器保存/清理、KPTI CR3 切换、
+ * Spectre/MDS 缓解辅助宏，以及 C 函数 thunk 包装。
+ */
 
 #ifdef CONFIG_X86_64
 
@@ -123,27 +128,28 @@ For 32-bit we have the following conventions - kernel is built with
 .endm
 
 .macro PUSH_AND_CLEAR_REGS rdx=%rdx rcx=%rcx rax=%rax save_ret=0 clear_bp=1 unwind_hint=1
+        /* 先保存寄存器到 pt_regs，再清空推测执行可能利用的寄存器值。 */
 	PUSH_REGS rdx=\rdx, rcx=\rcx, rax=\rax, save_ret=\save_ret unwind_hint=\unwind_hint
 	CLEAR_REGS clear_bp=\clear_bp
 .endm
 
 .macro POP_REGS pop_rdi=1
-	popq %r15
-	popq %r14
-	popq %r13
-	popq %r12
-	popq %rbp
-	popq %rbx
-	popq %r11
-	popq %r10
-	popq %r9
-	popq %r8
-	popq %rax
-	popq %rcx
-	popq %rdx
-	popq %rsi
+        popq %r15                       /* 从 pt_regs 恢复 r15。 */
+        popq %r14                       /* 从 pt_regs 恢复 r14。 */
+        popq %r13                       /* 从 pt_regs 恢复 r13。 */
+        popq %r12                       /* 从 pt_regs 恢复 r12。 */
+        popq %rbp                       /* 从 pt_regs 恢复 rbp。 */
+        popq %rbx                       /* 从 pt_regs 恢复 rbx。 */
+        popq %r11                       /* 从 pt_regs 恢复 r11。 */
+        popq %r10                       /* 从 pt_regs 恢复 r10。 */
+        popq %r9                        /* 从 pt_regs 恢复 r9。 */
+        popq %r8                        /* 从 pt_regs 恢复 r8。 */
+        popq %rax                       /* 从 pt_regs 恢复 rax。 */
+        popq %rcx                       /* 从 pt_regs 恢复 rcx。 */
+        popq %rdx                       /* 从 pt_regs 恢复 rdx。 */
+        popq %rsi                       /* 从 pt_regs 恢复 rsi。 */
 	.if \pop_rdi
-	popq %rdi
+        popq %rdi                       /* 需要时从 pt_regs 恢复 rdi。 */
 	.endif
 .endm
 
@@ -160,118 +166,118 @@ For 32-bit we have the following conventions - kernel is built with
 #define PTI_USER_PGTABLE_AND_PCID_MASK  (PTI_USER_PCID_MASK | PTI_USER_PGTABLE_MASK)
 
 .macro SET_NOFLUSH_BIT	reg:req
-	bts	$X86_CR3_PCID_NOFLUSH_BIT, \reg
+        bts     $X86_CR3_PCID_NOFLUSH_BIT, \reg /* 设置 CR3 PCID no-flush 位。 */
 .endm
 
 .macro ADJUST_KERNEL_CR3 reg:req
-	ALTERNATIVE "", "SET_NOFLUSH_BIT \reg", X86_FEATURE_PCID
+        ALTERNATIVE "", "SET_NOFLUSH_BIT \reg", X86_FEATURE_PCID /* 支持 PCID 时避免不必要 TLB flush。 */
 	/* Clear PCID and "MITIGATION_PAGE_TABLE_ISOLATION bit", point CR3 at kernel pagetables: */
-	andq    $(~PTI_USER_PGTABLE_AND_PCID_MASK), \reg
+        andq    $(~PTI_USER_PGTABLE_AND_PCID_MASK), \reg /* 清除用户 PGD/PCID 位，指向内核页表。 */
 .endm
 
 .macro SWITCH_TO_KERNEL_CR3 scratch_reg:req
-	ALTERNATIVE "jmp .Lend_\@", "", X86_FEATURE_PTI
-	mov	%cr3, \scratch_reg
-	ADJUST_KERNEL_CR3 \scratch_reg
-	mov	\scratch_reg, %cr3
-.Lend_\@:
+        ALTERNATIVE "jmp .Lend_\@", "", X86_FEATURE_PTI /* 未启用 PTI 时跳过切换。 */
+        mov     %cr3, \scratch_reg      /* 读取当前 CR3。 */
+        ADJUST_KERNEL_CR3 \scratch_reg  /* 把 CR3 调整为内核页表版本。 */
+        mov     \scratch_reg, %cr3      /* 写回 CR3，切到内核页表。 */
+.Lend_\@:                              /* CR3 切换结束标签。 */
 .endm
 
 #define THIS_CPU_user_pcid_flush_mask   \
 	PER_CPU_VAR(cpu_tlbstate + TLB_STATE_user_pcid_flush_mask)
 
 .macro SWITCH_TO_USER_CR3 scratch_reg:req scratch_reg2:req
-	mov	%cr3, \scratch_reg
+        mov     %cr3, \scratch_reg      /* 读取当前内核 CR3。 */
 
-	ALTERNATIVE "jmp .Lwrcr3_\@", "", X86_FEATURE_PCID
+        ALTERNATIVE "jmp .Lwrcr3_\@", "", X86_FEATURE_PCID /* 无 PCID 时直接写用户 CR3。 */
 
 	/*
 	 * Test if the ASID needs a flush.
 	 */
-	movq	\scratch_reg, \scratch_reg2
-	andq	$(0x7FF), \scratch_reg		/* mask ASID */
-	bt	\scratch_reg, THIS_CPU_user_pcid_flush_mask
-	jnc	.Lnoflush_\@
+        movq    \scratch_reg, \scratch_reg2 /* 保存原 CR3。 */
+        andq    $(0x7FF), \scratch_reg          /* mask ASID */ /* 提取当前 ASID/PCID。 */
+        bt      \scratch_reg, THIS_CPU_user_pcid_flush_mask /* 测试该用户 PCID 是否需要 flush。 */
+        jnc     .Lnoflush_\@            /* 不需要 flush 则走 no-flush 路径。 */
 
 	/* Flush needed, clear the bit */
-	btr	\scratch_reg, THIS_CPU_user_pcid_flush_mask
-	movq	\scratch_reg2, \scratch_reg
-	jmp	.Lwrcr3_pcid_\@
+        btr     \scratch_reg, THIS_CPU_user_pcid_flush_mask /* 清除待 flush 标志位。 */
+        movq    \scratch_reg2, \scratch_reg /* 恢复原 CR3 值，保留 flush 语义。 */
+        jmp     .Lwrcr3_pcid_\@         /* 跳到 PCID 写 CR3 路径。 */
 
 .Lnoflush_\@:
-	movq	\scratch_reg2, \scratch_reg
-	SET_NOFLUSH_BIT \scratch_reg
+        movq    \scratch_reg2, \scratch_reg /* 恢复原 CR3。 */
+        SET_NOFLUSH_BIT \scratch_reg    /* 设置 no-flush 位以保留 TLB。 */
 
 .Lwrcr3_pcid_\@:
 	/* Flip the ASID to the user version */
-	orq	$(PTI_USER_PCID_MASK), \scratch_reg
+        orq     $(PTI_USER_PCID_MASK), \scratch_reg /* 切换到用户 PCID。 */
 
 .Lwrcr3_\@:
 	/* Flip the PGD to the user version */
-	orq     $(PTI_USER_PGTABLE_MASK), \scratch_reg
-	mov	\scratch_reg, %cr3
+        orq     $(PTI_USER_PGTABLE_MASK), \scratch_reg /* 切换到用户页表半区。 */
+        mov     \scratch_reg, %cr3      /* 写回 CR3，切到用户页表。 */
 .endm
 
 .macro SWITCH_TO_USER_CR3_NOSTACK scratch_reg:req scratch_reg2:req
-	ALTERNATIVE "jmp .Lend_\@", "", X86_FEATURE_PTI
-	SWITCH_TO_USER_CR3 \scratch_reg \scratch_reg2
-.Lend_\@:
+        ALTERNATIVE "jmp .Lend_\@", "", X86_FEATURE_PTI /* 未启用 PTI 时跳过。 */
+        SWITCH_TO_USER_CR3 \scratch_reg \scratch_reg2 /* 无栈临时保存版本的用户 CR3 切换。 */
+.Lend_\@:                              /* 宏结束标签。 */
 .endm
 
 .macro SWITCH_TO_USER_CR3_STACK	scratch_reg:req
-	ALTERNATIVE "jmp .Lend_\@", "", X86_FEATURE_PTI
-	pushq	%rax
-	SWITCH_TO_USER_CR3 scratch_reg=\scratch_reg scratch_reg2=%rax
-	popq	%rax
-.Lend_\@:
+        ALTERNATIVE "jmp .Lend_\@", "", X86_FEATURE_PTI /* 未启用 PTI 时跳过。 */
+        pushq   %rax                    /* 借用 RAX 前先保存。 */
+        SWITCH_TO_USER_CR3 scratch_reg=\scratch_reg scratch_reg2=%rax /* 用栈保存 RAX 的用户 CR3 切换。 */
+        popq    %rax                    /* 恢复 RAX。 */
+.Lend_\@:                              /* 宏结束标签。 */
 .endm
 
 .macro SAVE_AND_SWITCH_TO_KERNEL_CR3 scratch_reg:req save_reg:req
-	ALTERNATIVE "jmp .Ldone_\@", "", X86_FEATURE_PTI
-	movq	%cr3, \scratch_reg
-	movq	\scratch_reg, \save_reg
+	ALTERNATIVE "jmp .Ldone_\@", "", X86_FEATURE_PTI /* 未启用 PTI 时无需保存/切换。 */
+	movq	%cr3, \scratch_reg	/* 读取当前 CR3。 */
+	movq	\scratch_reg, \save_reg /* 保存原 CR3 供返回时恢复。 */
 	/*
 	 * Test the user pagetable bit. If set, then the user page tables
 	 * are active. If clear CR3 already has the kernel page table
 	 * active.
 	 */
-	bt	$PTI_USER_PGTABLE_BIT, \scratch_reg
-	jnc	.Ldone_\@
+	bt	$PTI_USER_PGTABLE_BIT, \scratch_reg /* 检测当前是否使用用户页表半区。 */
+	jnc	.Ldone_\@		/* 已经是内核页表则无需切换。 */
 
-	ADJUST_KERNEL_CR3 \scratch_reg
-	movq	\scratch_reg, %cr3
+	ADJUST_KERNEL_CR3 \scratch_reg	/* 调整为内核 CR3。 */
+	movq	\scratch_reg, %cr3	/* 写回 CR3 切到内核页表。 */
 
-.Ldone_\@:
+.Ldone_\@:				/* 保存/切换完成标签。 */
 .endm
 
 /* Restore CR3 from a kernel context. May restore a user CR3 value. */
 .macro PARANOID_RESTORE_CR3 scratch_reg:req save_reg:req
-	ALTERNATIVE "jmp .Lend_\@", "", X86_FEATURE_PTI
+	ALTERNATIVE "jmp .Lend_\@", "", X86_FEATURE_PTI /* 未启用 PTI 时无需恢复。 */
 
 	/*
 	 * If CR3 contained the kernel page tables at the paranoid exception
 	 * entry, then there is nothing to restore as CR3 is not modified while
 	 * handling the exception.
 	 */
-	bt	$PTI_USER_PGTABLE_BIT, \save_reg
-	jnc	.Lend_\@
+	bt	$PTI_USER_PGTABLE_BIT, \save_reg /* 原 CR3 若不是用户页表，则无需恢复。 */
+	jnc	.Lend_\@		/* 跳过恢复。 */
 
-	ALTERNATIVE "jmp .Lwrcr3_\@", "", X86_FEATURE_PCID
+	ALTERNATIVE "jmp .Lwrcr3_\@", "", X86_FEATURE_PCID /* 无 PCID 时直接写 CR3。 */
 
 	/*
 	 * Check if there's a pending flush for the user ASID we're
 	 * about to set.
 	 */
-	movq	\save_reg, \scratch_reg
-	andq	$(0x7FF), \scratch_reg
-	btr	\scratch_reg, THIS_CPU_user_pcid_flush_mask
-	jc	.Lwrcr3_\@
+	movq	\save_reg, \scratch_reg /* 复制待恢复的用户 CR3。 */
+	andq	$(0x7FF), \scratch_reg /* 提取用户 ASID/PCID。 */
+	btr	\scratch_reg, THIS_CPU_user_pcid_flush_mask /* 清除并测试待 flush 位。 */
+	jc	.Lwrcr3_\@		/* 如果需要 flush，就不设置 no-flush 位。 */
 
-	SET_NOFLUSH_BIT \save_reg
+	SET_NOFLUSH_BIT \save_reg	/* 无需 flush 时设置 no-flush 位。 */
 
 .Lwrcr3_\@:
-	movq	\save_reg, %cr3
-.Lend_\@:
+	movq	\save_reg, %cr3		/* 恢复原 CR3。 */
+.Lend_\@:				/* 恢复结束标签。 */
 .endm
 
 #else /* CONFIG_MITIGATION_PAGE_TABLE_ISOLATION=n: */

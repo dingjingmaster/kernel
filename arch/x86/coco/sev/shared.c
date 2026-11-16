@@ -2,6 +2,9 @@
 /*
  * AMD Encrypted Register State Support
  *
+ * AMD 加密寄存器状态支持。
+ * 该文件会被预解压启动代码和正式内核共同包含，注释和实现都需要兼顾两种环境。
+ *
  * Author: Joerg Roedel <jroedel@suse.de>
  *
  * This file is not compiled stand-alone. It contains code shared
@@ -12,11 +15,13 @@
 #include <asm/setup_data.h>
 
 #ifndef __BOOT_COMPRESSED
+/* 正式内核环境下使用普通 printk/CPU feature helper。 */
 #define error(v)			pr_err(v)
 #define has_cpuflag(f)			boot_cpu_has(f)
 #define sev_printk(fmt, ...)		printk(fmt, ##__VA_ARGS__)
 #define sev_printk_rtl(fmt, ...)	printk_ratelimited(fmt, ##__VA_ARGS__)
 #else
+/* 压缩内核早期环境缺少完整内核设施，宏降级为空实现或 panic。 */
 #undef WARN
 #define WARN(condition, format...) (!!(condition))
 #define sev_printk(fmt, ...)
@@ -35,6 +40,10 @@
  *   physical addresses for the CAA to allow SVSM functions to be used during
  *   early boot, both with identity mapped virtual addresses and proper kernel
  *   virtual addresses.
+ *
+ * SVSM 相关信息:
+ * Linux 在 SVSM 下运行时 VMPL 必须非 0，因此 snp_vmpl 也用来表示 SVSM 存在。
+ * 启动早期页表是恒等映射，之后切到内核虚拟地址，所以 CAA 同时维护虚拟和物理地址。
  */
 u8 snp_vmpl __ro_after_init;
 EXPORT_SYMBOL_GPL(snp_vmpl);
@@ -46,6 +55,7 @@ static u64 svsm_get_caa_pa(void);
 static int svsm_perform_call_protocol(struct svsm_call *call);
 
 /* I/O parameters for CPUID-related helpers */
+/* CPUID helper 的输入/输出容器。 */
 struct cpuid_leaf {
 	u32 fn;
 	u32 subfn;
@@ -58,6 +68,8 @@ struct cpuid_leaf {
 /*
  * Individual entries of the SNP CPUID table, as defined by the SNP
  * Firmware ABI, Revision 0.9, Section 7.1, Table 14.
+ *
+ * SNP 固件提供的 CPUID 表项，guest 只能信任表中经过固件验证的值。
  */
 struct snp_cpuid_fn {
 	u32 eax_in;
@@ -75,6 +87,8 @@ struct snp_cpuid_fn {
  * SNP CPUID table, as defined by the SNP Firmware ABI, Revision 0.9,
  * Section 8.14.2.6. Also noted there is the SNP firmware-enforced limit
  * of 64 entries per CPUID table.
+ *
+ * SNP CPUID 表最多 64 项，这是固件 ABI 规定的上限。
  */
 #define SNP_CPUID_COUNT_MAX 64
 
@@ -109,6 +123,7 @@ static u32 cpuid_ext_range_max __ro_after_init;
 
 static bool __init sev_es_check_cpu_features(void)
 {
+        /* SEV-ES/SNP 需要可信随机源，RDRAND 不可用时不能安全启动。 */
 	if (!has_cpuflag(X86_FEATURE_RDRAND)) {
 		error("RDRAND instruction not supported - no trusted source of randomness available\n");
 		return false;
@@ -123,9 +138,11 @@ sev_es_terminate(unsigned int set, unsigned int reason)
 	u64 val = GHCB_MSR_TERM_REQ;
 
 	/* Tell the hypervisor what went wrong. */
+        /* 通过 GHCB MSR 编码 Linux 终止原因，让 hypervisor 可诊断。 */
 	val |= GHCB_SEV_TERM_REASON(set, reason);
 
 	/* Request Guest Termination from Hypervisor */
+        /* 请求 hypervisor 终止 guest；如果返回，则本地无限 HLT。 */
 	sev_es_wr_ghcb_msr(val);
 	VMGEXIT();
 
@@ -143,6 +160,7 @@ static u64 get_hv_features(void)
 	if (ghcb_version < 2)
 		return 0;
 
+        /* GHCB v2 起可通过 MSR 协议查询 hypervisor feature bitmap。 */
 	sev_es_wr_ghcb_msr(GHCB_MSR_HV_FT_REQ);
 	VMGEXIT();
 
@@ -158,12 +176,14 @@ static void snp_register_ghcb_early(unsigned long paddr)
 	unsigned long pfn = paddr >> PAGE_SHIFT;
 	u64 val;
 
+        /* 启动早期通过 MSR 协议向 hypervisor 注册 GHCB 页 GPA。 */
 	sev_es_wr_ghcb_msr(GHCB_MSR_REG_GPA_REQ_VAL(pfn));
 	VMGEXIT();
 
 	val = sev_es_rd_ghcb_msr();
 
 	/* If the response GPA is not ours then abort the guest */
+        /* hypervisor 返回的 GPA 必须与请求一致，否则终止 guest。 */
 	if ((GHCB_RESP_CODE(val) != GHCB_MSR_REG_GPA_RESP) ||
 	    (GHCB_MSR_REG_GPA_RESP_VAL(val) != pfn))
 		sev_es_terminate(SEV_TERM_SET_LINUX, GHCB_TERM_REGISTER);
@@ -174,6 +194,7 @@ static bool sev_es_negotiate_protocol(void)
 	u64 val;
 
 	/* Do the GHCB protocol version negotiation */
+        /* 与 hypervisor 协商双方都支持的 GHCB 协议版本。 */
 	sev_es_wr_ghcb_msr(GHCB_MSR_SEV_INFO_REQ);
 	VMGEXIT();
 	val = sev_es_rd_ghcb_msr();
@@ -186,12 +207,14 @@ static bool sev_es_negotiate_protocol(void)
 		return false;
 
 	ghcb_version = min_t(size_t, GHCB_MSR_PROTO_MAX(val), GHCB_PROTOCOL_MAX);
+        /* 选择 hypervisor 支持上限和内核支持上限中的较小值。 */
 
 	return true;
 }
 
 static __always_inline void vc_ghcb_invalidate(struct ghcb *ghcb)
 {
+        /* 清除 GHCB 输出字段和有效位，避免复用旧 #VC 结果。 */
 	ghcb->save.sw_exit_code = 0;
 	__builtin_memset(ghcb->save.valid_bitmap, 0, sizeof(ghcb->save.valid_bitmap));
 }
@@ -199,6 +222,7 @@ static __always_inline void vc_ghcb_invalidate(struct ghcb *ghcb)
 static bool vc_decoding_needed(unsigned long exit_code)
 {
 	/* Exceptions don't require to decode the instruction */
+        /* 异常类 exit 不需要指令解码；其它 VMGEXIT 通常要解析触发指令。 */
 	return !(exit_code >= SVM_EXIT_EXCP_BASE &&
 		 exit_code <= SVM_EXIT_LAST_EXCP);
 }
@@ -212,6 +236,7 @@ static enum es_result vc_init_em_ctxt(struct es_em_ctxt *ctxt,
 	memset(ctxt, 0, sizeof(*ctxt));
 	ctxt->regs = regs;
 
+        /* 只有需要模拟具体指令时才解码当前 RIP 指令。 */
 	if (vc_decoding_needed(exit_code))
 		ret = vc_decode_insn(ctxt);
 
@@ -220,6 +245,7 @@ static enum es_result vc_init_em_ctxt(struct es_em_ctxt *ctxt,
 
 static void vc_finish_insn(struct es_em_ctxt *ctxt)
 {
+        /* #VC 成功模拟后跳过原始触发指令。 */
 	ctxt->regs->ip += ctxt->insn.length;
 }
 
@@ -236,6 +262,7 @@ static enum es_result verify_exception_info(struct ghcb *ghcb, struct es_em_ctxt
 		unsigned long v = info & SVM_EVTINJ_VEC_MASK;
 
 		/* Check if exception information from hypervisor is sane. */
+                /* 只接受 hypervisor 请求转发的 #GP/#UD，并校验事件注入格式。 */
 		if ((info & SVM_EVTINJ_VALID) &&
 		    ((v == X86_TRAP_GP) || (v == X86_TRAP_UD)) &&
 		    ((info & SVM_EVTINJ_TYPE_MASK) == SVM_EVTINJ_TYPE_EXEPT)) {
@@ -253,6 +280,7 @@ static enum es_result verify_exception_info(struct ghcb *ghcb, struct es_em_ctxt
 
 static inline int svsm_process_result_codes(struct svsm_call *call)
 {
+        /* 将 SVSM ABI 返回码转换为 Linux errno。 */
 	switch (call->rax_out) {
 	case SVSM_SUCCESS:
 		return 0;
@@ -278,9 +306,12 @@ static inline int svsm_process_result_codes(struct svsm_call *call)
  *       convention by putting arguments in RCX, RDX, R8 and R9.
  *     - RAX specifies the SVSM protocol/callid as input and the return code
  *       as output.
+ *
+ * 通过 VMGEXIT 调用 SVSM，并保存输入/输出寄存器约定。
  */
 static __always_inline void svsm_issue_call(struct svsm_call *call, u8 *pending)
 {
+        /* 将 SVSM 调用参数固定绑定到 ABI 要求的寄存器。 */
 	register unsigned long rax asm("rax") = call->rax;
 	register unsigned long rcx asm("rcx") = call->rcx;
 	register unsigned long rdx asm("rdx") = call->rdx;
@@ -289,12 +320,14 @@ static __always_inline void svsm_issue_call(struct svsm_call *call, u8 *pending)
 
 	call->caa->call_pending = 1;
 
+        /* rep; vmmcall 进入 hypervisor/SVSM，寄存器同时作为输入输出。 */
 	asm volatile("rep; vmmcall\n\t"
 		     : "+r" (rax), "+r" (rcx), "+r" (rdx), "+r" (r8), "+r" (r9)
 		     : : "memory");
 
 	*pending = xchg(&call->caa->call_pending, *pending);
 
+        /* 保存 SVSM 返回寄存器，供上层解析。 */
 	call->rax_out = rax;
 	call->rcx_out = rcx;
 	call->rdx_out = rdx;
@@ -310,6 +343,8 @@ static int svsm_perform_msr_protocol(struct svsm_call *call)
 	/*
 	 * When using the MSR protocol, be sure to save and restore
 	 * the current MSR value.
+         *
+         * MSR 协议会临时使用 GHCB MSR，必须保存并恢复原值。
 	 */
 	val = sev_es_rd_ghcb_msr();
 
@@ -324,6 +359,7 @@ static int svsm_perform_msr_protocol(struct svsm_call *call)
 	if (pending)
 		return -EINVAL;
 
+        /* 确认 hypervisor 接受 VMPL 切换请求，并且返回目标 VMPL 为 0。 */
 	if (GHCB_RESP_CODE(resp) != GHCB_MSR_VMPL_RESP)
 		return -EINVAL;
 
@@ -343,6 +379,8 @@ static int svsm_perform_ghcb_protocol(struct ghcb *ghcb, struct svsm_call *call)
 	/*
 	 * Fill in protocol and format specifiers. This can be called very early
 	 * in the boot, so use rip-relative references as needed.
+         *
+         * GHCB 协议可在很早期调用，因此 ghcb_version 使用 RIP 相对引用。
 	 */
 	ghcb->protocol_version = RIP_REL_REF(ghcb_version);
 	ghcb->ghcb_usage       = GHCB_DEFAULT_USAGE;
@@ -353,6 +391,7 @@ static int svsm_perform_ghcb_protocol(struct ghcb *ghcb, struct svsm_call *call)
 
 	sev_es_wr_ghcb_msr(__pa(ghcb));
 
+        /* 通过 GHCB 页协议运行 VMPL 调用。 */
 	svsm_issue_call(call, &pending);
 
 	if (pending)
@@ -362,6 +401,7 @@ static int svsm_perform_ghcb_protocol(struct ghcb *ghcb, struct svsm_call *call)
 	case ES_OK:
 		break;
 	case ES_EXCEPTION:
+                /* hypervisor 请求转发异常时交给通用异常转发逻辑。 */
 		vc_forward_exception(&ctxt);
 		fallthrough;
 	default:
@@ -377,6 +417,7 @@ static enum es_result sev_es_ghcb_hv_call(struct ghcb *ghcb,
 					  u64 exit_info_2)
 {
 	/* Fill in protocol and format specifiers */
+        /* 填充 GHCB 头和 VMGEXIT 参数，然后触发 VMGEXIT。 */
 	ghcb->protocol_version = ghcb_version;
 	ghcb->ghcb_usage       = GHCB_DEFAULT_USAGE;
 
@@ -394,6 +435,7 @@ static int __sev_cpuid_hv(u32 fn, int reg_idx, u32 *reg)
 {
 	u64 val;
 
+        /* 早期无 GHCB 页时，通过 MSR 协议逐寄存器请求 CPUID 值。 */
 	sev_es_wr_ghcb_msr(GHCB_CPUID_REQ(fn, reg_idx));
 	VMGEXIT();
 	val = sev_es_rd_ghcb_msr();
@@ -416,6 +458,8 @@ static int __sev_cpuid_hv_msr(struct cpuid_leaf *leaf)
 	 * grabbing random values. If this issue arises in the future, handling
 	 * can be added here to use GHCB-page protocol for cases that occur late
 	 * enough in boot that GHCB page is available.
+         *
+         * MSR 协议不携带 subfn，只适合早期简单 CPUID 请求。
 	 */
 	if (cpuid_function_is_indexed(leaf->fn) && leaf->subfn)
 		return -EINVAL;
@@ -436,6 +480,7 @@ static int __sev_cpuid_hv_ghcb(struct ghcb *ghcb, struct es_em_ctxt *ctxt, struc
 	ghcb_set_rax(ghcb, leaf->fn);
 	ghcb_set_rcx(ghcb, leaf->subfn);
 
+        /* OSXSAVE 打开时把当前 XCR0 一并提供给 hypervisor。 */
 	if (cr4 & X86_CR4_OSXSAVE)
 		/* Safe to read xcr0 */
 		ghcb_set_xcr0(ghcb, xgetbv(XCR_XFEATURE_ENABLED_MASK));
@@ -463,6 +508,7 @@ static int __sev_cpuid_hv_ghcb(struct ghcb *ghcb, struct es_em_ctxt *ctxt, struc
 
 static int sev_cpuid_hv(struct ghcb *ghcb, struct es_em_ctxt *ctxt, struct cpuid_leaf *leaf)
 {
+        /* 有 GHCB 页走 GHCB 协议，否则退回早期 MSR 协议。 */
 	return ghcb ? __sev_cpuid_hv_ghcb(ghcb, ctxt, leaf)
 		    : __sev_cpuid_hv_msr(leaf);
 }
@@ -472,6 +518,8 @@ static int sev_cpuid_hv(struct ghcb *ghcb, struct es_em_ctxt *ctxt, struct cpuid
  * mapping. Use RIP-relative addressing to obtain the correct address
  * while running with the initial identity mapping as well as the
  * switch-over to kernel virtual addresses later.
+ *
+ * 该函数可在恒等映射阶段调用，必须通过 RIP 相对寻址取得 CPUID 表地址。
  */
 static const struct snp_cpuid_table *snp_cpuid_get_table(void)
 {
@@ -505,6 +553,7 @@ static u32 snp_cpuid_calc_xsave_size(u64 xfeatures_en, bool compacted)
 	u32 xsave_size = 0x240;
 	int i;
 
+        /* 遍历 CPUID 表中 0xD 的扩展状态子功能，按启用特性累计 XSAVE 大小。 */
 	for (i = 0; i < cpuid_table->count; i++) {
 		const struct snp_cpuid_fn *e = &cpuid_table->fn[i];
 
@@ -518,8 +567,10 @@ static u32 snp_cpuid_calc_xsave_size(u64 xfeatures_en, bool compacted)
 		xfeatures_found |= (BIT_ULL(e->ecx_in));
 
 		if (compacted)
+                        /* 紧凑格式按各组件大小累加。 */
 			xsave_size += e->eax;
 		else
+                        /* 标准格式按偏移+大小取最大边界。 */
 			xsave_size = max(xsave_size, e->eax + e->ebx);
 	}
 
@@ -540,6 +591,7 @@ snp_cpuid_get_validated_func(struct cpuid_leaf *leaf)
 	const struct snp_cpuid_table *cpuid_table = snp_cpuid_get_table();
 	int i;
 
+        /* 在固件验证过的 SNP CPUID 表中查找匹配 leaf/subleaf。 */
 	for (i = 0; i < cpuid_table->count; i++) {
 		const struct snp_cpuid_fn *e = &cpuid_table->fn[i];
 
@@ -560,6 +612,7 @@ snp_cpuid_get_validated_func(struct cpuid_leaf *leaf)
 				continue;
 
 		leaf->eax = e->eax;
+                /* 找到后把表项值复制到 caller 的 CPUID leaf。 */
 		leaf->ebx = e->ebx;
 		leaf->ecx = e->ecx;
 		leaf->edx = e->edx;
@@ -572,6 +625,7 @@ snp_cpuid_get_validated_func(struct cpuid_leaf *leaf)
 
 static void snp_cpuid_hv(struct ghcb *ghcb, struct es_em_ctxt *ctxt, struct cpuid_leaf *leaf)
 {
+        /* SNP 下从 hypervisor 获取 CPUID 失败是致命错误。 */
 	if (sev_cpuid_hv(ghcb, ctxt, leaf))
 		sev_es_terminate(SEV_TERM_SET_LINUX, GHCB_TERM_CPUID_HV);
 }
@@ -581,8 +635,10 @@ static int snp_cpuid_postprocess(struct ghcb *ghcb, struct es_em_ctxt *ctxt,
 {
 	struct cpuid_leaf leaf_hv = *leaf;
 
+        /* 对必须反映运行时状态或拓扑状态的 leaf 做后处理。 */
 	switch (leaf->fn) {
 	case 0x1:
+                /* APIC ID/APIC enabled 来自 hypervisor，OSXSAVE 来自当前 CR4。 */
 		snp_cpuid_hv(ghcb, ctxt, &leaf_hv);
 
 		/* initial APIC ID */
@@ -596,11 +652,13 @@ static int snp_cpuid_postprocess(struct ghcb *ghcb, struct es_em_ctxt *ctxt,
 		break;
 	case 0x7:
 		/* OSPKE enabled bit */
+                /* OSPKE 反映当前 CR4.PKE，而不是静态 CPUID 表。 */
 		leaf->ecx &= ~BIT(4);
 		if (native_read_cr4() & X86_CR4_PKE)
 			leaf->ecx |= BIT(4);
 		break;
 	case 0xB:
+                /* 拓扑扩展 APIC ID 必须从 hypervisor 获取。 */
 		leaf_hv.subfn = 0;
 		snp_cpuid_hv(ghcb, ctxt, &leaf_hv);
 
@@ -615,6 +673,7 @@ static int snp_cpuid_postprocess(struct ghcb *ghcb, struct es_em_ctxt *ctxt,
 		if (leaf->subfn != 0 && leaf->subfn != 1)
 			return 0;
 
+                /* XSAVE 大小依赖当前 XCR0/XSS，不能直接使用静态表项。 */
 		if (native_read_cr4() & X86_CR4_OSXSAVE)
 			xcr0 = xgetbv(XCR_XFEATURE_ENABLED_MASK);
 		if (leaf->subfn == 1) {
@@ -650,6 +709,7 @@ static int snp_cpuid_postprocess(struct ghcb *ghcb, struct es_em_ctxt *ctxt,
 		}
 		break;
 	case 0x8000001E:
+                /* AMD 拓扑 leaf 中的 APIC/compute/node ID 需要结合 hypervisor 信息。 */
 		snp_cpuid_hv(ghcb, ctxt, &leaf_hv);
 
 		/* extended APIC ID */
@@ -679,6 +739,7 @@ snp_cpuid(struct ghcb *ghcb, struct es_em_ctxt *ctxt, struct cpuid_leaf *leaf)
 	if (!cpuid_table->count)
 		return -EOPNOTSUPP;
 
+        /* 先使用固件验证表，找不到时再按有效范围处理全 0 leaf。 */
 	if (!snp_cpuid_get_validated_func(leaf)) {
 		/*
 		 * Some hypervisors will avoid keeping track of CPUID entries
@@ -723,6 +784,7 @@ void __head do_vc_no_ghcb(struct pt_regs *regs, unsigned long exit_code)
 	int ret;
 
 	/* Only CPUID is supported via MSR protocol */
+        /* 无 GHCB 早期 #VC 只支持 CPUID，并且必须确认当前指令确实是 CPUID。 */
 	if (exit_code != SVM_EXIT_CPUID)
 		goto fail;
 
@@ -785,6 +847,7 @@ static enum es_result vc_insn_string_check(struct es_em_ctxt *ctxt,
 					   unsigned long address,
 					   bool write)
 {
+        /* 用户态字符串 I/O 不允许触碰内核地址；需要合成 #PF 返回。 */
 	if (user_mode(ctxt->regs) && fault_in_kernel_space(address)) {
 		ctxt->fi.vector     = X86_TRAP_PF;
 		ctxt->fi.error_code = X86_PF_USER;
@@ -812,6 +875,7 @@ static enum es_result vc_insn_string_read(struct es_em_ctxt *ctxt,
 	if (ret != ES_OK)
 		return ret;
 
+        /* 按 DF 方向逐元素从 guest 地址读取到 GHCB shared buffer。 */
 	for (i = 0; i < count; i++) {
 		void *s = src + (i * data_size * b);
 		char *d = buf + (i * data_size);
@@ -838,6 +902,7 @@ static enum es_result vc_insn_string_write(struct es_em_ctxt *ctxt,
 	if (ret != ES_OK)
 		return ret;
 
+        /* 按 DF 方向逐元素把 GHCB shared buffer 写回 guest 地址。 */
 	for (i = 0; i < count; i++) {
 		void *d = dst + (i * data_size * s);
 		char *b = buf + (i * data_size);
@@ -851,6 +916,7 @@ static enum es_result vc_insn_string_write(struct es_em_ctxt *ctxt,
 }
 
 #define IOIO_TYPE_STR  BIT(2)
+/* IOIO exit_info 编码中的 I/O 类型、REP、地址大小、数据大小和段选择位。 */
 #define IOIO_TYPE_IN   1
 #define IOIO_TYPE_INS  (IOIO_TYPE_IN | IOIO_TYPE_STR)
 #define IOIO_TYPE_OUT  0
@@ -877,6 +943,7 @@ static enum es_result vc_ioio_exitinfo(struct es_em_ctxt *ctxt, u64 *exitinfo)
 
 	*exitinfo = 0;
 
+        /* 根据 I/O 指令 opcode 组装 GHCB IOIO exit_info_1。 */
 	switch (insn->opcode.bytes[0]) {
 	/* INS opcodes */
 	case 0x6c:
@@ -928,6 +995,7 @@ static enum es_result vc_ioio_exitinfo(struct es_em_ctxt *ctxt, u64 *exitinfo)
 
 	*exitinfo |= port << 16;
 
+        /* 根据 opcode/操作数大小编码 I/O 数据宽度。 */
 	switch (insn->opcode.bytes[0]) {
 	case 0x6c:
 	case 0x6e:
@@ -947,6 +1015,7 @@ static enum es_result vc_ioio_exitinfo(struct es_em_ctxt *ctxt, u64 *exitinfo)
 	}
 
 	switch (insn->addr_bytes) {
+        /* 编码字符串 I/O 使用的地址大小。 */
 	case 2:
 		*exitinfo |= IOIO_ADDR_16;
 		break;
@@ -961,6 +1030,7 @@ static enum es_result vc_ioio_exitinfo(struct es_em_ctxt *ctxt, u64 *exitinfo)
 	if (insn_has_rep_prefix(insn))
 		*exitinfo |= IOIO_REP;
 
+        /* 最后检查端口访问权限和数据宽度是否合法。 */
 	return vc_ioio_check(ctxt, (u16)port, size);
 }
 
@@ -977,6 +1047,7 @@ static enum es_result vc_handle_ioio(struct ghcb *ghcb, struct es_em_ctxt *ctxt)
 	if (exit_info_1 & IOIO_TYPE_STR) {
 
 		/* (REP) INS/OUTS */
+                /* 字符串 I/O 通过 GHCB shared buffer 分批转交给 hypervisor。 */
 
 		bool df = ((regs->flags & X86_EFLAGS_DF) == X86_EFLAGS_DF);
 		unsigned int io_bytes, exit_bytes;
@@ -993,6 +1064,7 @@ static enum es_result vc_handle_ioio(struct ghcb *ghcb, struct es_em_ctxt *ctxt)
 		io_bytes   = (exit_info_1 >> 4) & 0x7;
 		ghcb_count = sizeof(ghcb->shared_buffer) / io_bytes;
 
+                /* REP 字符串 I/O 每次最多处理 shared buffer 能容纳的元素数。 */
 		op_count    = (exit_info_1 & IOIO_REP) ? regs->cx : 1;
 		exit_info_2 = min(op_count, ghcb_count);
 		exit_bytes  = exit_info_2 * io_bytes;
@@ -1000,6 +1072,7 @@ static enum es_result vc_handle_ioio(struct ghcb *ghcb, struct es_em_ctxt *ctxt)
 		es_base = insn_get_seg_base(ctxt->regs, INAT_SEG_REG_ES);
 
 		/* Read bytes of OUTS into the shared buffer */
+                /* OUTS 先从 guest 源地址读入 shared buffer。 */
 		if (!(exit_info_1 & IOIO_TYPE_IN)) {
 			ret = vc_insn_string_read(ctxt,
 					       (void *)(es_base + regs->si),
@@ -1013,6 +1086,8 @@ static enum es_result vc_handle_ioio(struct ghcb *ghcb, struct es_em_ctxt *ctxt)
 		 * Issue an VMGEXIT to the HV to consume the bytes from the
 		 * shared buffer or to have it write them into the shared buffer
 		 * depending on the instruction: OUTS or INS.
+                 *
+                 * 通过 sw_scratch 告诉 hypervisor shared buffer 的 GPA。
 		 */
 		sw_scratch = __pa(ghcb) + offsetof(struct ghcb, shared_buffer);
 		ghcb_set_sw_scratch(ghcb, sw_scratch);
@@ -1022,6 +1097,7 @@ static enum es_result vc_handle_ioio(struct ghcb *ghcb, struct es_em_ctxt *ctxt)
 			return ret;
 
 		/* Read bytes from shared buffer into the guest's destination. */
+                /* INS 再把 hypervisor 写入 shared buffer 的数据复制到 guest 目的地址。 */
 		if (exit_info_1 & IOIO_TYPE_IN) {
 			ret = vc_insn_string_write(ctxt,
 						   (void *)(es_base + regs->di),
@@ -1042,6 +1118,7 @@ static enum es_result vc_handle_ioio(struct ghcb *ghcb, struct es_em_ctxt *ctxt)
 		}
 
 		if (exit_info_1 & IOIO_REP)
+                        /* REP 指令需要扣减剩余次数，未完成时返回 ES_RETRY。 */
 			regs->cx -= exit_info_2;
 
 		ret = regs->cx ? ES_RETRY : ES_OK;
@@ -1049,6 +1126,7 @@ static enum es_result vc_handle_ioio(struct ghcb *ghcb, struct es_em_ctxt *ctxt)
 	} else {
 
 		/* IN/OUT into/from rAX */
+                /* 普通 IN/OUT 直接通过 RAX 低位传递数据。 */
 
 		int bits = (exit_info_1 & 0x70) >> 1;
 		u64 rax = 0;
@@ -1080,6 +1158,7 @@ static int vc_handle_cpuid_snp(struct ghcb *ghcb, struct es_em_ctxt *ctxt)
 
 	leaf.fn = regs->ax;
 	leaf.subfn = regs->cx;
+        /* SEV-SNP 优先使用固件 CPUID 表，必要时再结合 GHCB 后处理。 */
 	ret = snp_cpuid(ghcb, ctxt, &leaf);
 	if (!ret) {
 		regs->ax = leaf.eax;
@@ -1108,6 +1187,7 @@ static enum es_result vc_handle_cpuid(struct ghcb *ghcb,
 	ghcb_set_rax(ghcb, regs->ax);
 	ghcb_set_rcx(ghcb, regs->cx);
 
+        /* 非 SNP 或表不支持时，退回普通 GHCB CPUID 代理。 */
 	if (cr4 & X86_CR4_OSXSAVE)
 		/* Safe to read xcr0 */
 		ghcb_set_xcr0(ghcb, xgetbv(XCR_XFEATURE_ENABLED_MASK));
@@ -1144,6 +1224,7 @@ static enum es_result vc_handle_rdtsc(struct ghcb *ghcb,
 	if (ret != ES_OK)
 		return ret;
 
+        /* RDTSC/RDTSCP 的结果必须由 hypervisor 标记为有效。 */
 	if (!(ghcb_rax_is_valid(ghcb) && ghcb_rdx_is_valid(ghcb) &&
 	     (!rdtscp || ghcb_rcx_is_valid(ghcb))))
 		return ES_VMM_ERROR;
@@ -1164,6 +1245,8 @@ struct cc_setup_data {
 /*
  * Search for a Confidential Computing blob passed in as a setup_data entry
  * via the Linux Boot Protocol.
+ *
+ * 在 boot_params 的 setup_data 链表中查找固件/加载器传入的 CC blob。
  */
 static __head
 struct cc_blob_sev_info *find_cc_blob_setup_data(struct boot_params *bp)
@@ -1173,6 +1256,7 @@ struct cc_blob_sev_info *find_cc_blob_setup_data(struct boot_params *bp)
 
 	hdr = (struct setup_data *)bp->hdr.setup_data;
 
+        /* setup_data 是单向链表，逐项查找 SETUP_CC_BLOB。 */
 	while (hdr) {
 		if (hdr->type == SETUP_CC_BLOB) {
 			sd = (struct cc_setup_data *)hdr;
@@ -1192,6 +1276,8 @@ struct cc_blob_sev_info *find_cc_blob_setup_data(struct boot_params *bp)
  * be possible as an alternative, but the approach is brittle since the
  * mapping needs to be updated in sync with all the changes to virtual memory
  * layout and related mapping facilities throughout the boot process.
+ *
+ * 将固件 CPUID 页复制到内核私有副本，避免启动过程中映射变化影响访问。
  */
 static void __head setup_cpuid_table(const struct cc_blob_sev_info *cc_info)
 {
@@ -1201,6 +1287,7 @@ static void __head setup_cpuid_table(const struct cc_blob_sev_info *cc_info)
 	if (!cc_info || !cc_info->cpuid_phys || cc_info->cpuid_len < PAGE_SIZE)
 		sev_es_terminate(SEV_TERM_SET_LINUX, GHCB_TERM_CPUID);
 
+        /* 固件表必须存在且条目数在 ABI 上限内。 */
 	cpuid_table_fw = (const struct snp_cpuid_table *)cc_info->cpuid_phys;
 	if (!cpuid_table_fw->count || cpuid_table_fw->count > SNP_CPUID_COUNT_MAX)
 		sev_es_terminate(SEV_TERM_SET_LINUX, GHCB_TERM_CPUID);
@@ -1209,6 +1296,7 @@ static void __head setup_cpuid_table(const struct cc_blob_sev_info *cc_info)
 	memcpy((void *)cpuid_table, cpuid_table_fw, sizeof(*cpuid_table));
 
 	/* Initialize CPUID ranges for range-checking. */
+        /* 记录标准/hypervisor/扩展 CPUID 最大范围，用于后续全 0 leaf 判定。 */
 	for (i = 0; i < cpuid_table->count; i++) {
 		const struct snp_cpuid_fn *fn = &cpuid_table->fn[i];
 
@@ -1224,6 +1312,7 @@ static void __head setup_cpuid_table(const struct cc_blob_sev_info *cc_info)
 static inline void __pval_terminate(u64 pfn, bool action, unsigned int page_size,
 				    int ret, u64 svsm_ret)
 {
+        /* PVALIDATE 失败表示 RMP/页状态不可恢复，必须终止 guest。 */
 	WARN(1, "PVALIDATE failure: pfn: 0x%llx, action: %u, size: %u, ret: %d, svsm_ret: 0x%llx\n",
 	     pfn, action, page_size, ret, svsm_ret);
 
@@ -1237,6 +1326,7 @@ static void svsm_pval_terminate(struct svsm_pvalidate_call *pc, int ret, u64 svs
 	u64 pfn;
 
 	pfn = pc->entry[pc->cur_index].pfn;
+        /* 从 SVSM PVALIDATE 调用区取出失败条目，统一进入终止路径。 */
 	action = pc->entry[pc->cur_index].action;
 	page_size = pc->entry[pc->cur_index].page_size;
 
@@ -1254,6 +1344,8 @@ static void svsm_pval_4k_page(unsigned long paddr, bool validate)
 	/*
 	 * This can be called very early in the boot, use native functions in
 	 * order to avoid paravirt issues.
+         *
+         * 该路径可能在非常早期调用，保存中断状态并使用 native IRQ helper。
 	 */
 	flags = native_local_irq_save();
 
@@ -1263,6 +1355,7 @@ static void svsm_pval_4k_page(unsigned long paddr, bool validate)
 	pc_pa = svsm_get_caa_pa() + offsetof(struct svsm_ca, svsm_buffer);
 
 	pc->num_entries = 1;
+        /* 构造单个 4K PVALIDATE 请求。 */
 	pc->cur_index   = 0;
 	pc->entry[0].page_size = RMP_PG_SIZE_4K;
 	pc->entry[0].action    = validate;
@@ -1270,6 +1363,7 @@ static void svsm_pval_4k_page(unsigned long paddr, bool validate)
 	pc->entry[0].pfn       = paddr >> PAGE_SHIFT;
 
 	/* Protocol 0, Call ID 1 */
+        /* SVSM core 协议的 PVALIDATE 调用。 */
 	call.rax = SVSM_CORE_CALL(SVSM_CORE_PVALIDATE);
 	call.rcx = pc_pa;
 
@@ -1287,10 +1381,14 @@ static void pvalidate_4k_page(unsigned long vaddr, unsigned long paddr, bool val
 	/*
 	 * This can be called very early during boot, so use rIP-relative
 	 * references as needed.
+         *
+         * 启动早期可调用，读取 snp_vmpl 时使用 RIP 相对引用。
 	 */
 	if (RIP_REL_REF(snp_vmpl)) {
+                /* 非 VMPL0 通过 SVSM 代执行 PVALIDATE。 */
 		svsm_pval_4k_page(paddr, validate);
 	} else {
+                /* VMPL0 直接执行 PVALIDATE 指令。 */
 		ret = pvalidate(vaddr, RMP_PG_SIZE_4K, validate);
 		if (ret)
 			__pval_terminate(PHYS_PFN(paddr), validate, RMP_PG_SIZE_4K, ret, 0);
@@ -1310,6 +1408,7 @@ static void pval_pages(struct snp_psc_desc *desc)
 	for (i = 0; i <= desc->hdr.end_entry; i++) {
 		e = &desc->entries[i];
 
+                /* 根据 PSC 描述符逐项执行本地 PVALIDATE。 */
 		pfn = e->gfn;
 		vaddr = (unsigned long)pfn_to_kaddr(pfn);
 		size = e->pagesize ? RMP_PG_SIZE_2M : RMP_PG_SIZE_4K;
@@ -1322,6 +1421,7 @@ static void pval_pages(struct snp_psc_desc *desc)
 		if (rc == PVALIDATE_FAIL_SIZEMISMATCH && size == RMP_PG_SIZE_2M) {
 			unsigned long vaddr_end = vaddr + PMD_SIZE;
 
+                        /* 2M 验证失败且 RMP 为 4K 时，降级为 512 个 4K 页验证。 */
 			for (; vaddr < vaddr_end; vaddr += PAGE_SIZE, pfn++) {
 				rc = pvalidate(vaddr, RMP_PG_SIZE_4K, validate);
 				if (rc)
@@ -1339,6 +1439,7 @@ static u64 svsm_build_ca_from_pfn_range(u64 pfn, u64 pfn_end, bool action,
 	struct svsm_pvalidate_entry *pe;
 
 	/* Nothing in the CA yet */
+        /* 清空 SVSM 调用区，从给定 PFN 范围批量生成 4K 条目。 */
 	pc->num_entries = 0;
 	pc->cur_index   = 0;
 
@@ -1368,6 +1469,7 @@ static int svsm_build_ca_from_psc_desc(struct snp_psc_desc *desc, unsigned int d
 	struct psc_entry *e;
 
 	/* Nothing in the CA yet */
+        /* 清空 SVSM 调用区，从 PSC 描述符批量生成 PVALIDATE 条目。 */
 	pc->num_entries = 0;
 	pc->cur_index   = 0;
 
@@ -1415,6 +1517,8 @@ static void svsm_pval_pages(struct snp_psc_desc *desc)
 	 * full or the last entry in the descriptor is reached, at which time
 	 * the SVSM is invoked. This repeats until all entries in the descriptor
 	 * are processed.
+         *
+         * SVSM CA 最多一次处理 510 项，因此需要分批填充并多次调用 SVSM。
 	 */
 	call.caa = svsm_get_caa();
 
@@ -1437,6 +1541,8 @@ static void svsm_pval_pages(struct snp_psc_desc *desc)
 			 * Check if the entry failed because of an RMP mismatch (a
 			 * PVALIDATE at 2M was requested, but the page is mapped in
 			 * the RMP as 4K).
+                         *
+                         * 2M PVALIDATE 因 RMP 粒度不匹配失败时，记录下来稍后按 4K 处理。
 			 */
 
 			if (call.rax_out == SVSM_PVALIDATE_FAIL_SIZEMISMATCH &&
@@ -1458,6 +1564,7 @@ static void svsm_pval_pages(struct snp_psc_desc *desc)
 	}
 
 	/* Process any entries that failed to be validated at 2M and validate them at 4K */
+        /* 将所有 2M 失败条目拆成 4K 范围再次通过 SVSM PVALIDATE。 */
 	for (i = 0; i < pv_4k_count; i++) {
 		u64 pfn, pfn_end;
 
@@ -1479,6 +1586,7 @@ static void svsm_pval_pages(struct snp_psc_desc *desc)
 
 static void pvalidate_pages(struct snp_psc_desc *desc)
 {
+        /* VMPL 非 0 时只能委托 SVSM，否则直接本地 PVALIDATE。 */
 	if (snp_vmpl)
 		svsm_pval_pages(desc);
 	else
@@ -1494,6 +1602,7 @@ static int vmgexit_psc(struct ghcb *ghcb, struct snp_psc_desc *desc)
 	vc_ghcb_invalidate(ghcb);
 
 	/* Copy the input desc into GHCB shared buffer */
+        /* PSC 描述符必须放在 GHCB shared buffer 中供 hypervisor 访问。 */
 	data = (struct snp_psc_desc *)ghcb->shared_buffer;
 	memcpy(ghcb->shared_buffer, desc, min_t(int, GHCB_SHARED_BUF_SIZE, sizeof(*desc)));
 
@@ -1508,6 +1617,8 @@ static int vmgexit_psc(struct ghcb *ghcb, struct snp_psc_desc *desc)
 	 * state in the RMP table before guest accesses the memory pages. If the
 	 * page state change was not successful, then later memory access will
 	 * result in a crash.
+         *
+         * hypervisor 可能分批处理 PSC，因此循环直到所有条目完成。
 	 */
 	cur_entry = data->hdr.cur_entry;
 	end_entry = data->hdr.end_entry;
@@ -1516,6 +1627,7 @@ static int vmgexit_psc(struct ghcb *ghcb, struct snp_psc_desc *desc)
 		ghcb_set_sw_scratch(ghcb, (u64)__pa(data));
 
 		/* This will advance the shared buffer data points to. */
+                /* VMGEXIT 会推进 shared buffer 中的 cur_entry。 */
 		ret = sev_es_ghcb_hv_call(ghcb, &ctxt, SVM_VMGEXIT_PSC, 0, 0);
 
 		/*
@@ -1530,6 +1642,7 @@ static int vmgexit_psc(struct ghcb *ghcb, struct snp_psc_desc *desc)
 		}
 
 		/* Verify that reserved bit is not set */
+                /* 保留位被设置说明 hypervisor 返回了非法描述符。 */
 		if (WARN(data->hdr.reserved, "Reserved bit is set in the PSC header\n")) {
 			ret = 1;
 			goto out;
@@ -1538,6 +1651,8 @@ static int vmgexit_psc(struct ghcb *ghcb, struct snp_psc_desc *desc)
 		/*
 		 * Sanity check that entry processing is not going backwards.
 		 * This will happen only if hypervisor is tricking us.
+                 *
+                 * 不可信 hypervisor 不能让处理进度倒退或扩大处理范围。
 		 */
 		if (WARN(data->hdr.end_entry > end_entry || cur_entry > data->hdr.cur_entry,
 "SNP: PSC processing going backward, end_entry %d (got %d) cur_entry %d (got %d)\n",
@@ -1557,11 +1672,13 @@ static enum es_result vc_check_opcode_bytes(struct es_em_ctxt *ctxt,
 	unsigned int opcode = (unsigned int)ctxt->insn.opcode.value;
 	u8 modrm = ctxt->insn.modrm.value;
 
+        /* 校验 #VC exit_code 与实际 opcode 是否匹配，防止 hypervisor 伪造不一致事件。 */
 	switch (exit_code) {
 
 	case SVM_EXIT_IOIO:
 	case SVM_EXIT_NPF:
 		/* handled separately */
+                /* IOIO 和 NPF 需要额外上下文，单独处理。 */
 		return ES_OK;
 
 	case SVM_EXIT_CPUID:
@@ -1639,12 +1756,15 @@ static enum es_result vc_check_opcode_bytes(struct es_em_ctxt *ctxt,
 	sev_printk(KERN_ERR "Wrong/unhandled opcode bytes: 0x%x, exit_code: 0x%lx, rIP: 0x%lx\n",
 		   opcode, exit_code, ctxt->regs->ip);
 
+        /* opcode 不匹配或不支持时拒绝继续模拟。 */
 	return ES_UNSUPPORTED;
 }
 
 /*
  * Maintain the GPA of the SVSM Calling Area (CA) in order to utilize the SVSM
  * services needed when not running in VMPL0.
+ *
+ * 保存 SVSM Calling Area 的 GPA，以便 Linux 不在 VMPL0 运行时仍能调用 SVSM 服务。
  */
 static bool __head svsm_setup_ca(const struct cc_blob_sev_info *cc_info)
 {
@@ -1668,6 +1788,8 @@ static bool __head svsm_setup_ca(const struct cc_blob_sev_info *cc_info)
 	 * Use a rip-relative reference to obtain the proper address, since this
 	 * routine is running identity mapped when called, both by the decompressor
 	 * code and the early kernel code.
+         *
+         * 通过 RMPADJUST 探测当前是否运行在 VMPL0；成功表示没有 SVSM 参与。
 	 */
 	if (!rmpadjust((unsigned long)&RIP_REL_REF(boot_ghcb_page), RMP_PG_SIZE_4K, 1))
 		return false;
@@ -1675,6 +1797,8 @@ static bool __head svsm_setup_ca(const struct cc_blob_sev_info *cc_info)
 	/*
 	 * Not running at VMPL0, ensure everything has been properly supplied
 	 * for running under an SVSM.
+         *
+         * 非 VMPL0 必须由 secrets page 提供 SVSM 信息和 CAA 地址。
 	 */
 	if (!cc_info || !cc_info->secrets_phys || cc_info->secrets_len != PAGE_SIZE)
 		sev_es_terminate(SEV_TERM_SET_LINUX, GHCB_TERM_SECRETS_PAGE);
@@ -1693,6 +1817,8 @@ static bool __head svsm_setup_ca(const struct cc_blob_sev_info *cc_info)
 	/*
 	 * An open-coded PAGE_ALIGNED() in order to avoid including
 	 * kernel-proper headers into the decompressor.
+         *
+         * 这里手写 PAGE_ALIGNED() 判断，避免把正式内核头引入 decompressor。
 	 */
 	if (caa & (PAGE_SIZE - 1))
 		sev_es_terminate(SEV_TERM_SET_LINUX, GHCB_TERM_SVSM_CAA);
@@ -1700,11 +1826,14 @@ static bool __head svsm_setup_ca(const struct cc_blob_sev_info *cc_info)
 	/*
 	 * The CA is identity mapped when this routine is called, both by the
 	 * decompressor code and the early kernel code.
+         *
+         * 调用时 CA 仍是恒等映射，因此虚拟地址和物理地址相同。
 	 */
 	RIP_REL_REF(boot_svsm_caa) = (struct svsm_ca *)caa;
 	RIP_REL_REF(boot_svsm_caa_pa) = caa;
 
 	/* Advertise the SVSM presence via CPUID. */
+        /* 在 SNP CPUID 表中设置 SVSM present 位，对外暴露 SVSM 存在。 */
 	cpuid_table = (struct snp_cpuid_table *)snp_cpuid_get_table();
 	for (i = 0; i < cpuid_table->count; i++) {
 		struct snp_cpuid_fn *fn = &cpuid_table->fn[i];

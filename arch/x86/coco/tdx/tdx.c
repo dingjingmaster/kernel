@@ -19,14 +19,17 @@
 #include <asm/traps.h>
 
 /* MMIO direction */
+/* MMIO 方向，传给 TDX EPT violation hypercall。 */
 #define EPT_READ	0
 #define EPT_WRITE	1
 
 /* Port I/O direction */
+/* 端口 I/O 方向，传给 TDX I/O instruction hypercall。 */
 #define PORT_READ	0
 #define PORT_WRITE	1
 
 /* See Exit Qualification for I/O Instructions in VMX documentation */
+/* 从 #VE exit qualification 中解析 I/O 指令方向、大小、端口号和字符串 I/O 标志。 */
 #define VE_IS_IO_IN(e)		((e) & BIT(3))
 #define VE_GET_IO_SIZE(e)	(((e) & GENMASK(2, 0)) + 1)
 #define VE_GET_PORT_NUM(e)	((e) >> 16)
@@ -36,16 +39,19 @@
 #define ATTR_SEPT_VE_DISABLE	BIT(28)
 
 /* TDX Module call error codes */
+/* TDCALL 返回值高 32 位是模块返回码，低位可携带其它状态。 */
 #define TDCALL_RETURN_CODE(a)	((a) >> 32)
 #define TDCALL_INVALID_OPERAND	0xc0000100
 
 #define TDREPORT_SUBTYPE_0	0
 
 static atomic_long_t nr_shared;
+/* 统计当前已转换为 shared 的页数，用于 kexec 前做一致性检查。 */
 
 /* Called from __tdx_hypercall() for unrecoverable failure */
 noinstr void __noreturn __tdx_hypercall_failed(void)
 {
+        /* noinstr 环境下进入 panic 前显式打开 instrumentation 区域。 */
 	instrumentation_begin();
 	panic("TDVMCALL failed. TDX module bug?");
 }
@@ -54,6 +60,7 @@ noinstr void __noreturn __tdx_hypercall_failed(void)
 long tdx_kvm_hypercall(unsigned int nr, unsigned long p1, unsigned long p2,
 		       unsigned long p3, unsigned long p4)
 {
+        /* KVM paravirt hypercall 通过 TDVMCALL 转发给 VMM。 */
 	struct tdx_module_args args = {
 		.r10 = nr,
 		.r11 = p1,
@@ -74,6 +81,7 @@ EXPORT_SYMBOL_GPL(tdx_kvm_hypercall);
  */
 static inline void tdcall(u64 fn, struct tdx_module_args *args)
 {
+        /* 只用于不允许失败的 TDCALL；失败表示 TDX module/平台严重异常。 */
 	if (__tdcall_ret(fn, args))
 		panic("TDCALL %lld failed (Buggy TDX module!)\n", fn);
 }
@@ -94,6 +102,7 @@ static inline void tdcall(u64 fn, struct tdx_module_args *args)
  */
 int tdx_mcall_get_report0(u8 *reportdata, u8 *tdreport)
 {
+        /* TDG.MR.REPORT 需要输出 TDREPORT 地址、输入 REPORTDATA 地址和 subtype。 */
 	struct tdx_module_args args = {
 		.rcx = virt_to_phys(tdreport),
 		.rdx = virt_to_phys(reportdata),
@@ -103,6 +112,7 @@ int tdx_mcall_get_report0(u8 *reportdata, u8 *tdreport)
 
 	ret = __tdcall(TDG_MR_REPORT, &args);
 	if (ret) {
+                /* 非法操作数通常表示缓冲区地址或对齐不满足 TDX module 要求。 */
 		if (TDCALL_RETURN_CODE(ret) == TDCALL_INVALID_OPERAND)
 			return -EINVAL;
 		return -EIO;
@@ -129,12 +139,14 @@ EXPORT_SYMBOL_GPL(tdx_mcall_get_report0);
 u64 tdx_hcall_get_quote(u8 *buf, size_t size)
 {
 	/* Since buf is a shared memory, set the shared (decrypted) bits */
+        /* GetQuote 缓冲区必须对 VMM 共享，因此物理地址要设置 shared/decrypted 位。 */
 	return _tdx_hypercall(TDVMCALL_GET_QUOTE, cc_mkdec(virt_to_phys(buf)), size, 0, 0);
 }
 EXPORT_SYMBOL_GPL(tdx_hcall_get_quote);
 
 static void __noreturn tdx_panic(const char *msg)
 {
+        /* 通过 TDVMCALL_REPORT_FATAL_ERROR 把致命错误报告给 VMM，然后不再返回。 */
 	struct tdx_module_args args = {
 		.r10 = TDX_HYPERCALL_STANDARD,
 		.r11 = TDVMCALL_REPORT_FATAL_ERROR,
@@ -142,12 +154,14 @@ static void __noreturn tdx_panic(const char *msg)
 	};
 	union {
 		/* Define register order according to the GHCI */
+                /* GHCI 规定错误消息按这些寄存器顺序传递。 */
 		struct { u64 r14, r15, rbx, rdi, rsi, r8, r9, rdx; };
 
 		char str[64];
 	} message;
 
 	/* VMM assumes '\0' in byte 65, if the message took all 64 bytes */
+        /* 即使消息刚好填满 64 字节，也按 GHCI 约定让 VMM 看到结尾 NUL。 */
 	strtomem_pad(message.str, msg, '\0');
 
 	args.r8  = message.r8;
@@ -180,6 +194,8 @@ static void tdx_parse_tdinfo(u64 *cc_mask)
 	 * information, etc. More details about the ABI can be found in TDX
 	 * Guest-Host-Communication Interface (GHCI), section 2.4.2 TDCALL
 	 * [TDG.VP.INFO].
+         *
+         * TDG.VP.INFO 返回 TD 运行环境信息，包括 GPA 宽度、vCPU 数和 debug 属性等。
 	 */
 	tdcall(TDG_VP_INFO, &args);
 
@@ -189,6 +205,8 @@ static void tdx_parse_tdinfo(u64 *cc_mask)
 	 *
 	 * The GPA width that comes out of this call is critical. TDX guests
 	 * can not meaningfully run without it.
+         *
+         * 最高有效 GPA 位作为 shared bit；设置表示共享页，清除表示私有页。
 	 */
 	gpa_width = args.rcx & GENMASK(5, 0);
 	*cc_mask = BIT_ULL(gpa_width - 1);
@@ -197,12 +215,15 @@ static void tdx_parse_tdinfo(u64 *cc_mask)
 	 * The kernel can not handle #VE's when accessing normal kernel
 	 * memory.  Ensure that no #VE will be delivered for accesses to
 	 * TD-private memory.  Only VMM-shared memory (MMIO) will #VE.
+         *
+         * 内核无法在普通内核内存访问期间可靠处理 #VE，因此要求私有内存访问不注入 #VE。
 	 */
 	td_attr = args.rdx;
 	if (!(td_attr & ATTR_SEPT_VE_DISABLE)) {
 		const char *msg = "TD misconfiguration: SEPT_VE_DISABLE attribute must be set.";
 
 		/* Relax SEPT_VE_DISABLE check for debug TD. */
+                /* debug TD 放宽检查，只告警；生产 TD 视为配置错误并终止。 */
 		if (td_attr & ATTR_DEBUG)
 			pr_warn("%s\n", msg);
 		else
@@ -233,6 +254,7 @@ static void tdx_parse_tdinfo(u64 *cc_mask)
  */
 static int ve_instr_len(struct ve_info *ve)
 {
+        /* 只有指令执行导致的 #VE 才能信任 TDX module 提供的指令长度。 */
 	switch (ve->exit_reason) {
 	case EXIT_REASON_HLT:
 	case EXIT_REASON_MSR_READ:
@@ -257,6 +279,7 @@ static int ve_instr_len(struct ve_info *ve)
 
 static u64 __cpuidle __halt(const bool irq_disabled)
 {
+        /* TDX guest 不能直接让 VMM 不可见地 HLT，需要通过 TDVMCALL 模拟。 */
 	struct tdx_module_args args = {
 		.r10 = TDX_HYPERCALL_STANDARD,
 		.r11 = hcall_func(EXIT_REASON_HLT),
@@ -282,6 +305,7 @@ static int handle_halt(struct ve_info *ve)
 {
 	const bool irq_disabled = irqs_disabled();
 
+        /* 根据当前 IF 状态告知 VMM 是否可因 pending IRQ 唤醒 vCPU。 */
 	if (__halt(irq_disabled))
 		return -EIO;
 
@@ -294,6 +318,8 @@ void __cpuidle tdx_safe_halt(void)
 
 	/*
 	 * Use WARN_ONCE() to report the failure.
+         *
+         * safe_halt 路径不返回错误给上层，只在失败时一次性告警。
 	 */
 	if (__halt(irq_disabled))
 		WARN_ONCE(1, "HLT instruction emulation failed\n");
@@ -301,6 +327,7 @@ void __cpuidle tdx_safe_halt(void)
 
 static int read_msr(struct pt_regs *regs, struct ve_info *ve)
 {
+        /* RDMSR 被 #VE 截获后，通过 TDVMCALL 请求 VMM/TDX 代读。 */
 	struct tdx_module_args args = {
 		.r10 = TDX_HYPERCALL_STANDARD,
 		.r11 = hcall_func(EXIT_REASON_MSR_READ),
@@ -316,12 +343,14 @@ static int read_msr(struct pt_regs *regs, struct ve_info *ve)
 		return -EIO;
 
 	regs->ax = lower_32_bits(args.r11);
+        /* RDMSR 结果按 x86 约定拆成 EDX:EAX。 */
 	regs->dx = upper_32_bits(args.r11);
 	return ve_instr_len(ve);
 }
 
 static int write_msr(struct pt_regs *regs, struct ve_info *ve)
 {
+        /* WRMSR 被 #VE 截获后，通过 TDVMCALL 代写，输入值来自 EDX:EAX。 */
 	struct tdx_module_args args = {
 		.r10 = TDX_HYPERCALL_STANDARD,
 		.r11 = hcall_func(EXIT_REASON_MSR_WRITE),
@@ -342,6 +371,7 @@ static int write_msr(struct pt_regs *regs, struct ve_info *ve)
 
 static int handle_cpuid(struct pt_regs *regs, struct ve_info *ve)
 {
+        /* CPUID 虚拟化仅允许 VMM 控制 hypervisor 通信范围。 */
 	struct tdx_module_args args = {
 		.r10 = TDX_HYPERCALL_STANDARD,
 		.r11 = hcall_func(EXIT_REASON_CPUID),
@@ -357,6 +387,7 @@ static int handle_cpuid(struct pt_regs *regs, struct ve_info *ve)
 	 * behaviour for non-supported leaf.
 	 */
 	if (regs->ax < 0x40000000 || regs->ax > 0x4FFFFFFF) {
+                /* 非 hypervisor 范围返回全 0，匹配不支持 leaf 的 CPU 行为。 */
 		regs->ax = regs->bx = regs->cx = regs->dx = 0;
 		return ve_instr_len(ve);
 	}
@@ -384,6 +415,7 @@ static int handle_cpuid(struct pt_regs *regs, struct ve_info *ve)
 
 static bool mmio_read(int size, unsigned long addr, unsigned long *val)
 {
+        /* MMIO 读通过 EPT violation hypercall 交给 VMM 模拟。 */
 	struct tdx_module_args args = {
 		.r10 = TDX_HYPERCALL_STANDARD,
 		.r11 = hcall_func(EXIT_REASON_EPT_VIOLATION),
@@ -401,6 +433,7 @@ static bool mmio_read(int size, unsigned long addr, unsigned long *val)
 
 static bool mmio_write(int size, unsigned long addr, unsigned long val)
 {
+        /* MMIO 写通过 EPT violation hypercall 交给 VMM 模拟。 */
 	return !_tdx_hypercall(hcall_func(EXIT_REASON_EPT_VIOLATION), size,
 			       EPT_WRITE, addr, val);
 }
@@ -415,12 +448,14 @@ static int handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 	u8 extend_val = 0;
 
 	/* Only in-kernel MMIO is supported */
+        /* 当前只支持内核态 MMIO，用户态访问不在这里模拟。 */
 	if (WARN_ON_ONCE(user_mode(regs)))
 		return -EFAULT;
 
 	if (copy_from_kernel_nofault(buffer, (void *)regs->ip, MAX_INSN_SIZE))
 		return -EFAULT;
 
+        /* 解码触发 #VE 的指令，判断是读/写、操作数大小和寄存器。 */
 	if (insn_decode(&insn, buffer, MAX_INSN_SIZE, INSN_MODE_64))
 		return -EINVAL;
 
@@ -435,6 +470,7 @@ static int handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 	}
 
 	if (!fault_in_kernel_space(ve->gla)) {
+                /* TDX MMIO 处理不支持用户空间线性地址。 */
 		WARN_ONCE(1, "Access to userspace address is not supported");
 		return -EINVAL;
 	}
@@ -447,12 +483,15 @@ static int handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 	 * a bug or a load_unaligned_zeropad() that stepped into an MMIO page.
 	 *
 	 * load_unaligned_zeropad() will recover using exception fixups.
+         *
+         * 跨页 MMIO 通常意味着非自然对齐访问或误触 MMIO 页，交给异常修复恢复。
 	 */
 	vaddr = (unsigned long)insn_get_addr_ref(&insn, regs);
 	if (vaddr / PAGE_SIZE != (vaddr + size - 1) / PAGE_SIZE)
 		return -EFAULT;
 
 	/* Handle writes first */
+        /* 写操作可以直接从寄存器/立即数取值后提交给 VMM。 */
 	switch (mmio) {
 	case INSN_MMIO_WRITE:
 		memcpy(&val, reg, size);
@@ -483,6 +522,7 @@ static int handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 	}
 
 	/* Handle reads */
+        /* 读操作先让 VMM 返回值，再按指令语义写回寄存器。 */
 	if (!mmio_read(size, ve->gpa, &val))
 		return -EIO;
 
@@ -510,6 +550,7 @@ static int handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 	}
 
 	if (extend_size)
+                /* 对 movzx/movsx 或 32 位读操作，先填充扩展区域。 */
 		memset(reg, extend_val, extend_size);
 	memcpy(reg, &val, size);
 	return insn.length;
@@ -517,6 +558,7 @@ static int handle_mmio(struct pt_regs *regs, struct ve_info *ve)
 
 static bool handle_in(struct pt_regs *regs, int size, int port)
 {
+        /* IN 指令通过 I/O hypercall 由 VMM 模拟。 */
 	struct tdx_module_args args = {
 		.r10 = TDX_HYPERCALL_STANDARD,
 		.r11 = hcall_func(EXIT_REASON_IO_INSTRUCTION),
@@ -535,6 +577,7 @@ static bool handle_in(struct pt_regs *regs, int size, int port)
 	success = !__tdx_hypercall(&args);
 
 	/* Update part of the register affected by the emulated instruction */
+        /* 只更新指令实际影响的 AX 低位部分，保持其余位不变。 */
 	regs->ax &= ~mask;
 	if (success)
 		regs->ax |= args.r11 & mask;
@@ -546,6 +589,7 @@ static bool handle_out(struct pt_regs *regs, int size, int port)
 {
 	u64 mask = GENMASK(BITS_PER_BYTE * size, 0);
 
+        /* OUT 指令将 AX 低 size 字节提交给 VMM。 */
 	/*
 	 * Emulate the I/O write via hypercall. More info about ABI can be found
 	 * in TDX Guest-Host-Communication Interface (GHCI) section titled
@@ -569,6 +613,7 @@ static int handle_io(struct pt_regs *regs, struct ve_info *ve)
 	int size, port;
 	bool in, ret;
 
+        /* 字符串 I/O 不在 #VE 通用路径中模拟。 */
 	if (VE_IS_IO_STRING(exit_qual))
 		return -EIO;
 
@@ -576,7 +621,7 @@ static int handle_io(struct pt_regs *regs, struct ve_info *ve)
 	size = VE_GET_IO_SIZE(exit_qual);
 	port = VE_GET_PORT_NUM(exit_qual);
 
-
+        /* 根据 exit qualification 区分 IN/OUT 并分派。 */
 	if (in)
 		ret = handle_in(regs, size, port);
 	else
@@ -598,6 +643,7 @@ __init bool tdx_early_handle_ve(struct pt_regs *regs)
 
 	tdx_get_ve_info(&ve);
 
+        /* 早期处理器只支持 earlyprintk 需要的端口 I/O #VE。 */
 	if (ve.exit_reason != EXIT_REASON_IO_INSTRUCTION)
 		return false;
 
@@ -627,10 +673,13 @@ void tdx_get_ve_info(struct ve_info *ve)
 	 *
 	 * Note, the TDX module treats virtual NMIs as inhibited if the #VE
 	 * valid flag is set. It means that NMI=>#VE will not result in a #DF.
+         *
+         * 获取 #VE 信息必须尽早完成，因为调用会清除 TDX module 中的 #VE valid 标志。
 	 */
 	tdcall(TDG_VP_VEINFO_GET, &args);
 
 	/* Transfer the output parameters */
+        /* 将 TDX module 返回寄存器转换成内核内部 ve_info 结构。 */
 	ve->exit_reason = args.rcx;
 	ve->exit_qual   = args.rdx;
 	ve->gla         = args.r8;
@@ -647,6 +696,7 @@ void tdx_get_ve_info(struct ve_info *ve)
  */
 static int virt_exception_user(struct pt_regs *regs, struct ve_info *ve)
 {
+        /* 用户态 #VE 目前只允许处理受控的 CPUID 虚拟化。 */
 	switch (ve->exit_reason) {
 	case EXIT_REASON_CPUID:
 		return handle_cpuid(regs, ve);
@@ -658,6 +708,7 @@ static int virt_exception_user(struct pt_regs *regs, struct ve_info *ve)
 
 static inline bool is_private_gpa(u64 gpa)
 {
+        /* 私有 GPA 与加密/私有转换后的值相同。 */
 	return gpa == cc_mkenc(gpa);
 }
 
@@ -669,6 +720,7 @@ static inline bool is_private_gpa(u64 gpa)
  */
 static int virt_exception_kernel(struct pt_regs *regs, struct ve_info *ve)
 {
+        /* 内核态 #VE 根据 VM exit 原因分派到对应模拟器。 */
 	switch (ve->exit_reason) {
 	case EXIT_REASON_HLT:
 		return handle_halt(ve);
@@ -680,6 +732,7 @@ static int virt_exception_kernel(struct pt_regs *regs, struct ve_info *ve)
 		return handle_cpuid(regs, ve);
 	case EXIT_REASON_EPT_VIOLATION:
 		if (is_private_gpa(ve->gpa))
+                        /* 私有内存访问不应产生 EPT violation #VE。 */
 			panic("Unexpected EPT-violation on private memory.");
 		return handle_mmio(regs, ve);
 	case EXIT_REASON_IO_INSTRUCTION:
@@ -695,6 +748,7 @@ bool tdx_handle_virt_exception(struct pt_regs *regs, struct ve_info *ve)
 	int insn_len;
 
 	if (user_mode(regs))
+                /* 用户态和内核态允许模拟的 #VE 类型不同。 */
 		insn_len = virt_exception_user(regs, ve);
 	else
 		insn_len = virt_exception_kernel(regs, ve);
@@ -721,6 +775,8 @@ static bool tdx_tlb_flush_required(bool private)
 	 * as flushing is the VMM's responsibility in this case, e.g. it must
 	 * flush to avoid integrity failures in the face of a buggy or
 	 * malicious guest.
+         *
+         * private->shared 由 guest 负责刷 TLB；shared->private 由 VMM 负责。
 	 */
 	return !private;
 }
@@ -732,6 +788,8 @@ static bool tdx_cache_flush_required(void)
 	 * TDX doesn't have such capability.
 	 *
 	 * Flush cache unconditionally.
+         *
+         * TDX 没有可跳过 cache flush 的硬件一致性承诺，因此总是需要刷 cache。
 	 */
 	return true;
 }
@@ -744,11 +802,13 @@ static bool tdx_cache_flush_required(void)
 static bool tdx_map_gpa(phys_addr_t start, phys_addr_t end, bool enc)
 {
 	/* Retrying the hypercall a second time should succeed; use 3 just in case */
+        /* 正常第二次重试应成功；这里保守允许每页最多 3 次。 */
 	const int max_retries_per_page = 3;
 	int retry_count = 0;
 
 	if (!enc) {
 		/* Set the shared (decrypted) bits: */
+                /* 转 shared 时，在起止 GPA 上设置 shared/decrypted 位。 */
 		start |= cc_mkdec(0);
 		end   |= cc_mkdec(0);
 	}
@@ -771,6 +831,7 @@ static bool tdx_map_gpa(phys_addr_t start, phys_addr_t end, bool enc)
 		 * from the untrusted VMM. Sanity check it.
 		 */
 		map_fail_paddr = args.r11;
+                /* VMM 不可信，必须校验它返回的失败地址位于请求范围内。 */
 		if (map_fail_paddr < start || map_fail_paddr >= end)
 			return false;
 
@@ -781,6 +842,7 @@ static bool tdx_map_gpa(phys_addr_t start, phys_addr_t end, bool enc)
 		}
 
 		start = map_fail_paddr;
+                /* 有前进时重置重试次数，从失败地址继续。 */
 		retry_count = 0;
 	}
 
@@ -794,6 +856,7 @@ static bool tdx_map_gpa(phys_addr_t start, phys_addr_t end, bool enc)
  */
 static bool tdx_enc_status_changed(unsigned long vaddr, int numpages, bool enc)
 {
+        /* 将内核虚拟地址范围转换成物理地址范围后通知 VMM。 */
 	phys_addr_t start = __pa(vaddr);
 	phys_addr_t end   = __pa(vaddr + numpages * PAGE_SIZE);
 
@@ -801,6 +864,7 @@ static bool tdx_enc_status_changed(unsigned long vaddr, int numpages, bool enc)
 		return false;
 
 	/* shared->private conversion requires memory to be accepted before use */
+        /* shared->private 后必须 accept，才能按私有页使用。 */
 	if (enc)
 		return tdx_accept_memory(start, end);
 
@@ -813,6 +877,8 @@ static int tdx_enc_status_change_prepare(unsigned long vaddr, int numpages,
 	/*
 	 * Only handle shared->private conversion here.
 	 * See the comment in tdx_early_init().
+         *
+         * prepare 阶段只处理 shared->private，确保映射变私有前页面已经转私有。
 	 */
 	if (enc && !tdx_enc_status_changed(vaddr, numpages, enc))
 		return -EIO;
@@ -826,19 +892,24 @@ static int tdx_enc_status_change_finish(unsigned long vaddr, int numpages,
 	/*
 	 * Only handle private->shared conversion here.
 	 * See the comment in tdx_early_init().
+         *
+         * finish 阶段只处理 private->shared，确保不会出现私有映射访问 shared 页。
 	 */
 	if (!enc && !tdx_enc_status_changed(vaddr, numpages, enc))
 		return -EIO;
 
 	if (enc)
+                /* enc=true 表示从 shared 变回 private，减少共享页计数。 */
 		atomic_long_sub(numpages, &nr_shared);
 	else
+                /* enc=false 表示从 private 转 shared，增加共享页计数。 */
 		atomic_long_add(numpages, &nr_shared);
 
 	return 0;
 }
 
 /* Stop new private<->shared conversions */
+/* kexec 开始时阻止新的 private/shared 转换。 */
 static void tdx_kexec_begin(void)
 {
 	if (!IS_ENABLED(CONFIG_KEXEC_CORE))
@@ -855,6 +926,7 @@ static void tdx_kexec_begin(void)
 }
 
 /* Walk direct mapping and convert all shared memory back to private */
+/* 遍历直接映射，把所有 shared 内存尽量转换回 private。 */
 static void tdx_kexec_finish(void)
 {
 	unsigned long addr, end;
@@ -866,6 +938,7 @@ static void tdx_kexec_finish(void)
 	lockdep_assert_irqs_disabled();
 
 	addr = PAGE_OFFSET;
+        /* 只扫描内核直接映射覆盖的物理内存范围。 */
 	end  = PAGE_OFFSET + get_max_mapped();
 
 	while (addr < end) {
@@ -885,6 +958,8 @@ static void tdx_kexec_finish(void)
 			 *
 			 * Make sure nobody touches the shared range from
 			 * now on.
+                         *
+                         * 清空 PTE 防止后续代码再次触碰 shared 映射并触发隐式转换。
 			 */
 			set_pte(pte, __pte(0));
 
@@ -919,6 +994,7 @@ static void tdx_kexec_finish(void)
 	}
 
 	__flush_tlb_all();
+        /* PTE 已被清空/修改，最后统一刷新 TLB。 */
 
 	shared = atomic_long_read(&nr_shared);
 	if (shared != found) {
@@ -929,6 +1005,7 @@ static void tdx_kexec_finish(void)
 
 void __init tdx_early_init(void)
 {
+        /* 检测 TDX guest，初始化共享位、#VE 策略和私有/共享转换钩子。 */
 	struct tdx_module_args args = {
 		.rdx = TDCS_NOTIFY_ENABLES,
 		.r9 = -1ULL,
@@ -938,12 +1015,14 @@ void __init tdx_early_init(void)
 
 	cpuid_count(TDX_CPUID_LEAF_ID, 0, &eax, &sig[0], &sig[2],  &sig[1]);
 
+        /* CPUID 签名不匹配时不是 TDX guest，直接返回。 */
 	if (memcmp(TDX_IDENT, sig, sizeof(sig)))
 		return;
 
 	setup_force_cpu_cap(X86_FEATURE_TDX_GUEST);
 
 	/* TSC is the only reliable clock in TDX guest */
+        /* TDX guest 中 TSC 是唯一可靠时钟源。 */
 	setup_force_cpu_cap(X86_FEATURE_TSC_RELIABLE);
 
 	cc_vendor = CC_VENDOR_INTEL;
@@ -951,6 +1030,7 @@ void __init tdx_early_init(void)
 	cc_set_mask(cc_mask);
 
 	/* Kernel does not use NOTIFY_ENABLES and does not need random #VEs */
+        /* 内核不使用 NOTIFY_ENABLES，关闭随机 #VE 通知。 */
 	tdcall(TDG_VM_WR, &args);
 
 	/*
@@ -958,6 +1038,8 @@ void __init tdx_early_init(void)
 	 * as flag, not as part of physical address.
 	 *
 	 * Adjust physical mask to only cover valid GPA bits.
+         *
+         * 共享位以上的 GPA 位保留；physical_mask 只能覆盖真实有效 GPA 位。
 	 */
 	physical_mask &= cc_mask - 1;
 
@@ -981,6 +1063,7 @@ void __init tdx_early_init(void)
 	 * a shared page.
 	 */
 	x86_platform.guest.enc_status_change_prepare = tdx_enc_status_change_prepare;
+        /* 注册 TDX 专用的内存加密属性转换回调。 */
 	x86_platform.guest.enc_status_change_finish  = tdx_enc_status_change_finish;
 
 	x86_platform.guest.enc_cache_flush_required  = tdx_cache_flush_required;

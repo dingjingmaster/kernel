@@ -66,8 +66,8 @@ intcall:
 	cmpb	%al, 3f									/* 比较 寄存器A低8位 与 3标签 指向内存位置的值, 注意: 3f中的f表示标签在代码之前 */
 	je	1f											/* 上条指令结果相等则跳转到 标签1 处 */
 	movb	%al, 3f									/* 把 int_no 参数的值写入 */
-	jmp	1f		/* Synchronize pipeline */
-1:
+	jmp	1f		/* Synchronize pipeline */ /* 跳转一次以同步流水线，确保自修改的中断号生效 */
+1:							/* 标签1: 继续执行 BIOS 调用准备流程 */
 	/* Save state */
 	pushfl											/* EFLAGS 寄存器的内容压栈 */
 	pushw	%fs										/* FS 段寄存器数据压栈 */
@@ -82,24 +82,24 @@ intcall:
 	rep; movsl										/* 每次移动4字节(双字, 32位), 正好移动44字节, 把 ireg 内容写到栈[%sp, $44(%sp)] */
 
 	/* Pop full state from the stack */				/* 开始把栈内 ireg 内容装入到各自寄存器中 */
-	popal
-	popw	%gs
-	popw	%fs
-	popw	%es
-	popw	%ds
-	popfl
+	popal							/* 从 ireg 栈帧恢复通用寄存器，作为 BIOS 输入参数 */
+	popw	%gs						/* 从 ireg 栈帧恢复 GS 段寄存器 */
+	popw	%fs						/* 从 ireg 栈帧恢复 FS 段寄存器 */
+	popw	%es						/* 从 ireg 栈帧恢复 ES 段寄存器 */
+	popw	%ds						/* 从 ireg 栈帧恢复 DS 段寄存器 */
+	popfl							/* 从 ireg 栈帧恢复 FLAGS */
 
 	/* Actual INT */
 	.byte	0xcd									/* INT opcode, 对应十进制 205, 对应指令：INT imm8, 是一条中断指令，用于触发软中断。 */
 3:	.byte	0										/* 上条指令 INT 的操作码, 0 一般在BIOS中断中表示执行 键盘输入检查 */
 
 	/* Push full state to the stack */				/* intcall后的结果按照oreg的格式保存到栈中 */
-	pushfl
-	pushw	%ds
-	pushw	%es
-	pushw	%fs
-	pushw	%gs
-	pushal
+	pushfl							/* 保存 BIOS 返回后的 FLAGS */
+	pushw	%ds						/* 保存 BIOS 返回后的 DS */
+	pushw	%es						/* 保存 BIOS 返回后的 ES */
+	pushw	%fs						/* 保存 BIOS 返回后的 FS */
+	pushw	%gs						/* 保存 BIOS 返回后的 GS */
+	pushal							/* 保存 BIOS 返回后的通用寄存器 */
 
 	/* Re-establish C environment invariants */		/* intcall 调用这是C程序 */
 	cld												/* 清除方向寄存器 DF, DF = 0: 内存操作的地址自动增加; DF = 1: 内存操作的地址自动减少, cld 将DF置0 */
@@ -109,18 +109,18 @@ intcall:
 	movw	%ax, %es								/* 代码段基址 --> ES */
 
 	/* Copy output state from stack frame */
-	movw	68(%esp), %di							/* Original %cx == 3rd argument */
-	andw	%di, %di
-	jz	4f
-	movw	%sp, %si
-	movw	$11, %cx
+	movw	68(%esp), %di						/* Original %cx == 3rd argument */ /* 取回第三个参数 oreg 指针 */
+	andw	%di, %di						/* 检查 oreg 是否为 NULL */
+	jz	4f							/* oreg 为空则跳过输出寄存器拷贝 */
+	movw	%sp, %si						/* SI 指向栈中的 BIOS 返回寄存器帧 */
+	movw	$11, %cx						/* 复制 11 个双字，与 struct biosregs 大小一致 */
 	rep; movsl										/* 栈中的oreg内容写入到caller的oreg地址 */
-4:	addw	$44, %sp								/* 退出栈中的 oreg 内容 */
+4:	addw	$44, %sp						/* 退出栈中的 oreg 内容 */ /* 标签4: 丢弃临时输出寄存器帧 */
 
 	/* Restore state and return */					/* 退出前复原 */
-	popal
-	popw	%gs
-	popw	%fs
-	popfl
-	retl
+	popal							/* 恢复进入 intcall 前的通用寄存器 */
+	popw	%gs						/* 恢复进入 intcall 前的 GS */
+	popw	%fs						/* 恢复进入 intcall 前的 FS */
+	popfl							/* 恢复进入 intcall 前的 FLAGS */
+	retl							/* 以长返回形式回到 C 调用者 */
 	.size	intcall, .-intcall						/* 设置 intcall 函数的大小 */

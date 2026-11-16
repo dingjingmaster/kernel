@@ -8,6 +8,8 @@
  *
  * entry.S contains the system-call and fault low-level handling routines.
  *
+ * 本文件包含 x86-64 系统调用、异常、中断、NMI 等低层入口和返回路径。
+ *
  * Some of this is documented in Documentation/arch/x86/entry_64.rst
  *
  * A note on terminology:
@@ -43,8 +45,8 @@
 
 #include "calling.h"
 
-.code64
-.section .entry.text, "ax"
+.code64					/* 后续按 64 位模式汇编。 */
+.section .entry.text, "ax"		/* 入口汇编代码放入 entry.text 段。 */
 
 /*
  * 64-bit SYSCALL instruction entry. Up to 6 arguments in registers.
@@ -84,41 +86,41 @@
  * with them due to bugs in both AMD and Intel CPUs.
  */
 
-SYM_CODE_START(entry_SYSCALL_64)
-	UNWIND_HINT_ENTRY
-	ENDBR
+SYM_CODE_START(entry_SYSCALL_64)	/* 64 位 SYSCALL 指令入口。 */
+	UNWIND_HINT_ENTRY		/* 告诉 objtool 这是低层入口栈状态。 */
+	ENDBR				/* CET IBT 间接分支入口标记。 */
 
-	swapgs
+	swapgs				/* 从用户 GS base 切到内核 GS base。 */
 	/* tss.sp2 is scratch space. */
-	movq	%rsp, PER_CPU_VAR(cpu_tss_rw + TSS_sp2)
-	SWITCH_TO_KERNEL_CR3 scratch_reg=%rsp
-	movq	PER_CPU_VAR(pcpu_hot + X86_top_of_stack), %rsp
+	movq	%rsp, PER_CPU_VAR(cpu_tss_rw + TSS_sp2) /* 暂存用户 RSP。 */
+	SWITCH_TO_KERNEL_CR3 scratch_reg=%rsp /* 使用 RSP 作临时寄存器切到内核页表。 */
+	movq	PER_CPU_VAR(pcpu_hot + X86_top_of_stack), %rsp /* 切到当前 CPU 内核栈顶。 */
 
-SYM_INNER_LABEL(entry_SYSCALL_64_safe_stack, SYM_L_GLOBAL)
-	ANNOTATE_NOENDBR
+SYM_INNER_LABEL(entry_SYSCALL_64_safe_stack, SYM_L_GLOBAL) /* 已切到安全内核栈的标签。 */
+	ANNOTATE_NOENDBR		/* 内部标签不是间接分支入口。 */
 
 	/* Construct struct pt_regs on stack */
-	pushq	$__USER_DS				/* pt_regs->ss */
-	pushq	PER_CPU_VAR(cpu_tss_rw + TSS_sp2)	/* pt_regs->sp */
-	pushq	%r11					/* pt_regs->flags */
-	pushq	$__USER_CS				/* pt_regs->cs */
-	pushq	%rcx					/* pt_regs->ip */
-SYM_INNER_LABEL(entry_SYSCALL_64_after_hwframe, SYM_L_GLOBAL)
-	pushq	%rax					/* pt_regs->orig_ax */
+	pushq	$__USER_DS				/* pt_regs->ss */ /* 保存用户数据段。 */
+	pushq	PER_CPU_VAR(cpu_tss_rw + TSS_sp2)	/* pt_regs->sp */ /* 保存前面暂存的用户 RSP。 */
+	pushq	%r11					/* pt_regs->flags */ /* 保存 SYSCALL 写入 R11 的用户 RFLAGS。 */
+	pushq	$__USER_CS				/* pt_regs->cs */ /* 保存用户代码段。 */
+	pushq	%rcx					/* pt_regs->ip */ /* 保存 SYSCALL 写入 RCX 的返回 RIP。 */
+SYM_INNER_LABEL(entry_SYSCALL_64_after_hwframe, SYM_L_GLOBAL) /* 硬件帧构造完成标签。 */
+	pushq	%rax					/* pt_regs->orig_ax */ /* 保存原始 syscall 号。 */
 
-	PUSH_AND_CLEAR_REGS rax=$-ENOSYS
+	PUSH_AND_CLEAR_REGS rax=$-ENOSYS /* 保存通用寄存器，并把返回值初始化为 -ENOSYS。 */
 
 	/* IRQs are off. */
-	movq	%rsp, %rdi
+	movq	%rsp, %rdi		/* 第一个参数传 pt_regs 指针。 */
 	/* Sign extend the lower 32bit as syscall numbers are treated as int */
-	movslq	%eax, %rsi
+	movslq	%eax, %rsi		/* syscall 号按 int 语义从低 32 位符号扩展。 */
 
 	/* clobbers %rax, make sure it is after saving the syscall nr */
-	IBRS_ENTER
-	UNTRAIN_RET
-	CLEAR_BRANCH_HISTORY
+	IBRS_ENTER			/* 进入内核 IBRS 缓解状态。 */
+	UNTRAIN_RET			/* 清理返回预测训练状态。 */
+	CLEAR_BRANCH_HISTORY		/* 清理分支历史，缓解 BHI。 */
 
-	call	do_syscall_64		/* returns with IRQs disabled */
+	call	do_syscall_64		/* returns with IRQs disabled */ /* 调用 C 侧 64 位 syscall 分派器。 */
 
 	/*
 	 * Try to use SYSRET instead of IRET if we're returning to
@@ -134,65 +136,65 @@ SYM_INNER_LABEL(entry_SYSCALL_64_after_hwframe, SYM_L_GLOBAL)
 	 * We win! This label is here just for ease of understanding
 	 * perf profiles. Nothing jumps here.
 	 */
-syscall_return_via_sysret:
-	IBRS_EXIT
-	POP_REGS pop_rdi=0
+syscall_return_via_sysret:		/* 通过 SYSRETQ 返回用户态的快速路径。 */
+	IBRS_EXIT			/* 退出内核 IBRS 缓解状态。 */
+	POP_REGS pop_rdi=0		/* 恢复除 RDI 外的通用寄存器。 */
 
 	/*
 	 * Now all regs are restored except RSP and RDI.
 	 * Save old stack pointer and switch to trampoline stack.
 	 */
-	movq	%rsp, %rdi
-	movq	PER_CPU_VAR(cpu_tss_rw + TSS_sp0), %rsp
-	UNWIND_HINT_END_OF_STACK
+	movq	%rsp, %rdi		/* 保存当前 pt_regs 栈指针到 RDI。 */
+	movq	PER_CPU_VAR(cpu_tss_rw + TSS_sp0), %rsp /* 切到 trampoline 栈。 */
+	UNWIND_HINT_END_OF_STACK		/* 告诉 objtool 当前栈是出口栈底。 */
 
-	pushq	RSP-RDI(%rdi)	/* RSP */
-	pushq	(%rdi)		/* RDI */
+	pushq	RSP-RDI(%rdi)	/* RSP */ /* 把用户 RSP 复制到 trampoline 栈。 */
+	pushq	(%rdi)		/* RDI */ /* 把用户 RDI 复制到 trampoline 栈。 */
 
 	/*
 	 * We are on the trampoline stack.  All regs except RDI are live.
 	 * We can do future final exit work right here.
 	 */
-	STACKLEAK_ERASE_NOCLOBBER
+	STACKLEAK_ERASE_NOCLOBBER	/* 擦除线程栈残留，但不破坏当前活跃寄存器。 */
 
-	SWITCH_TO_USER_CR3_STACK scratch_reg=%rdi
+	SWITCH_TO_USER_CR3_STACK scratch_reg=%rdi /* 切回用户页表，借用 RDI 作临时寄存器。 */
 
-	popq	%rdi
-	popq	%rsp
-SYM_INNER_LABEL(entry_SYSRETQ_unsafe_stack, SYM_L_GLOBAL)
-	ANNOTATE_NOENDBR
-	swapgs
-	CLEAR_CPU_BUFFERS
-	sysretq
-SYM_INNER_LABEL(entry_SYSRETQ_end, SYM_L_GLOBAL)
-	ANNOTATE_NOENDBR
-	int3
-SYM_CODE_END(entry_SYSCALL_64)
+	popq	%rdi			/* 从 trampoline 栈恢复用户 RDI。 */
+	popq	%rsp			/* 从 trampoline 栈恢复用户 RSP。 */
+SYM_INNER_LABEL(entry_SYSRETQ_unsafe_stack, SYM_L_GLOBAL) /* 已恢复用户栈指针的危险区标签。 */
+	ANNOTATE_NOENDBR		/* 内部标签不是间接分支入口。 */
+	swapgs				/* 切回用户 GS base。 */
+	CLEAR_CPU_BUFFERS		/* 返回用户态前清理 CPU 微架构缓冲区。 */
+	sysretq				/* 使用 SYSRETQ 返回 64 位用户态。 */
+SYM_INNER_LABEL(entry_SYSRETQ_end, SYM_L_GLOBAL) /* SYSRETQ 返回区末尾标签。 */
+	ANNOTATE_NOENDBR		/* 内部标签不是间接分支入口。 */
+	int3				/* 防止意外落入后续代码。 */
+SYM_CODE_END(entry_SYSCALL_64)		/* 标记 64 位 SYSCALL 入口结束。 */
 
 /*
  * %rdi: prev task
  * %rsi: next task
  */
-.pushsection .text, "ax"
-SYM_FUNC_START(__switch_to_asm)
+.pushsection .text, "ax"		/* 上下文切换函数放回普通 text 段。 */
+SYM_FUNC_START(__switch_to_asm)		/* 汇编部分的任务上下文切换入口。 */
 	/*
 	 * Save callee-saved registers
 	 * This must match the order in inactive_task_frame
 	 */
-	pushq	%rbp
-	pushq	%rbx
-	pushq	%r12
-	pushq	%r13
-	pushq	%r14
-	pushq	%r15
+	pushq	%rbp			/* 保存 callee-saved RBP。 */
+	pushq	%rbx			/* 保存 callee-saved RBX。 */
+	pushq	%r12			/* 保存 callee-saved R12。 */
+	pushq	%r13			/* 保存 callee-saved R13。 */
+	pushq	%r14			/* 保存 callee-saved R14。 */
+	pushq	%r15			/* 保存 callee-saved R15。 */
 
 	/* switch stack */
-	movq	%rsp, TASK_threadsp(%rdi)
-	movq	TASK_threadsp(%rsi), %rsp
+	movq	%rsp, TASK_threadsp(%rdi) /* 保存 prev 任务的内核栈指针。 */
+	movq	TASK_threadsp(%rsi), %rsp /* 加载 next 任务的内核栈指针。 */
 
 #ifdef CONFIG_STACKPROTECTOR
-	movq	TASK_stack_canary(%rsi), %rbx
-	movq	%rbx, PER_CPU_VAR(fixed_percpu_data + FIXED_stack_canary)
+	movq	TASK_stack_canary(%rsi), %rbx /* 读取 next 任务的栈保护 canary。 */
+	movq	%rbx, PER_CPU_VAR(fixed_percpu_data + FIXED_stack_canary) /* 更新当前 CPU canary。 */
 #endif
 
 	/*
@@ -202,19 +204,19 @@ SYM_FUNC_START(__switch_to_asm)
 	 * exist, overwrite the RSB with entries which capture
 	 * speculative execution to prevent attack.
 	 */
-	FILL_RETURN_BUFFER %r12, RSB_CLEAR_LOOPS, X86_FEATURE_RSB_CTXSW
+	FILL_RETURN_BUFFER %r12, RSB_CLEAR_LOOPS, X86_FEATURE_RSB_CTXSW /* 按需填充 RSB 防止上下文切换预测攻击。 */
 
 	/* restore callee-saved registers */
-	popq	%r15
-	popq	%r14
-	popq	%r13
-	popq	%r12
-	popq	%rbx
-	popq	%rbp
+	popq	%r15			/* 恢复 next 任务保存的 R15。 */
+	popq	%r14			/* 恢复 next 任务保存的 R14。 */
+	popq	%r13			/* 恢复 next 任务保存的 R13。 */
+	popq	%r12			/* 恢复 next 任务保存的 R12。 */
+	popq	%rbx			/* 恢复 next 任务保存的 RBX。 */
+	popq	%rbp			/* 恢复 next 任务保存的 RBP。 */
 
-	jmp	__switch_to
-SYM_FUNC_END(__switch_to_asm)
-.popsection
+	jmp	__switch_to		/* 跳转到 C 侧完成剩余上下文切换。 */
+SYM_FUNC_END(__switch_to_asm)		/* 标记 __switch_to_asm 结束。 */
+.popsection				/* 返回原 section。 */
 
 /*
  * A newly forked process directly context switches into this address.
@@ -223,8 +225,8 @@ SYM_FUNC_END(__switch_to_asm)
  * rbx: kernel thread func (NULL for user thread)
  * r12: kernel thread arg
  */
-.pushsection .text, "ax"
-SYM_CODE_START(ret_from_fork_asm)
+.pushsection .text, "ax"		/* fork 首次返回入口放在普通 text 段。 */
+SYM_CODE_START(ret_from_fork_asm)	/* 新 fork 任务首次被调度后的汇编入口。 */
 	/*
 	 * This is the start of the kernel stack; even through there's a
 	 * register set at the top, the regset isn't necessarily coherent
@@ -233,31 +235,31 @@ SYM_CODE_START(ret_from_fork_asm)
 	 * This ensures stack unwinds of kernel threads terminate in a known
 	 * good state.
 	 */
-	UNWIND_HINT_END_OF_STACK
-	ANNOTATE_NOENDBR // copy_thread
-	CALL_DEPTH_ACCOUNT
+	UNWIND_HINT_END_OF_STACK		/* 新任务栈从这里作为 unwind 终点。 */
+	ANNOTATE_NOENDBR // copy_thread	/* copy_thread 直接构造返回地址，不需要 ENDBR。 */
+	CALL_DEPTH_ACCOUNT		/* 维护调用深度跟踪。 */
 
-	movq	%rax, %rdi		/* prev */
-	movq	%rsp, %rsi		/* regs */
-	movq	%rbx, %rdx		/* fn */
-	movq	%r12, %rcx		/* fn_arg */
-	call	ret_from_fork
+	movq	%rax, %rdi		/* prev */ /* 第一个参数: 切出的前一个任务。 */
+	movq	%rsp, %rsi		/* regs */ /* 第二个参数: 当前 pt_regs。 */
+	movq	%rbx, %rdx		/* fn */ /* 第三个参数: kthread 函数或 NULL。 */
+	movq	%r12, %rcx		/* fn_arg */ /* 第四个参数: kthread 参数。 */
+	call	ret_from_fork		/* 调用 C 侧 fork 返回处理。 */
 
 	/*
 	 * Set the stack state to what is expected for the target function
 	 * -- at this point the register set should be a valid user set
 	 * and unwind should work normally.
 	 */
-	UNWIND_HINT_REGS
+	UNWIND_HINT_REGS		/* ret_from_fork 后栈上应是有效用户寄存器帧。 */
 
 #ifdef CONFIG_X86_FRED
 	ALTERNATIVE "jmp swapgs_restore_regs_and_return_to_usermode", \
-		    "jmp asm_fred_exit_user", X86_FEATURE_FRED
+		    "jmp asm_fred_exit_user", X86_FEATURE_FRED /* FRED 系统使用 FRED 用户出口。 */
 #else
-	jmp	swapgs_restore_regs_and_return_to_usermode
+	jmp	swapgs_restore_regs_and_return_to_usermode /* 普通路径返回用户态。 */
 #endif
-SYM_CODE_END(ret_from_fork_asm)
-.popsection
+SYM_CODE_END(ret_from_fork_asm)		/* 标记 ret_from_fork_asm 结束。 */
+.popsection				/* 返回原 section。 */
 
 .macro DEBUG_ENTRY_ASSERT_IRQS_OFF
 #ifdef CONFIG_DEBUG_ENTRY

@@ -2,6 +2,9 @@
 /*
  * The FRED specific kernel/user entry functions which are invoked from
  * assembly code and dispatch to the associated handlers.
+ *
+ * FRED 专用的内核态/用户态入口 C 分派代码，由汇编入口调用后根据事件类型和向量
+ * 转交给对应异常、中断或系统调用处理器。
  */
 #include <linux/kernel.h>
 #include <linux/kdebug.h>
@@ -15,16 +18,19 @@
 #include <asm/traps.h>
 
 /* FRED EVENT_TYPE_OTHER vector numbers */
+/* FRED EVENT_TYPE_OTHER 下的伪向量编号。 */
 #define FRED_SYSCALL			1
 #define FRED_SYSENTER			2
 
 static noinstr void fred_bad_type(struct pt_regs *regs, unsigned long error_code)
 {
+	/* 无效或致命 FRED 事件统一从这里报告；高栈级事件直接 panic。 */
 	irqentry_state_t irq_state = irqentry_nmi_enter(regs);
 
 	instrumentation_begin();
 
 	/* Panic on events from a high stack level */
+	/* 高 stack level 表示已经处于严重上下文，不能尝试普通 oops 恢复。 */
 	if (regs->fred_cs.sl > 0) {
 		pr_emerg("PANIC: invalid or fatal FRED event; event type %u "
 			 "vector %u error 0x%lx aux 0x%lx at %04x:%016lx\n",
@@ -53,8 +59,10 @@ static noinstr void fred_bad_type(struct pt_regs *regs, unsigned long error_code
 
 static noinstr void fred_intx(struct pt_regs *regs)
 {
+	/* 分派 INT n 软件中断事件。 */
 	switch (regs->fred_ss.vector) {
 	/* Opcode 0xcd, 0x3, NOT INT3 (opcode 0xcc) */
+	/* 0xcd 0x03 形式的 INT $3，不是单字节 INT3。 */
 	case X86_TRAP_BP:
 		return exc_int3(regs);
 
@@ -64,6 +72,7 @@ static noinstr void fred_intx(struct pt_regs *regs)
 
 #ifdef CONFIG_IA32_EMULATION
 	/* INT80 */
+	/* IA32 emulation 开启时，INT80 作为 32 位 syscall 入口。 */
 	case IA32_SYSCALL_VECTOR:
 		if (ia32_enabled())
 			return fred_int80_emulation(regs);
@@ -78,13 +87,16 @@ static noinstr void fred_intx(struct pt_regs *regs)
 static __always_inline void fred_other(struct pt_regs *regs)
 {
 	/* The compiler can fold these conditions into a single test */
+	/* EVENT_TYPE_OTHER 承载 SYSCALL/SYSENTER 这类非异常非中断入口。 */
 	if (likely(regs->fred_ss.vector == FRED_SYSCALL && regs->fred_ss.lm)) {
+		/* 64 位 SYSCALL: 建立 orig_ax/ax 约定后进入通用 64 位 syscall。 */
 		regs->orig_ax = regs->ax;
 		regs->ax = -ENOSYS;
 		do_syscall_64(regs, regs->orig_ax);
 		return;
 	} else if (ia32_enabled() &&
 		   likely(regs->fred_ss.vector == FRED_SYSENTER && !regs->fred_ss.lm)) {
+		/* 32 位 SYSENTER: 进入 fast 32 位 syscall 路径。 */
 		regs->orig_ax = regs->ax;
 		regs->ax = -ENOSYS;
 		do_fast_syscall_32(regs);
@@ -96,8 +108,10 @@ static __always_inline void fred_other(struct pt_regs *regs)
 }
 
 #define SYSVEC(_vector, _function) [_vector - FIRST_SYSTEM_VECTOR] = fred_sysvec_##_function
+/* 将系统中断向量转换成 sysvec_table 下标并绑定 FRED 包装处理器。 */
 
 static idtentry_t sysvec_table[NR_SYSTEM_VECTORS] __ro_after_init = {
+	/* FRED 外部系统中断分发表，未安装的项稍后填成 spurious 处理器。 */
 	SYSVEC(ERROR_APIC_VECTOR,		error_interrupt),
 	SYSVEC(SPURIOUS_APIC_VECTOR,		spurious_apic_interrupt),
 	SYSVEC(LOCAL_TIMER_VECTOR,		apic_timer_interrupt),
@@ -125,6 +139,7 @@ static bool fred_setup_done __initdata;
 
 void __init fred_install_sysvec(unsigned int sysvec, idtentry_t handler)
 {
+	/* 在 FRED setup 完成前允许架构/驱动安装额外系统向量处理器。 */
 	if (WARN_ON_ONCE(sysvec < FIRST_SYSTEM_VECTOR))
 		return;
 
@@ -137,6 +152,7 @@ void __init fred_install_sysvec(unsigned int sysvec, idtentry_t handler)
 
 static noinstr void fred_handle_spurious_interrupt(struct pt_regs *regs)
 {
+	/* 未注册系统向量统一走 spurious interrupt 处理。 */
 	spurious_interrupt(regs, regs->fred_ss.vector);
 }
 
@@ -144,13 +160,16 @@ void __init fred_complete_exception_setup(void)
 {
 	unsigned int vector;
 
+	/* 标记异常向量为系统保留向量。 */
 	for (vector = 0; vector < FIRST_EXTERNAL_VECTOR; vector++)
 		set_bit(vector, system_vectors);
 
 	for (vector = 0; vector < NR_SYSTEM_VECTORS; vector++) {
 		if (sysvec_table[vector])
+			/* 已注册系统向量标记为保留。 */
 			set_bit(vector + FIRST_SYSTEM_VECTOR, system_vectors);
 		else
+			/* 未注册系统向量补成 spurious 处理，防止空函数指针。 */
 			sysvec_table[vector] = fred_handle_spurious_interrupt;
 	}
 	fred_setup_done = true;
@@ -158,6 +177,7 @@ void __init fred_complete_exception_setup(void)
 
 static noinstr void fred_extint(struct pt_regs *regs)
 {
+	/* FRED 外部中断: 系统向量走 sysvec_table，其它外部 IRQ 走 common_interrupt。 */
 	unsigned int vector = regs->fred_ss.vector;
 	unsigned int index = array_index_nospec(vector - FIRST_SYSTEM_VECTOR,
 						NR_SYSTEM_VECTORS);
@@ -166,6 +186,7 @@ static noinstr void fred_extint(struct pt_regs *regs)
 		return;
 
 	if (likely(vector >= FIRST_SYSTEM_VECTOR)) {
+		/* 系统向量按普通 IRQ entry 规则进入/退出。 */
 		irqentry_state_t state = irqentry_enter(regs);
 
 		instrumentation_begin();
@@ -180,10 +201,12 @@ static noinstr void fred_extint(struct pt_regs *regs)
 static noinstr void fred_hwexc(struct pt_regs *regs, unsigned long error_code)
 {
 	/* Optimize for #PF. That's the only exception which matters performance wise */
+	/* #PF 是性能关键异常，优先快速判断直接分派。 */
 	if (likely(regs->fred_ss.vector == X86_TRAP_PF))
 		return exc_page_fault(regs, error_code);
 
 	switch (regs->fred_ss.vector) {
+	/* 其它硬件异常按向量分派到现有异常处理器。 */
 	case X86_TRAP_DE: return exc_divide_error(regs);
 	case X86_TRAP_DB: return fred_exc_debug(regs);
 	case X86_TRAP_BR: return exc_bounds(regs);
@@ -214,6 +237,7 @@ static noinstr void fred_hwexc(struct pt_regs *regs, unsigned long error_code)
 
 static noinstr void fred_swexc(struct pt_regs *regs, unsigned long error_code)
 {
+	/* FRED 软件异常只接受 #BP/#OF，其它视为错误类型。 */
 	switch (regs->fred_ss.vector) {
 	case X86_TRAP_BP: return exc_int3(regs);
 	case X86_TRAP_OF: return exc_overflow(regs);
@@ -226,8 +250,10 @@ __visible noinstr void fred_entry_from_user(struct pt_regs *regs)
 	unsigned long error_code = regs->orig_ax;
 
 	/* Invalidate orig_ax so that syscall_get_nr() works correctly */
+	/* 非 syscall 事件进入时清掉 orig_ax，避免 syscall_get_nr() 误判。 */
 	regs->orig_ax = -1;
 
+	/* 用户态 FRED 入口按事件类型分派。 */
 	switch (regs->fred_ss.type) {
 	case EVENT_TYPE_EXTINT:
 		return fred_extint(regs);
@@ -258,8 +284,10 @@ __visible noinstr void fred_entry_from_kernel(struct pt_regs *regs)
 	unsigned long error_code = regs->orig_ax;
 
 	/* Invalidate orig_ax so that syscall_get_nr() works correctly */
+	/* 内核态事件同样先失效 orig_ax。 */
 	regs->orig_ax = -1;
 
+	/* 内核态不接受用户专属的 SWINT/OTHER syscall 类型。 */
 	switch (regs->fred_ss.type) {
 	case EVENT_TYPE_EXTINT:
 		return fred_extint(regs);
@@ -284,6 +312,7 @@ __visible noinstr void fred_entry_from_kernel(struct pt_regs *regs)
 #if IS_ENABLED(CONFIG_KVM_INTEL)
 __visible noinstr void __fred_entry_from_kvm(struct pt_regs *regs)
 {
+	/* KVM 只允许通过该入口注入外部中断或 NMI。 */
 	switch (regs->fred_ss.type) {
 	case EVENT_TYPE_EXTINT:
 		return fred_extint(regs);

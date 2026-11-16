@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * common.c - C code for kernel entry and exit
+ *
+ * x86 内核入口/退出的 C 侧公共代码，承接汇编入口完成 syscall、int80、
+ * SYSENTER/SYSCALL32、FRED 兼容入口和 Xen PV upcall 的分派。
  * Copyright (c) 2015 Andrew Lutomirski
  *
  * Based on asm and ptrace code by many authors.  The code here originated
@@ -44,10 +47,13 @@ static __always_inline bool do_syscall_x64 (struct pt_regs* regs, int nr)
     /*
      * Convert negative numbers to very high and thus out of range
      * numbers for comparisons.
+     *
+     * 将负 syscall 号转换为很大的无符号数，统一走越界判断。
      */
     unsigned int unr = nr;
 
     if (likely (unr < NR_syscalls)) {
+        /* array_index_nospec 防止越界 syscall 号参与推测执行。 */
         unr      = array_index_nospec (unr, NR_syscalls);
         regs->ax = x64_sys_call (regs, unr);
         return true;
@@ -61,6 +67,8 @@ static __always_inline bool do_syscall_x32 (struct pt_regs* regs, int nr)
      * Adjust the starting offset of the table, and convert numbers
      * < __X32_SYSCALL_BIT to very high and thus out of range
      * numbers for comparisons.
+     *
+     * x32 syscall 号带 __X32_SYSCALL_BIT，需要先减去偏移后再查 x32 表。
      */
     unsigned int xnr = nr - __X32_SYSCALL_BIT;
 
@@ -75,6 +83,7 @@ static __always_inline bool do_syscall_x32 (struct pt_regs* regs, int nr)
 /* Returns true to return using SYSRET, or false to use IRET */
 __visible noinstr bool do_syscall_64 (struct pt_regs* regs, int nr)
 {
+    /* 64 位 syscall 入口: 进入 syscall 框架、分派 x64/x32、再返回用户态。 */
     add_random_kstack_offset ();
     nr = syscall_enter_from_user_mode (regs, nr);
 
@@ -82,6 +91,7 @@ __visible noinstr bool do_syscall_64 (struct pt_regs* regs, int nr)
 
     if (!do_syscall_x64 (regs, nr) && !do_syscall_x32 (regs, nr) && nr != -1) {
         /* Invalid system call, but still a system call. */
+        /* 未知 syscall 仍按系统调用处理，返回 -ENOSYS。 */
         regs->ax = __x64_sys_ni_syscall (regs);
     }
 
@@ -95,14 +105,17 @@ __visible noinstr bool do_syscall_64 (struct pt_regs* regs, int nr)
      */
 
     /* XEN PV guests always use the IRET path */
+    /* Xen PV 不能使用 SYSRET，必须走 IRET。 */
     if (cpu_feature_enabled (X86_FEATURE_XENPV))
         return false;
 
     /* SYSRET requires RCX == RIP and R11 == EFLAGS */
+    /* SYSRET 硬件约束要求 RCX/R11 与 RIP/EFLAGS 完全匹配。 */
     if (unlikely (regs->cx != regs->ip || regs->r11 != regs->flags))
         return false;
 
     /* CS and SS must match the values set in MSR_STAR */
+    /* SYSRET 使用 MSR_STAR 中的用户段选择子，pt_regs 必须一致。 */
     if (unlikely (regs->cs != __USER_CS || regs->ss != __USER_DS))
         return false;
 
@@ -115,6 +128,7 @@ __visible noinstr bool do_syscall_64 (struct pt_regs* regs, int nr)
      * the deprecated vsyscall page.
      */
     if (unlikely (regs->ip >= TASK_SIZE_MAX))
+        /* 非 canonical/非用户地址 RIP 会让 Intel SYSRET 在内核态 #GP。 */
         return false;
 
     /*
@@ -126,6 +140,7 @@ __visible noinstr bool do_syscall_64 (struct pt_regs* regs, int nr)
         return false;
 
     /* Use SYSRET to exit to userspace */
+    /* 所有约束满足时使用更快的 SYSRET 返回。 */
     return true;
 }
 #endif
@@ -133,6 +148,7 @@ __visible noinstr bool do_syscall_64 (struct pt_regs* regs, int nr)
 #if defined(CONFIG_X86_32) || defined(CONFIG_IA32_EMULATION)
 static __always_inline int syscall_32_enter (struct pt_regs* regs)
 {
+    /* 32 位 syscall 入口设置 compat 状态，并取出 orig_ax 中的 syscall 号。 */
     if (IS_ENABLED (CONFIG_IA32_EMULATION))
         current_thread_info ()->status |= TS_COMPAT;
 
@@ -145,6 +161,7 @@ bool __ia32_enabled __ro_after_init =
 
 static int ia32_emulation_override_cmdline (char* arg)
 {
+    /* ia32_emulation= 可在启动时开关 IA32 emulation。 */
     return kstrtobool (arg, &__ia32_enabled);
 }
 early_param ("ia32_emulation", ia32_emulation_override_cmdline);
@@ -158,11 +175,14 @@ static __always_inline void do_syscall_32_irqs_on (struct pt_regs* regs, int nr)
     /*
      * Convert negative numbers to very high and thus out of range
      * numbers for comparisons.
+     *
+     * 与 64 位路径相同，负 syscall 号转成无符号大数统一越界。
      */
     unsigned int unr = nr;
 
     if (likely (unr < IA32_NR_syscalls)) {
         unr      = array_index_nospec (unr, IA32_NR_syscalls);
+        /* 分派到 IA32 syscall 表。 */
         regs->ax = ia32_sys_call (regs, unr);
     } else if (nr != -1) {
         regs->ax = __ia32_sys_ni_syscall (regs);
@@ -176,6 +196,7 @@ static __always_inline bool int80_is_external (void)
     const u32          bit  = BIT (0x80 % 32);
 
     /* The local APIC on XENPV guests is fake */
+    /* Xen PV 的 local APIC 是模拟的，不能用 ISR 判断 int80 来源。 */
     if (cpu_feature_enabled (X86_FEATURE_XENPV))
         return false;
 
@@ -213,6 +234,7 @@ __visible noinstr void do_int80_emulation (struct pt_regs* regs)
     int nr;
 
     /* Kernel does not use INT $0x80! */
+    /* 内核态不应执行 INT $0x80，出现则说明是异常外部中断/错误路径。 */
     if (unlikely (!user_mode (regs))) {
         irqentry_enter (regs);
         instrumentation_begin ();
@@ -230,6 +252,7 @@ __visible noinstr void do_int80_emulation (struct pt_regs* regs)
     add_random_kstack_offset ();
 
     /* Validate that this is a soft interrupt to the extent possible */
+    /* 尽最大可能确认这是用户态软件中断，而不是外部中断伪装。 */
     if (unlikely (int80_is_external ()))
         panic ("Unexpected external interrupt 0x80\n");
 
@@ -245,6 +268,7 @@ __visible noinstr void do_int80_emulation (struct pt_regs* regs)
      * syscall number in regs::orig_ax and by invalidating regs::ax.
      */
     regs->orig_ax = regs->ax & GENMASK (31, 0);
+    /* 建立 IA32 syscall 约定: orig_ax 保存 32 位 syscall 号，ax 先置 -ENOSYS。 */
     regs->ax      = -ENOSYS;
 
     nr            = syscall_32_enter (regs);
@@ -294,6 +318,7 @@ DEFINE_FREDENTRY_RAW (int80_emulation)
 
     enter_from_user_mode (regs);
 
+    /* FRED 下 INT80 只会来自用户 SWINT 事件，不需要 APIC ISR 外部中断判断。 */
     instrumentation_begin ();
     add_random_kstack_offset ();
 
@@ -309,6 +334,7 @@ DEFINE_FREDENTRY_RAW (int80_emulation)
      * syscall number in regs::orig_ax and by invalidating regs::ax.
      */
     regs->orig_ax = regs->ax & GENMASK (31, 0);
+    /* 与传统 int80 一样建立 32 位 syscall pt_regs 约定。 */
     regs->ax      = -ENOSYS;
 
     nr            = syscall_32_enter (regs);
@@ -326,6 +352,7 @@ DEFINE_FREDENTRY_RAW (int80_emulation)
 /* Handles int $0x80 on a 32bit kernel */
 __visible noinstr void do_int80_syscall_32 (struct pt_regs* regs)
 {
+    /* 32 位内核上的 int $0x80 系统调用入口。 */
     int nr = syscall_32_enter (regs);
 
     add_random_kstack_offset ();
@@ -354,11 +381,14 @@ static noinstr bool __do_fast_syscall_32 (struct pt_regs* regs)
      * This cannot use syscall_enter_from_user_mode() as it has to
      * fetch EBP before invoking any of the syscall entry work
      * functions.
+     *
+     * fast 32 位入口必须先从 vDSO 保存位置取回 EBP，再执行通用 syscall work。
      */
     syscall_enter_from_user_mode_prepare (regs);
 
     instrumentation_begin ();
     /* Fetch EBP from where the vDSO stashed it. */
+    /* vDSO 按约定把用户 EBP 暂存在用户栈顶。 */
     if (IS_ENABLED (CONFIG_X86_64)) {
         /*
          * Micro-optimization: the pointer we're following is
@@ -373,6 +403,7 @@ static noinstr bool __do_fast_syscall_32 (struct pt_regs* regs)
 
     if (res) {
         /* User code screwed up. */
+        /* 用户栈不可读时返回 -EFAULT，并退回 IRET 路径。 */
         regs->ax = -EFAULT;
 
         local_irq_disable ();
@@ -397,6 +428,8 @@ __visible noinstr bool do_fast_syscall_32 (struct pt_regs* regs)
     /*
      * Called using the internal vDSO SYSENTER/SYSCALL32 calling
      * convention.  Adjust regs so it looks like we entered using int80.
+     *
+     * vDSO fast path 进入后，把寄存器修正成类似 int80 的 pt_regs 形态。
      */
     unsigned long landing_pad = (unsigned long)current->mm->context.vdso +
                                 vdso_image_32.sym_int80_landing_pad;
@@ -409,6 +442,7 @@ __visible noinstr bool do_fast_syscall_32 (struct pt_regs* regs)
     regs->ip = landing_pad;
 
     /* Invoke the syscall. If it failed, keep it simple: use IRET. */
+    /* syscall 处理失败时走更通用的 IRET 返回。 */
     if (!__do_fast_syscall_32 (regs))
         return false;
 
@@ -435,6 +469,7 @@ __visible noinstr bool do_fast_syscall_32 (struct pt_regs* regs)
         return false;
 
     /* Use SYSRETL/SYSEXIT to exit to userspace */
+    /* 所有约束满足时使用 SYSRETL/SYSEXIT 快速返回。 */
     return true;
 }
 
@@ -442,6 +477,7 @@ __visible noinstr bool do_fast_syscall_32 (struct pt_regs* regs)
 __visible noinstr bool do_SYSENTER_32 (struct pt_regs* regs)
 {
     /* SYSENTER loses RSP, but the vDSO saved it in RBP. */
+    /* SYSENTER 不保存用户栈指针，vDSO 已提前放在 RBP。 */
     regs->sp = regs->bp;
 
     /* SYSENTER clobbers EFLAGS.IF.  Assume it was set in usermode. */
@@ -453,6 +489,7 @@ __visible noinstr bool do_SYSENTER_32 (struct pt_regs* regs)
 
 SYSCALL_DEFINE0 (ni_syscall)
 {
+    /* 默认未实现 syscall 返回 -ENOSYS。 */
     return -ENOSYS;
 }
 
@@ -477,6 +514,7 @@ EXPORT_SYMBOL_GPL (xen_in_preemptible_hcall);
  */
 static __always_inline bool get_and_clear_inhcall (void)
 {
+    /* 调度前清除 per-CPU 标志，避免任务迁移后污染目标 CPU。 */
     bool inhcall = __this_cpu_read (xen_in_preemptible_hcall);
 
     __this_cpu_write (xen_in_preemptible_hcall, false);
@@ -499,6 +537,7 @@ static __always_inline void restore_inhcall (bool inhcall)
 
 static void __xen_pv_evtchn_do_upcall (struct pt_regs* regs)
 {
+    /* 在 irq_regs 上下文中执行 Xen event channel upcall。 */
     struct pt_regs* old_regs = set_irq_regs (regs);
 
     inc_irq_stat (irq_hv_callback_count);
@@ -514,6 +553,7 @@ __visible noinstr void xen_pv_evtchn_do_upcall (struct pt_regs* regs)
     bool             inhcall;
 
     instrumentation_begin ();
+    /* 条件性切换到 IRQ 栈运行 Xen upcall。 */
     run_sysvec_on_irqstack_cond (__xen_pv_evtchn_do_upcall, regs);
 
     inhcall = get_and_clear_inhcall ();
